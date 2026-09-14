@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="TalentIQ recruitment candidate capture and review dashboard" />
+  <title>TalentIQ | Candidate Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <a class="brand-link" href="#" aria-label="TalentIQ home">
+          <span class="brand-mark">
+            <svg viewBox="0 0 40 40" class="brand-icon" aria-hidden="true">
+              <path d="M20 3C10 3 3 10 3 20C3 30 10 37 20 37C30 37 37 30 37 20C37 10 30 3 20 3Z" fill="none" stroke="currentColor" stroke-width="2" />
+              <path d="M11 25L16 16L20 24L25 10L30 25" fill="none" stroke="currentColor" stroke-width="2" />
+            </svg>
+          </span>
+          <span class="brand-text">
+            <span class="brand-title">TalentIQ</span>
+            <span class="brand-subtitle">J.B. Hunt</span>
+          </span>
+        </a>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Main navigation">
+        <div class="nav-label">Workspace</div>
+        <a class="nav-link active" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 13h8l4-8 3 14 2-6h4" fill="none" stroke="currentColor" stroke-width="2" />
+          </svg>
+          <span>Overview</span>
+        </a>
+        <a class="nav-link" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 19V5h7l3 3h6v11H4z" fill="none" stroke="currentColor" stroke-width="2" />
+          </svg>
+          <span>Candidate Intake</span>
+        </a>
+        <a class="nav-link" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 5h14v14H5z" fill="none" stroke="currentColor" stroke-width="2" />
+            <path d="M8 12h8M12 8v8" fill="none" stroke="currentColor" stroke-width="2" />
+          </svg>
+          <span>Recruiter Capture</span>
+        </a>
+        <a class="nav-link" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 14s3-4 7-4 7 4 7 4-3 4-7 4-7-4-7-4z" fill="none" stroke="currentColor" stroke-width="2" />
+            <circle cx="12" cy="14" r="3" fill="none" stroke="currentColor" stroke-width="2" />
+          </svg>
+          <span>AI Summary</span>
+        </a>
+        <a class="nav-link" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="2" />
+          </svg>
+          <span>Review Dashboard</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-card">
+        <div class="sidebar-card__label">Event</div>
+        <div class="sidebar-card__event">Logistics & Technology Fair</div>
+        <div class="sidebar-card__meta">
+          <span class="meta-date">Sep 14, 2026</span>
+          <span class="meta-divider"></span>
+          <span class="meta-location">Nashville, TN</span>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="icon-button" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" class="nav-icon" aria-hidden="true">
+            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7.5 0 10h12c3-2.5 0-3 0-10z" fill="none" stroke="currentColor" stroke-width="2" />
+            <path d="M10 21h4" fill="none" stroke="currentColor" stroke-width="2" />
+          </svg>
+          <span class="badge-dot"></span>
+        </button>
+        <button class="icon-button" aria-label="Settings">
+          <svg viewBox="0 0 24 24" class="nav-icon" aria-hidden="true">
+            <path d="M12 3v3M12 18v3M4.7 4.7l2.1 2.1M17.1 17.1l2.1 2.1M3 12h3M18 12h3M4.7 19.3l2.1-2.1M17.1 6.9l2.1-2.1" fill="none" stroke="currentColor" stroke-width="2" />
+            <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2" />
+          </svg>
+        </button>
+        <button class="create-button">
+          <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" />
+          </svg>
+          New Record
+        </button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <section class="topbar">
+        <div class="topbar-left">
+          <div class="breadcrumb">
+            <span class="breadcrumb-link">J.B. Hunt Business</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-link">TalentIQ</span>
+          </div>
+          <h1>Candidate Review</h1>
+        </div>
+        <div class="topbar-actions">
+          <div class="search-inline">
+            <svg viewBox="0 0 24 24" class="search-icon" aria-hidden="true">
+              <path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" fill="none" stroke="currentColor" stroke-width="2" />
+              <path d="m21 21-4.2-4.2" fill="none" stroke="currentColor" stroke-width="2" />
+            </svg>
+            <input id="globalSearch" type="search" placeholder="Search candidates, skills, or notes" autocomplete="off" />
+          </div>
+          <button class="primary-button">
+            <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" />
+            </svg>
+            Add Candidate
+          </button>
+        </div>
+      </section>
+
+      <section class="summary-strip" aria-label="Recruiting metrics">
+        <article class="summary-card">
+          <div class="summary-card__top">
+            <span class="summary-label">Total Records</span>
+            <span class="summary-trend positive">+12%</span>
+          </div>
+          <div class="summary-value" id="totalRecords">08</div>
+          <div class="summary-detail">Candidate records</div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-card__top">
+            <span class="summary-label">Review Status</span>
+            <span class="summary-trend">Live</span>
+          </div>
+          <div class="summary-value" id="reviewStatus">03</div>
+          <div class="summary-detail">Ready for review</div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-card__top">
+            <span class="summary-label">Interview Requests</span>
+            <span class="summary-trend positive">+02</span>
+          </div>
+          <div class="summary-value" id="interviewCount">02</div>
+          <div class="summary-detail">Follow-up action</div>
+        </article>
+        <article class="summary-card">
+          <div class="summary-card__top">
+            <span class="summary-label">AI Traceability</span>
+            <span class="summary-trend positive">98%</span>
+          </div>
+          <div class="summary-value">High</div>
+          <div class="summary-detail">Source support</div>
+        </article>
+      </section>
+
+      <section class="dashboard-grid">
+        <section class="left-panel">
+          <section class="panel panel-filter">
+            <div class="panel-head">
+              <div>
+                <span class="section-kicker">Recruiting Workflow</span>
+                <h2>Candidate Pipeline</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="icon-button small-icon" id="refreshButton" aria-label="Refresh">
+                  <svg viewBox="0 0 24 24" class="nav-icon" aria-hidden="true">
+                    <path d="M20 6a8 8 0 0 0-13.7 2.2M4 18a8 8 0 0 0 13.7-2.2M4 4v8h8M20 20v-8h-8" fill="none" stroke="currentColor" stroke-width="2" />
+                  </svg>
+                </button>
+                <button class="filter-button">
+                  <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 5h16v4l-5 5v6l-4 2v-8l-5-5z" fill="none" stroke="currentColor" stroke-width="2" />
+                  </svg>
+                  Filters
+                </button>
+              </div>
+            </div>
+
+            <div class="filter-grid">
+              <label class="filter-control">
+                <span class="control-label">Status</span>
+                <select id="statusFilter">
+                  <option value="all">All statuses</option>
+                  <option value="New">New</option>
+                  <option value="Reviewed">Reviewed</option>
+                  <option value="Follow-Up">Follow-Up</option>
+                  <option value="Interview Requested">Interview Requested</option>
+                  <option value="Closed">Closed</option>
+                </select>
+              </label>
+              <label class="filter-control">
+                <span class="control-label">Function</span>
+                <select id="functionFilter">
+                  <option value="all">All functions</option>
+                  <option value="Software Engineer">Software Engineer</option>
+                  <option value="Data Analyst">Data Analyst</option>
+                  <option value="Logistics Technology">Logistics Technology</option>
+                  <option value="Supply Chain Analytics">Supply Chain Analytics</option>
+                  <option value="Cybersecurity">Cybersecurity</option>
+                </select>
+              </label>
+              <label class="filter-control">
+                <span class="control-label">Priority</span>
+                <select id="priorityFilter">
+                  <option value="all">All priority</option>
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section class="panel table-panel">
+            <div class="panel-head list-head">
+              <div>
+                <span class="section-kicker">Candidate Records</span>
+                <h2>All Candidates</h2>
+              </div>
+              <div class="list-actions">
+                <button class="icon-button small-icon" id="exportButton" aria-label="Export">
+                  <svg viewBox="0 0 24 24" class="nav-icon" aria-hidden="true">
+                    <path d="M12 3v12M5 19l7 7 7-7" fill="none" stroke="currentColor" stroke-width="2" />
+                  </svg>
+                </button>
+                <button class="icon-button small-icon" id="sortButton" aria-label="Sort">
+                  <svg viewBox="0 0 24 24" class="nav-icon" aria-hidden="true">
+                    <path d="M5 7h14M5 12h10M5 17h6" fill="none" stroke="currentColor" stroke-width="2" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="candidate-list" id="candidateList" aria-live="polite"></div>
+          </section>
+        </section>
+
+        <section class="right-panel">
+          <section class="panel profile-panel">
+            <div class="profile-top">
+              <div class="profile-head-left">
+                <div class="avatar-wrap">
+                  <span class="avatar" id="profileAvatar">MR</span>
+                </div>
+                <div>
+                  <span class="section-kicker" id="profileUniversity">University</span>
+                  <h2 id="profileName">Candidate Name</h2>
+                  <div class="profile-meta">
+                    <span id="profileProgram">Program</span>
+                    <span class="profile-sep">•</span>
+                    <span id="profileGrad">Grad Date</span>
+                  </div>
+                </div>
+              </div>
+              <span class="status-chip status-new" id="profileStatus">New</span>
+            </div>
+
+            <div class="profile-actions">
+              <button class="primary-button small-button" id="approveButton">
+                <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12l4 4L19 0" fill="none" stroke="currentColor" stroke-width="2" />
+                </svg>
+                Approve
+              </button>
+              <button class="secondary-button small-button" id="followUpButton">
+                <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 7h16v10H7l-3 3z" fill="none" stroke="currentColor" stroke-width="2" />
+                </svg>
+                Follow Up
+              </button>
+            </div>
+
+            <div class="profile-sections">
+              <section class="profile-section">
+                <div class="section-title">
+                  <span class="section-kicker">Candidate Snapshot</span>
+                </div>
+                <div class="snapshot-card">
+                  <p id="profileSummary">Candidate summary</p>
+                </div>
+              </section>
+
+              <section class="profile-section">
+                <div class="section-title row-title">
+                  <span class="section-kicker">Career Interests</span>
+                  <span class="section-badge" id="profileMatch">Match 86%</span>
+                </div>
+                <div class="tag-cloud" id="careerTags"></div>
+              </section>
+
+              <section class="profile-section traceability">
+                <div class="section-title">
+                  <span class="section-kicker">AI Traceability</span>
+                </div>
+                <div class="trace-list" id="traceList"></div>
+              </section>
+
+              <section class="profile-section">
+                <div class="section-title row-title">
+                  <span class="section-kicker">Recruiter Notes</span>
+                  <span class="section-badge soft" id="profileContact">Contacted</span>
+                </div>
+                <div class="notes-card" id="profileNotes">Recruiter notes</div>
+              </section>
+
+              <section class="profile-section">
+                <div class="section-title row-title">
+                  <span class="section-kicker">Assessment</span>
+                  <span class="section-badge soft" id="profilePriority">Priority</span>
+                </div>
+                <div class="score-grid">
+                  <div class="score-item">
+                    <span class="score-label">Skills Fit</span>
+                    <div class="score-track">
+                      <div class="score-bar" id="scoreSkills">76%</div>
+                    </div>
+                  </div>
+                  <div class="score-item">
+                    <span class="score-label">Experience</span>
+                    <div class="score-track">
+                      <div class="score-bar" id="scoreExperience">82%</div>
+                    </div>
+                  </div>
+                  <div class="score-item">
+                    <span class="score-label">Communication</span>
+                    <div class="score-track">
+                      <div class="score-bar" id="scoreCommunication">91%</div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </section>
+        </section>
+      </section>
+
+      <section class="report-section">
+        <div class="report-header">
+          <div>
+            <span class="section-kicker">Event Intelligence</span>
+            <h2>Recruiting Signals</h2>
+          </div>
+          <div class="report-actions">
+            <button class="secondary-button small-button">Export CSV</button>
+            <button class="secondary-button small-button">Generate Brief</button>
+          </div>
+        </div>
+        <div class="report-grid">
+          <article class="chart-card">
+            <div class="chart-card__head">
+              <span class="chart-title">Candidate Pipeline</span>
+              <span class="chart-subtitle">By Status</span>
+            </div>
+            <div class="bar-chart" id="barChart"></div>
+          </article>
+          <article class="chart-card">
+            <div class="chart-card__head">
+              <span class="chart-title">Function Demand</span>
+              <span class="chart-subtitle">Top Interest</span>
+            </div>
+            <div class="donut-wrap">
+              <div class="donut" aria-label="Technology function mix">
+                <span class="donut-inner">
+                  <span class="donut-value" id="donutValue">62%</span>
+                  <span class="donut-label">Technology</span>
+                </span>
+              </div>
+              <div class="legend-list">
+                <div class="legend-row">
+                  <span class="legend-swatch swatch-blue"></span>
+                  <span class="legend-label">Technology</span>
+                  <span class="legend-value">62%</span>
+                </div>
+                <div class="legend-row">
+                  <span class="legend-swatch swatch-green"></span>
+                  <span class="legend-label">Operations</span>
+                  <span class="legend-value">25%</span>
+                </div>
+                <div class="legend-row">
+                  <span class="legend-swatch swatch-red"></span>
+                  <span class="legend-label">Analytics</span>
+                  <span class="legend-value">13%</span>
+                </div>
+              </div>
+            </div>
+          </article>
+          <article class="chart-card">
+            <div class="chart-card__head">
+              <span class="chart-title">Missing Data</span>
+              <span class="chart-subtitle">Audit Risk</span>
+            </div>
+            <div class="risk-list">
+              <div class="risk-row">
+                <span class="risk-label">Authorization</span>
+                <span class="risk-value low-risk">02</span>
+              </div>
+              <div class="risk-row">
+                <span class="risk-label">GPA</span>
+                <span class="risk-value medium-risk">03</span>
+              </div>
+              <div class="risk-row">
+                <span class="risk-label">Location</span>
+                <span class="risk-value high-risk">01</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

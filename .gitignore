@@ -1,0 +1,16 @@
+# OS and editor artifacts
+.DS_Store
+Thumbs.db
+*.log
+
+# Dependency and local runtime folders
+node_modules/
+.DS_Store
+
+# Environment files
+.env
+.env.local
+
+# Temporary output
+*.tmp
+*.swp
