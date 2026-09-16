@@ -5,7 +5,8 @@ Thumbs.db
 
 # Dependency and local runtime folders
 node_modules/
-.DS_Store
+venv/
+venv 2/
 
 # Environment files
 .env
@@ -14,3 +15,10 @@ node_modules/
 # Temporary output
 *.tmp
 *.swp
+
+# PDFs and images (keep local)
+*.pdf
+JBHUNT_LOGO.png
+
+# Unrelated project files
+hydro_config.py
