@@ -47,27 +47,29 @@ TIQ.views.renderOverview = function() {
     feedData = feedData.slice(0, 5);
   }
 
+  var reviewTime = cands.reduce(function(sum, c) { return sum + (c.reviewTimeMs || 0); }, 0);
+  var avgReviewMs = cands.length ? Math.round(reviewTime / cands.length) : 0;
+  var followUps = cands.filter(function(c) { return c.recordStatus === "Follow-Up"; }).length;
+
   return '<div class="view" id="view-overview">' +
-    '<div class="view-header">' +
-      '<div><span class="section-kicker">Event Dashboard</span><h1>Event Overview</h1></div>' +
-    '</div>' +
+    '<div class="view-header"><span class="section-kicker">Executive Console</span></div>' +
     '<div class="overview-event-bar">' +
       '<div class="event-badge"><span class="event-badge__label">Event</span><span class="event-badge__value">' + TIQ.escapeHtml(cfg.eventName) + '</span></div>' +
       '<div class="event-badge"><span class="event-badge__label">Date</span><span class="event-badge__value">' + TIQ.escapeHtml(cfg.eventDate) + '</span></div>' +
       '<div class="event-badge"><span class="event-badge__label">Location</span><span class="event-badge__value">' + TIQ.escapeHtml(cfg.eventLocation) + '</span></div>' +
     '</div>' +
-    '<div class="overview-stats">' +
-      '<article class="stat-card stat-card--blue"><div class="stat-card__value">' + totalScanned + '</div><div class="stat-card__label">Total Scanned</div><div class="stat-card__sub">Candidate profiles collected</div></article>' +
-      '<article class="stat-card stat-card--green"><div class="stat-card__value">' + interviewRequests + '</div><div class="stat-card__label">Interview Requests</div><div class="stat-card__sub">Next-day scheduling</div></article>' +
-      '<article class="stat-card stat-card--amber"><div class="stat-card__value">' + (stats.avgReviewTime || "—") + '</div><div class="stat-card__label">Avg Review Time</div><div class="stat-card__sub">Per candidate review</div></article>' +
-      '<article class="stat-card stat-card--purple"><div class="stat-card__value">' + (stats.dataCompleteness || "—") + '</div><div class="stat-card__label">Data Completeness</div><div class="stat-card__sub">Core fields captured</div></article>' +
-    '</div>' +
+    TIQ.renderMetricsCards([
+      { label: "Total Scanned", value: totalScanned, sub: "Candidate profiles collected", modifier: "blue" },
+      { label: "Interview Requests", value: interviewRequests, sub: "Next-day scheduling", modifier: "green" },
+      { label: "Avg Review Time", value: stats.avgReviewTime || (avgReviewMs ? avgReviewMs + " ms" : "—"), sub: "Per candidate review", modifier: "amber" },
+      { label: "Follow-Ups", value: followUps, sub: "Priority candidates", modifier: "purple" }
+    ]) +
     '<div class="overview-grid">' +
       '<div class="overview-card">' +
         '<div class="overview-card__head"><span class="chart-title">Candidates by Major</span></div>' +
         '<div class="overview-bars">' +
-          majorData.map(function(m) {
-            return '<div class="hbar-row"><span class="hbar-label">' + TIQ.escapeHtml(m.label) + '</span><div class="hbar-track"><div class="hbar-fill" style="width:' + m.percent + '%"></div></div><span class="hbar-val">' + m.percent + '%</span></div>';
+          majorData.map(function(m, i) {
+            return '<div class="hbar-row"><span class="hbar-label">' + TIQ.escapeHtml(m.label) + '</span><div class="hbar-track"><div class="hbar-fill" style="width:' + m.percent + '%;animation-delay:' + (i * 80) + 'ms"></div></div><span class="hbar-val">' + m.percent + '%</span></div>';
           }).join("") +
         '</div>' +
       '</div>' +
@@ -75,15 +77,15 @@ TIQ.views.renderOverview = function() {
         '<div class="overview-card__head"><span class="chart-title">Top Universities</span></div>' +
         '<div class="overview-list">' +
           uniData.map(function(u, i) {
-            return '<div class="overview-list__item"><span class="overview-list__rank">' + (i + 1) + '</span><span class="overview-list__name">' + TIQ.escapeHtml(u.name) + '</span><span class="overview-list__count">' + u.count + '</span></div>';
+            return '<div class="overview-list__item" style="animation-delay:' + (i * 60) + 'ms"><span class="overview-list__rank">' + (i + 1) + '</span><span class="overview-list__name">' + TIQ.escapeHtml(u.name) + '</span><span class="overview-list__count">' + u.count + '</span></div>';
           }).join("") +
         '</div>' +
       '</div>' +
       '<div class="overview-card">' +
         '<div class="overview-card__head"><span class="chart-title">Today\'s Activity</span></div>' +
         '<div class="overview-activity">' +
-          feedData.map(function(f) {
-            return '<div class="activity-item"><span class="activity-dot activity-dot--' + f.dotColor + '"></span><div><strong>' + TIQ.escapeHtml(f.recruiter) + '</strong> ' + TIQ.escapeHtml(f.action) + ' ' + TIQ.escapeHtml(f.target) + '<span class="activity-time">' + TIQ.escapeHtml(f.time) + '</span></div></div>';
+          feedData.map(function(f, i) {
+            return '<div class="activity-item" style="animation-delay:' + (i * 60) + 'ms"><span class="activity-dot activity-dot--' + f.dotColor + '"></span><div><strong>' + TIQ.escapeHtml(f.recruiter) + '</strong> ' + TIQ.escapeHtml(f.action) + ' ' + TIQ.escapeHtml(f.target) + '<span class="activity-time">' + TIQ.escapeHtml(f.time) + '</span></div></div>';
           }).join("") +
         '</div>' +
       '</div>' +
@@ -91,41 +93,67 @@ TIQ.views.renderOverview = function() {
   '</div>';
 };
 
+TIQ.views.renderAnalytics = function() {
+  return TIQ.views.renderOverview();
+};
+
+TIQ.views.initAnalyticsEvents = function() {};
+
 /* ---- Candidate Intake View ---- */
 TIQ.views.renderCandidateIntake = function() {
   var unis = TIQ.CONFIG.universities;
   var majors = TIQ.CONFIG.majors;
+  var selectedAttributes = TIQ.views._kioskAttributes || [];
 
   var uniOptions = unis.map(function(u) { return '<option value="' + TIQ.escapeAttr(u) + '">' + TIQ.escapeHtml(u) + '</option>'; }).join("");
   var majorOptions = majors.map(function(m) { return '<option value="' + TIQ.escapeAttr(m) + '">' + TIQ.escapeHtml(m) + '</option>'; }).join("");
+  var attributePicker = TIQ.renderAttributePills(selectedAttributes, { interactive: true, className: "attribute-picker attribute-picker--interactive" });
+  var dropZone = TIQ.renderDropZone(TIQ.views._kioskFileName || "");
 
   return '<div class="view" id="view-intake">' +
-    '<div class="view-header"><div><span class="section-kicker">Student Self-Service</span><h1>Candidate Intake</h1></div></div>' +
-    '<div class="intake-form-wrap">' +
-      '<form id="intakeForm" class="intake-form" novalidate>' +
-        '<div class="intake-section"><div class="intake-section__title">Required Information</div>' +
-          '<div class="form-row"><label class="form-field"><span class="form-label">First Name *</span><input name="firstName" required placeholder="e.g. Maya" /></label>' +
-          '<label class="form-field"><span class="form-label">Last Name *</span><input name="lastName" required placeholder="e.g. Williams" /></label></div>' +
-          '<label class="form-field"><span class="form-label">Email *</span><input name="email" type="email" required placeholder="you@university.edu" /></label>' +
-          '<div class="form-row"><label class="form-field"><span class="form-label">University *</span><select name="university" required><option value="">Select...</option>' + uniOptions + '</select></label>' +
-          '<label class="form-field"><span class="form-label">Major *</span><select name="major" required><option value="">Select...</option>' + majorOptions + '</select></label></div>' +
-          '<label class="form-field"><span class="form-label">Graduation Date *</span><input name="graduationDate" type="month" required /></label>' +
+    '<div class="view-header"><span class="section-kicker">Candidate Kiosk</span></div>' +
+    '<div class="kiosk-layout">' +
+      '<section class="kiosk-brand-panel">' +
+        '<div class="kiosk-brand-card">' +
+          '<div class="kiosk-brand-card__eyebrow">Event Booth</div>' +
+          '<div class="kiosk-brand-card__title">' + TIQ.escapeHtml(TIQ.CONFIG.company) + '</div>' +
+          '<div class="kiosk-brand-card__meta">' + TIQ.escapeHtml(TIQ.CONFIG.eventName) + '</div>' +
+          '<div class="kiosk-brand-card__line"></div>' +
+          '<p class="kiosk-brand-card__copy">Quick candidate capture for the career fair floor. Brand only, no QR poster.</p>' +
         '</div>' +
-        '<div class="intake-section"><div class="intake-section__title">Optional Details</div>' +
-          '<div class="form-row"><label class="form-field"><span class="form-label">GPA</span><input name="gpa" placeholder="e.g. 3.75" /></label>' +
-          '<label class="form-field"><span class="form-label">Phone</span><input name="phone" type="tel" placeholder="555-0100" /></label></div>' +
-          '<div class="form-field"><span class="form-label">Work Authorization</span>' +
-            '<div class="radio-group">' +
-              '<label class="radio-label"><input type="radio" name="workAuthorization" value="US Citizen" /> US Citizen</label>' +
-              '<label class="radio-label"><input type="radio" name="workAuthorization" value="Require Sponsorship" /> Require Sponsorship</label>' +
-              '<label class="radio-label"><input type="radio" name="workAuthorization" value="OPT/CPT" /> OPT/CPT</label>' +
-            '</div>' +
+        '<div class="kiosk-summary">' +
+          '<div class="kiosk-summary__row"><span>Location</span><strong>' + TIQ.escapeHtml(TIQ.CONFIG.eventLocation) + '</strong></div>' +
+          '<div class="kiosk-summary__row"><span>Date</span><strong>' + TIQ.escapeHtml(TIQ.CONFIG.eventDate) + '</strong></div>' +
+          '<div class="kiosk-summary__row"><span>Mode</span><strong>Mobile + Desktop</strong></div>' +
+        '</div>' +
+      '</section>' +
+      '<section class="kiosk-form-panel">' +
+        '<form id="intakeForm" class="intake-form kiosk-form" novalidate>' +
+          '<div class="intake-section"><div class="intake-section__title">Required Information</div>' +
+            '<div class="form-row"><label class="form-field"><span class="form-label">First Name *</span><input name="firstName" required placeholder="e.g. Maya" /><span class="field-error" data-for="firstName"></span></label>' +
+            '<label class="form-field"><span class="form-label">Last Name *</span><input name="lastName" required placeholder="e.g. Williams" /><span class="field-error" data-for="lastName"></span></label></div>' +
+            '<label class="form-field"><span class="form-label">Email *</span><input name="email" type="email" required placeholder="you@university.edu" /><span class="field-error" data-for="email"></span></label>' +
+            '<div class="form-row"><label class="form-field"><span class="form-label">University *</span><select name="university" required><option value="">Select...</option>' + uniOptions + '</select><span class="field-error" data-for="university"></span></label>' +
+            '<label class="form-field"><span class="form-label">Major *</span><select name="major" required><option value="">Select...</option>' + majorOptions + '</select><span class="field-error" data-for="major"></span></label></div>' +
+            '<label class="form-field"><span class="form-label">Graduation Date *</span><input name="graduationDate" type="month" required /><span class="field-error" data-for="graduationDate"></span></label>' +
           '</div>' +
-          '<label class="form-field"><span class="form-label">Resume</span><input name="resumeUpload" type="file" accept=".pdf,.doc,.docx" /></label>' +
-        '</div>' +
-        '<button type="submit" class="primary-button intake-submit">Submit Profile</button>' +
-        '<div class="intake-error" id="intakeError"></div>' +
-      '</form>' +
+          '<div class="intake-section"><div class="intake-section__title">Optional Details</div>' +
+            '<div class="form-row"><label class="form-field"><span class="form-label">GPA</span><input name="gpa" placeholder="e.g. 3.75" /></label>' +
+            '<label class="form-field"><span class="form-label">Phone</span><input name="phone" type="tel" placeholder="555-0100" /></label></div>' +
+            '<div class="form-field"><span class="form-label">Work Authorization</span>' +
+              '<div class="radio-group">' +
+                '<label class="radio-label"><input type="radio" name="workAuthorization" value="US Citizen" /> US Citizen</label>' +
+                '<label class="radio-label"><input type="radio" name="workAuthorization" value="Require Sponsorship" /> Require Sponsorship</label>' +
+                '<label class="radio-label"><input type="radio" name="workAuthorization" value="OPT/CPT" /> OPT/CPT</label>' +
+              '</div>' +
+            '</div>' +
+            '<div class="form-field"><span class="form-label">Attribute Tags</span>' + attributePicker + '</div>' +
+            '<div class="form-field"><span class="form-label">Resume Upload</span>' + dropZone + '</div>' +
+          '</div>' +
+          '<button type="submit" class="primary-button intake-submit">Submit Profile</button>' +
+          '<div class="intake-error" id="intakeError"></div>' +
+        '</form>' +
+      '</section>' +
     '</div>' +
   '</div>';
 };
@@ -133,6 +161,90 @@ TIQ.views.renderCandidateIntake = function() {
 TIQ.views.initIntakeForm = function() {
   var form = document.getElementById("intakeForm");
   if (!form) return;
+
+  TIQ.views._kioskAttributes = TIQ.views._kioskAttributes || [];
+  TIQ.views._kioskFileName = TIQ.views._kioskFileName || "";
+
+  var picker = form.querySelector("[data-attribute-picker]");
+  var fileInput = form.querySelector("#resumeUpload");
+  var fileLabel = form.querySelector("[data-dropzone-file]");
+  var dropzone = form.querySelector("[data-dropzone]");
+
+  var syncAttributes = function() {
+    if (!picker) return;
+    picker.querySelectorAll("[data-attribute-id]").forEach(function(btn) {
+      var active = TIQ.views._kioskAttributes.indexOf(btn.dataset.attributeId) >= 0;
+      btn.classList.toggle("attribute-pill--active", active);
+      btn.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  };
+
+  var setFileName = function(file) {
+    TIQ.views._kioskFileName = file ? file.name : "";
+    if (fileLabel) fileLabel.textContent = TIQ.views._kioskFileName || "No file selected";
+    if (dropzone) dropzone.classList.toggle("dropzone--filled", Boolean(TIQ.views._kioskFileName));
+  };
+
+  syncAttributes();
+  setFileName(fileInput && fileInput.files ? fileInput.files[0] : null);
+
+  if (picker) {
+    picker.addEventListener("click", function(e) {
+      var btn = e.target.closest("[data-attribute-id]");
+      if (!btn) return;
+      var id = btn.dataset.attributeId;
+      var idx = TIQ.views._kioskAttributes.indexOf(id);
+      if (idx >= 0) TIQ.views._kioskAttributes.splice(idx, 1);
+      else TIQ.views._kioskAttributes.push(id);
+      syncAttributes();
+    });
+  }
+
+  if (fileInput) {
+    fileInput.addEventListener("change", function() { setFileName(fileInput.files && fileInput.files[0]); });
+  }
+
+  if (dropzone) {
+    dropzone.addEventListener("dragover", function(e) { e.preventDefault(); dropzone.classList.add("dropzone--dragging"); });
+    dropzone.addEventListener("dragleave", function() { dropzone.classList.remove("dropzone--dragging"); });
+    dropzone.addEventListener("drop", function(e) {
+      e.preventDefault();
+      dropzone.classList.remove("dropzone--dragging");
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+        setFileName(e.dataTransfer.files[0]);
+      }
+    });
+  }
+
+  // Inline validation on blur
+  var requiredFields = form.querySelectorAll("[required]");
+  requiredFields.forEach(function(field) {
+    field.addEventListener("blur", function() {
+      var errEl = form.querySelector('.field-error[data-for="' + field.name + '"]');
+      if (!errEl) return;
+      var val = (field.value || "").trim();
+      if (!val) {
+        errEl.textContent = "Required";
+        field.style.borderColor = "var(--red)";
+      } else if (field.type === "email" && val.indexOf("@") === -1) {
+        errEl.textContent = "Invalid email";
+        field.style.borderColor = "var(--red)";
+      } else {
+        errEl.textContent = "";
+        field.style.borderColor = "";
+      }
+    });
+    field.addEventListener("input", function() {
+      var errEl = form.querySelector('.field-error[data-for="' + field.name + '"]');
+      if (errEl && errEl.textContent) {
+        var val = (field.value || "").trim();
+        if (val && (field.type !== "email" || val.indexOf("@") >= 0)) {
+          errEl.textContent = "";
+          field.style.borderColor = "";
+        }
+      }
+    });
+  });
 
   form.addEventListener("submit", function(e) {
     e.preventDefault();
@@ -173,6 +285,7 @@ TIQ.views.initIntakeForm = function() {
       followUpRequestedBy: "", followUpTimestamp: "",
       lastUpdated: TIQ.todayISO(), created_at: TIQ.nowISO(),
       priority: "Normal",
+      attributes: TIQ.views._kioskAttributes.slice(),
       audioNotes: [],
       auditLog: [{ action: "CREATED", recruiter_id: TIQ.state.activeRecruiterId, timestamp: TIQ.nowISO(), time_to_complete: 0, detail: "Candidate intake form submitted" }],
       reviewTimeMs: 0, noteEdits: 0
@@ -182,8 +295,18 @@ TIQ.views.initIntakeForm = function() {
     TIQ.saveState();
     TIQ.showToast("Profile submitted! Welcome, " + firstName + ".");
     form.reset();
-    TIQ.router.navigateTo("recruiter-capture");
+    TIQ.views._kioskAttributes = [];
+    TIQ.views._kioskFileName = "";
+    TIQ.router.navigateTo("capture");
   });
+};
+
+TIQ.views.renderKiosk = function() {
+  return TIQ.views.renderCandidateIntake();
+};
+
+TIQ.views.initKioskForm = function() {
+  return TIQ.views.initIntakeForm();
 };
 
 /* ---- Recruiter Capture View ---- */
@@ -230,6 +353,9 @@ TIQ.views.renderRecruiterCapture = function() {
   var c = cands[idx];
 
   var recruiterName = TIQ.recruiterName(TIQ.state.activeRecruiterId) || "Not selected";
+  var attributeHtml = TIQ.renderAttributePills(c.attributes || [], { interactive: false, className: "attribute-picker attribute-picker--static" });
+  var flags = TIQ.getMissingFlags(c);
+  var flagsHtml = flags.length ? flags.map(TIQ.formatFlagChip).join("") : '<span class="flag-chip flag-clear">[No Critical Missing Info]</span>';
 
   var stackHtml = '<div class="capture-stack">';
   var stackSize = Math.min(3, cands.length - idx);
@@ -251,51 +377,66 @@ TIQ.views.renderRecruiterCapture = function() {
     }).join("");
   }
 
+  var transcriptHtml = TIQ.renderTranscriptBlock(c);
+
   var atEnd = idx >= cands.length - 1;
 
-  return '<div class="view" id="view-capture">' +
-    '<div class="capture-header">' +
-      '<div><span class="section-kicker">Live Capture</span><h1>Recruiter Capture</h1></div>' +
-      '<div class="capture-meta"><span class="capture-counter">Card ' + (idx + 1) + ' of ' + cands.length + '</span>' +
-      '<span class="capture-recruiter">' + TIQ.escapeHtml(recruiterName) + '</span></div>' +
+  return '<div class="view app-view-container" id="view-capture">' +
+    '<div class="capture-layout">' +
+      '<section class="capture-workspace">' +
+        '<div class="capture-col-left">' +
+          '<div class="capture-stack-shell">' +
+            stackHtml +
+          '</div>' +
+          '<div class="capture-actions">' +
+            '<div class="capture-action-group">' +
+              '<button class="capture-action-btn capture-action--review" id="captureReview" title="Mark as Reviewed (← or swipe left)">' +
+                '<svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>' +
+              '</button>' +
+              '<span class="capture-action-label">Reviewed</span>' +
+            '</div>' +
+            '<div class="capture-action-group">' +
+              '<button class="capture-action-btn capture-action--skip" id="captureSkip" title="Undo last action">' +
+                '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>' +
+              '</button>' +
+              '<span class="capture-action-label">Undo</span>' +
+            '</div>' +
+            '<div class="capture-action-group">' +
+              '<button class="capture-action-btn capture-action--follow" id="captureFollow" title="Mark as Contact / Follow-Up (→ or swipe right)">' +
+                '<svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>' +
+              '</button>' +
+              '<span class="capture-action-label">Contact</span>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<aside class="capture-col-right">' +
+          '<div class="capture-panel capture-panel--voice">' +
+            '<div class="capture-section-title">Voice Notes</div>' +
+            '<div class="capture-live-indicator"><span class="capture-live-dot"></span><span>Live Voice Recording</span></div>' +
+            '<div class="audio-controls">' +
+              '<button id="audioRecordBtn" class="audio-record-btn" aria-label="Record audio"><span class="audio-record-dot"></span><span id="audioRecordLabel">Record</span></button>' +
+              '<span id="audioTimer" class="audio-timer">00:00</span>' +
+              '<button id="audioStopBtn" class="audio-stop-btn" disabled aria-label="Stop recording">Stop</button>' +
+            '</div>' +
+            '<div id="audioRecordings">' + audioHtml + '</div>' +
+          '</div>' +
+          '<div class="capture-panel capture-panel--notes">' +
+            '<div class="capture-section-title">Recruiter Notes &amp; Transcript</div>' +
+            transcriptHtml +
+            '<textarea id="captureNotes" class="capture-textarea capture-textarea--inline" rows="4" placeholder="Refine the transcript here...">' + TIQ.escapeHtml(c.notes) + '</textarea>' +
+          '</div>' +
+        '</aside>' +
+      '</section>' +
+
     '</div>' +
-    stackHtml +
-    '<div class="capture-notes">' +
-      '<div class="capture-section-title">Recruiter Notes</div>' +
-      '<textarea id="captureNotes" class="capture-textarea" rows="3" placeholder="Quick notes from the conversation...">' + TIQ.escapeHtml(c.notes) + '</textarea>' +
-    '</div>' +
-    '<div class="capture-audio">' +
-      '<div class="capture-section-title">Voice Notes</div>' +
-      '<div class="audio-controls">' +
-        '<button id="audioRecordBtn" class="audio-record-btn" aria-label="Record audio"><span class="audio-record-dot"></span><span id="audioRecordLabel">Record</span></button>' +
-        '<span id="audioTimer" class="audio-timer">00:00</span>' +
-        '<button id="audioStopBtn" class="audio-stop-btn" disabled aria-label="Stop recording">Stop</button>' +
-      '</div>' +
-      '<div id="audioRecordings">' + audioHtml + '</div>' +
-    '</div>' +
-    '<div class="capture-actions">' +
-      '<div class="capture-action-group">' +
-        '<button class="capture-action-btn capture-action--skip" id="captureSkip" title="Skip (no status change)"' + (atEnd ? ' disabled' : '') + '>' +
-          '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
-        '</button>' +
-        '<span class="capture-action-label">Skip</span>' +
-      '</div>' +
-      '<div class="capture-action-group">' +
-        '<button class="capture-action-btn capture-action--review" id="captureReview" title="Mark as Reviewed (← or swipe left)">' +
-          '<svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>' +
-        '</button>' +
-        '<span class="capture-action-label">Reviewed</span>' +
-      '</div>' +
-      '<div class="capture-action-group">' +
-        '<button class="capture-action-btn capture-action--follow" id="captureFollow" title="Mark as Contact / Follow-Up (→ or swipe right)">' +
-          '<svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>' +
-        '</button>' +
-        '<span class="capture-action-label">Contact</span>' +
-      '</div>' +
-    '</div>' +
-    '<div class="capture-shortcuts">← Reviewed &nbsp;|&nbsp; → Contact &nbsp;|&nbsp; Space Skip &nbsp;|&nbsp; Esc Undo</div>' +
   '</div>';
 };
+
+TIQ.views.renderCapture = function() {
+  return TIQ.views.renderRecruiterCapture();
+};
+
+TIQ.views._captureHistory = TIQ.views._captureHistory || [];
 
 TIQ.views._renderCaptureComplete = function(cands) {
   var recruiterName = TIQ.recruiterName(TIQ.state.activeRecruiterId) || "Not selected";
@@ -310,20 +451,20 @@ TIQ.views._renderCaptureComplete = function(cands) {
     { status: "Interview Requested", label: "Interview Requested", color: "#005DBA", borderColor: "#003D7A", count: counts["Interview Requested"] }
   ];
 
-  var categoryCardsHtml = categories.map(function(cat) {
-    return '<div class="capture-complete__card" data-status="' + cat.status + '" style="border-left: 4px solid ' + cat.borderColor + '">' +
+  var categoryCardsHtml = categories.map(function(cat, i) {
+    return '<div class="capture-complete__card" data-status="' + cat.status + '" style="border-left: 4px solid ' + cat.borderColor + ';animation-delay:' + (i * 80) + 'ms">' +
       '<div class="capture-complete__card-color" style="background:' + cat.color + '"></div>' +
       '<div class="capture-complete__card-info">' +
         '<div class="capture-complete__card-label">' + cat.label + '</div>' +
         '<div class="capture-complete__card-count">' + cat.count + ' candidate' + (cat.count !== 1 ? 's' : '') + '</div>' +
       '</div>' +
-      '<button class="capture-complete__card-btn" data-view-status="' + cat.status + '">View in AI Review →</button>' +
+      '<button class="capture-complete__card-btn" data-view-status="' + cat.status + '">View in Review →</button>' +
     '</div>';
   }).join("");
 
-  return '<div class="view" id="view-capture">' +
+  return '<div class="view app-view-container" id="view-capture">' +
     '<div class="capture-header">' +
-      '<div><span class="section-kicker">Live Capture</span><h1>Recruiter Capture</h1></div>' +
+      '<div><span class="section-kicker">Live Capture</span></div>' +
       '<div class="capture-meta"><span class="capture-recruiter">' + TIQ.escapeHtml(recruiterName) + '</span></div>' +
     '</div>' +
     '<div class="capture-complete">' +
@@ -335,7 +476,7 @@ TIQ.views._renderCaptureComplete = function(cands) {
       '<div class="capture-complete__categories">' + categoryCardsHtml + '</div>' +
       '<div class="capture-complete__actions">' +
         '<button class="primary-button" id="captureStartOver">Start Over</button>' +
-        '<button class="secondary-button" id="captureBackToOverview">Back to Overview</button>' +
+        '<button class="secondary-button" id="captureBackToOverview">Back to Analytics</button>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -354,8 +495,8 @@ TIQ.views.initCaptureEvents = function() {
     var backBtn = e.target.closest("#captureBackToOverview");
     var categoryBtn = e.target.closest(".capture-complete__card-btn");
 
-    if (skipBtn && !skipBtn.disabled) {
-      TIQ.views._captureSkip();
+    if (skipBtn) {
+      TIQ.views._undoLastCaptureAction();
     } else if (reviewBtn) {
       TIQ.views._animateSwipeOut("left");
     } else if (followBtn) {
@@ -373,11 +514,11 @@ TIQ.views.initCaptureEvents = function() {
       TIQ.views._captureIndex = 0;
       TIQ.views._rerenderCapture();
     } else if (backBtn) {
-      TIQ.router.navigateTo("overview");
+      TIQ.router.navigateTo("analytics");
     } else if (categoryBtn) {
       var status = categoryBtn.dataset.viewStatus;
       TIQ.views._aiReviewStatus = status;
-      TIQ.router.navigateTo("ai-review");
+      TIQ.router.navigateTo("review");
     }
   });
 
@@ -500,17 +641,21 @@ TIQ.views._animateSwipeOut = function(direction) {
     left: "translateX(-150%) rotate(-30deg)",
     right: "translateX(150%) rotate(30deg)"
   };
-  var opacity = { left: 0, right: 0 };
 
   frontCard.classList.remove("capture-card--swiping");
   frontCard.classList.add("capture-card--exiting");
-  frontCard.style.transform = transforms[direction];
-  frontCard.style.opacity = opacity[direction];
+  frontCard.style.zIndex = "120";
+  frontCard.getBoundingClientRect();
+  requestAnimationFrame(function() {
+    frontCard.style.transform = transforms[direction];
+  });
 
   var leftOvl = frontCard.querySelector(".capture-overlay--left");
   var rightOvl = frontCard.querySelector(".capture-overlay--right");
-  if (leftOvl) leftOvl.style.opacity = 0;
-  if (rightOvl) rightOvl.style.opacity = 0;
+  if (direction === "left" && leftOvl) { leftOvl.style.transition = "opacity 750ms ease"; leftOvl.style.opacity = "1"; }
+  else if (leftOvl) leftOvl.style.opacity = "0";
+  if (direction === "right" && rightOvl) { rightOvl.style.transition = "opacity 750ms ease"; rightOvl.style.opacity = "1"; }
+  else if (rightOvl) rightOvl.style.opacity = "0";
 
   var done = false;
   function onEnd() {
@@ -520,7 +665,7 @@ TIQ.views._animateSwipeOut = function(direction) {
     TIQ.views._applySwipeAction(direction);
   }
   frontCard.addEventListener("transitionend", onEnd);
-  setTimeout(onEnd, 350);
+  setTimeout(onEnd, 850);
 };
 
 TIQ.views._springBack = function() {
@@ -529,6 +674,8 @@ TIQ.views._springBack = function() {
   frontCard.classList.remove("capture-card--swiping");
   frontCard.classList.add("capture-card--spring");
   frontCard.style.transform = "";
+  frontCard.style.opacity = "";
+  frontCard.style.zIndex = "";
   var leftOvl = frontCard.querySelector(".capture-overlay--left");
   var rightOvl = frontCard.querySelector(".capture-overlay--right");
   if (leftOvl) leftOvl.style.opacity = 0;
@@ -550,13 +697,43 @@ TIQ.views._captureSkip = function() {
   TIQ.views._rerenderCapture();
 };
 
+TIQ.views._undoLastCaptureAction = function() {
+  var last = TIQ.views._captureHistory.pop();
+  if (!last) {
+    TIQ.showToast("Nothing to undo.");
+    return;
+  }
+
+  var c = TIQ.state.candidates[last.index];
+  if (!c || c.id !== last.candidateId) {
+    TIQ.showToast("Nothing to undo.");
+    return;
+  }
+
+  c.recordStatus = last.prevStatus;
+  c.approverId = last.prevApproverId;
+  c.approvalTimestamp = last.prevApprovalTimestamp;
+  c.priority = last.prevPriority;
+  if (c.auditLog.length > last.auditLogLength) {
+    c.auditLog.splice(last.auditLogLength);
+  }
+
+  TIQ.views._captureIndex = last.index;
+  TIQ.saveState();
+  TIQ.views._rerenderCapture();
+  TIQ.showToast("Undid " + last.status + ".");
+};
+
 TIQ.views._captureKeyHandler = function(e) {
   var view = document.getElementById("view-capture");
   if (!view || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
   if (TIQ.views._captureIndex >= TIQ.state.candidates.length) return;
-  if (e.key === "ArrowLeft") { TIQ.views._animateSwipeOut("left"); }
-  else if (e.key === "ArrowRight") { TIQ.views._animateSwipeOut("right"); }
-  else if (e.key === " ") {
+  if (e.key === "ArrowLeft") { e.preventDefault(); TIQ.views._animateSwipeOut("left"); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); TIQ.views._animateSwipeOut("right"); }
+  else if (e.key === "Escape") {
+    e.preventDefault();
+    TIQ.views._undoLastCaptureAction();
+  } else if (e.key === " ") {
     e.preventDefault();
     TIQ.views._captureSkip();
   }
@@ -566,6 +743,16 @@ TIQ.views._setCaptureStatus = function(status) {
   var c = TIQ.state.candidates[TIQ.views._captureIndex];
   if (!c) return;
   var prevStatus = c.recordStatus;
+  TIQ.views._captureHistory.push({
+    index: TIQ.views._captureIndex,
+    candidateId: c.id,
+    prevStatus: prevStatus,
+    prevApproverId: c.approverId || "",
+    prevApprovalTimestamp: c.approvalTimestamp || "",
+    prevPriority: c.priority || "",
+    auditLogLength: c.auditLog.length,
+    status: status
+  });
   c.recordStatus = status;
   if (status === "Follow-Up" || status === "Interview Requested") c.priority = "High";
   c.approverId = TIQ.state.activeRecruiterId;
@@ -633,7 +820,7 @@ TIQ.views.renderAIReview = function() {
     '<div class="ai-detail-empty">Select a candidate to view details.</div>';
 
   return '<div class="view" id="view-ai-review">' +
-    '<div class="view-header"><div><span class="section-kicker">End-of-Day Triage</span><h1>AI Summary & Review</h1></div></div>' +
+    '<div class="view-header"><span class="section-kicker">Decision Hub</span></div>' +
     '<div class="ai-filter-bar">' +
       '<select id="aiStatusFilter"><option value="all">All Statuses</option>' + TIQ.CONFIG.statuses.map(function(s) { return '<option value="' + s + '">' + s + '</option>'; }).join("") + '</select>' +
       '<select id="aiFuncFilter"><option value="all">All Functions</option>' + TIQ.CONFIG.functions.map(function(f) { return '<option value="' + f + '">' + f + '</option>'; }).join("") + '</select>' +
@@ -642,7 +829,7 @@ TIQ.views.renderAIReview = function() {
       '<button class="secondary-button small-button" id="aiExportCsv">Export CSV</button>' +
       '<button class="secondary-button small-button" id="aiExportJson">Export JSON</button>' +
     '</div>' +
-    '<div class="ai-layout">' +
+    '<div class="ai-layout review-layout">' +
       '<div class="ai-list-panel"><div class="ai-list-count">' + filtered.length + ' candidates</div><div class="ai-list" id="aiCandidateList">' + listHtml + '</div></div>' +
       '<div class="ai-detail-panel" id="aiDetailPanel">' + detailHtml + '</div>' +
     '</div>' +
@@ -670,6 +857,9 @@ TIQ.views._renderDetailPanel = function(c) {
       c.audioNotes.map(function(a, i) { return '<div class="audio-player-row"><span class="audio-label">Recording ' + (i+1) + ' (' + a.duration + 's)</span><audio controls src="' + a.blobUrl + '" class="audio-ctrl"></audio></div>'; }).join("") + '</section>';
   }
 
+  var transcriptHtml = '<section class="ai-section"><div class="section-title"><span class="section-kicker">Transcript</span></div>' + TIQ.renderTranscriptBlock(c) + '</section>';
+  var citationHtml = '<section class="ai-section"><div class="section-title"><span class="section-kicker">Source Citations</span></div>' + TIQ.renderCitationList(c.traceability) + '</section>';
+
   var traceHtml = (c.traceability || []).map(function(item) {
     var claim = item.split("—")[0].trim();
     return '<button type="button" class="trace-item trace-link" data-claim="' + TIQ.escapeAttr(claim) + '">' + TIQ.escapeHtml(item) + '</button>';
@@ -689,7 +879,9 @@ TIQ.views._renderDetailPanel = function(c) {
     '<section class="ai-section"><div class="section-title"><span class="section-kicker">AI-Generated Snapshot</span></div><div class="snapshot-card"><p>' + TIQ.escapeHtml(c.summary) + '</p></div></section>' +
     '<section class="ai-section"><div class="section-title"><span class="section-kicker">Missing Information Flags</span></div><div class="flag-list">' + flagsHtml + '</div></section>' +
     (traceHtml ? '<section class="ai-section"><div class="section-title"><span class="section-kicker">Source Traceability</span></div><div class="trace-list" id="aiTraceList">' + traceHtml + '</div></section>' : '') +
+    citationHtml +
     audioHtml +
+    transcriptHtml +
     '<section class="ai-section"><div class="section-title"><span class="section-kicker">Recruiter Notes</span></div><textarea id="aiNotes" class="notes-card notes-textarea" rows="4">' + TIQ.escapeHtml(c.notes) + '</textarea></section>' +
     '<section class="ai-section"><div class="section-title row-title"><span class="section-kicker">Record Integrity</span></div><div class="integrity-panel" id="aiIntegrity"></div></section>' +
   '</div>';
@@ -718,9 +910,15 @@ TIQ.views.initAIReviewEvents = function() {
   document.getElementById("aiStatusFilter").addEventListener("change", function(e) { TIQ.views._aiReviewStatus = e.target.value; rerender(); });
   document.getElementById("aiFuncFilter").addEventListener("change", function(e) { TIQ.views._aiReviewFunc = e.target.value; rerender(); });
   document.getElementById("aiPriorityFilter").addEventListener("change", function(e) { TIQ.views._aiReviewPriority = e.target.value; rerender(); });
-  document.getElementById("aiSearch").addEventListener("input", function(e) { TIQ.views._aiReviewSearch = e.target.value; rerender(); });
-  document.getElementById("aiExportCsv").addEventListener("click", function() { TIQ.exportCsv(TIQ.views._getFilteredCandidates(), TIQ.state.activeRecruiterId); });
-  document.getElementById("aiExportJson").addEventListener("click", function() { TIQ.exportJson(TIQ.views._getFilteredCandidates()); });
+
+  var aiSearchInput = document.getElementById("aiSearch");
+  var aiDebouncedSearch = TIQ.debounce(function(val) { TIQ.views._aiReviewSearch = val; rerender(); }, 300);
+  aiSearchInput.addEventListener("input", function(e) { aiDebouncedSearch(e.target.value); });
+
+  var aiCsvBtn = document.getElementById("aiExportCsv");
+  var aiJsonBtn = document.getElementById("aiExportJson");
+  if (aiCsvBtn) aiCsvBtn.addEventListener("click", function() { TIQ.exportCsvLoading(aiCsvBtn, TIQ.views._getFilteredCandidates(), TIQ.state.activeRecruiterId); });
+  if (aiJsonBtn) aiJsonBtn.addEventListener("click", function() { TIQ.exportJsonLoading(aiJsonBtn, TIQ.views._getFilteredCandidates()); });
 
   document.getElementById("aiCandidateList").addEventListener("click", function(e) {
     var checkbox = e.target.closest(".compare-check input");
@@ -844,7 +1042,7 @@ TIQ.views._highlightTrace = function(claim, btn) {
 /* ---- Candidate Review View (ported from original) ---- */
 TIQ.views.renderCandidateReview = function() {
   return '<div class="view" id="view-review">' +
-    '<div class="view-header"><div><span class="section-kicker">Detailed View</span><h1>Candidate Review</h1></div></div>' +
+    '<div class="view-header"><span class="section-kicker">Detailed View</span></div>' +
     '<div class="ai-filter-bar">' +
       '<select id="reviewStatusFilter"><option value="all">All Statuses</option>' + TIQ.CONFIG.statuses.map(function(s) { return '<option value="' + s + '">' + s + '</option>'; }).join("") + '</select>' +
       '<select id="reviewFuncFilter"><option value="all">All Functions</option>' + TIQ.CONFIG.functions.map(function(f) { return '<option value="' + f + '">' + f + '</option>'; }).join("") + '</select>' +
@@ -920,10 +1118,14 @@ TIQ.views._bindReviewEvents = function() {
   if (sF) sF.addEventListener("change", function(e) { TIQ.views._reviewStatus = e.target.value; rerender(); });
   if (fF) fF.addEventListener("change", function(e) { TIQ.views._reviewFunc = e.target.value; rerender(); });
   if (pF) pF.addEventListener("change", function(e) { TIQ.views._reviewPriority = e.target.value; rerender(); });
-  if (sI) sI.addEventListener("input", function(e) { TIQ.views._reviewSearch = e.target.value; rerender(); });
+
+  if (sI) {
+    var reviewDebouncedSearch = TIQ.debounce(function(val) { TIQ.views._reviewSearch = val; rerender(); }, 300);
+    sI.addEventListener("input", function(e) { reviewDebouncedSearch(e.target.value); });
+  }
 
   var exportBtn = document.getElementById("reviewExportCsv");
-  if (exportBtn) exportBtn.addEventListener("click", function() { TIQ.exportCsv(TIQ.views._reviewView, TIQ.state.activeRecruiterId); });
+  if (exportBtn) exportBtn.addEventListener("click", function() { TIQ.exportCsvLoading(exportBtn, TIQ.views._reviewView, TIQ.state.activeRecruiterId); });
 
   var listEl = document.getElementById("reviewCandidateList");
   if (listEl) {
@@ -977,4 +1179,20 @@ TIQ.views._bindReviewEvents = function() {
     document.getElementById("reviewCompareOpen").addEventListener("click", function() { TIQ.views._openCompareModal(TIQ.views._reviewCompare); });
     document.getElementById("reviewCompareClear").addEventListener("click", function() { TIQ.views._reviewCompare = []; rerender(); });
   } else if (bar) { bar.hidden = true; }
+};
+
+TIQ.views.renderReview = function() {
+  return TIQ.views.renderAIReview();
+};
+
+TIQ.views.initReviewEvents = function() {
+  return TIQ.views.initAIReviewEvents();
+};
+
+TIQ.views.renderCandidateReview = function() {
+  return TIQ.views.renderReview();
+};
+
+TIQ.views.initCandidateReview = function() {
+  return TIQ.views.initReviewEvents();
 };
