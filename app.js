@@ -26,29 +26,31 @@ TIQ.router = {
     document.removeEventListener("keydown", TIQ.views._captureKeyHandler);
 
     switch (viewName) {
-      case "overview":
-        container.innerHTML = TIQ.views.renderOverview();
+      case "analytics":
         if (searchWrap) searchWrap.style.display = "none";
+        container.innerHTML = TIQ.skeleton.overlay("overview");
+        requestAnimationFrame(function() {
+          container.innerHTML = TIQ.views.renderAnalytics();
+          TIQ.views.initAnalyticsEvents();
+        });
         break;
-      case "candidate-intake":
-        container.innerHTML = TIQ.views.renderCandidateIntake();
+      case "kiosk":
         if (searchWrap) searchWrap.style.display = "none";
-        TIQ.views.initIntakeForm();
+        container.innerHTML = TIQ.views.renderKiosk();
+        TIQ.views.initKioskForm();
         break;
-      case "recruiter-capture":
-        container.innerHTML = TIQ.views.renderRecruiterCapture();
+      case "capture":
         if (searchWrap) searchWrap.style.display = "none";
+        container.innerHTML = TIQ.views.renderCapture();
         TIQ.views.initCaptureEvents();
         break;
-      case "ai-review":
-        container.innerHTML = TIQ.views.renderAIReview();
+      case "review":
         if (searchWrap) searchWrap.style.display = "";
-        TIQ.views.initAIReviewEvents();
-        break;
-      case "candidate-review":
-        container.innerHTML = TIQ.views.renderCandidateReview();
-        if (searchWrap) searchWrap.style.display = "";
-        TIQ.views.initCandidateReview();
+        container.innerHTML = TIQ.skeleton.overlay("list");
+        requestAnimationFrame(function() {
+          container.innerHTML = TIQ.views.renderReview();
+          TIQ.views.initReviewEvents();
+        });
         break;
     }
 
@@ -106,11 +108,32 @@ TIQ.app = {
     // Escape key closes modal
     document.addEventListener("keydown", function(e) {
       if (e.key === "Escape" && modal && !modal.hidden) modal.hidden = true;
+
+      // Global keyboard shortcuts (ignore if inside input/textarea/select)
+      var tag = e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      // Number keys 1-4 for view navigation
+      var viewMap = { "1": "analytics", "2": "kiosk", "3": "capture", "4": "review" };
+      if (viewMap[e.key]) { e.preventDefault(); TIQ.router.navigateTo(viewMap[e.key]); return; }
+
+      // / to focus search
+      if (e.key === "/") {
+        e.preventDefault();
+        var searchInput = document.getElementById("aiSearch") || document.getElementById("reviewSearch") || document.getElementById("globalSearch");
+        if (searchInput) searchInput.focus();
+        return;
+      }
+
+      // ? to show keyboard shortcuts
+      if (e.key === "?") {
+        TIQ.showToast("Keys: 1-4 = views, / = search, Esc = close");
+      }
     });
 
     // New Record button navigates to intake
     var newBtn = document.querySelector(".create-button");
-    if (newBtn) newBtn.addEventListener("click", function() { TIQ.router.navigateTo("candidate-intake"); });
+    if (newBtn) newBtn.addEventListener("click", function() { TIQ.router.navigateTo("kiosk"); });
 
     // Navigate to initial view
     TIQ.router.navigateTo(TIQ.CONFIG.defaultView);

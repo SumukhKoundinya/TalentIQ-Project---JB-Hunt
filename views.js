@@ -99,214 +99,119 @@ TIQ.views.renderAnalytics = function() {
 
 TIQ.views.initAnalyticsEvents = function() {};
 
-/* ---- Candidate Intake View ---- */
-TIQ.views.renderCandidateIntake = function() {
-  var unis = TIQ.CONFIG.universities;
-  var majors = TIQ.CONFIG.majors;
-  var selectedAttributes = TIQ.views._kioskAttributes || [];
+/* ---- Candidate Kiosk (QR Poster + Configurator) ---- */
+TIQ.views._kioskFormUrl = TIQ.views._kioskFormUrl || (window.location.origin + "/candidate-form.html");
+TIQ.views._kioskIntakeMethod = TIQ.views._kioskIntakeMethod || "google-form";
 
-  var uniOptions = unis.map(function(u) { return '<option value="' + TIQ.escapeAttr(u) + '">' + TIQ.escapeHtml(u) + '</option>'; }).join("");
-  var majorOptions = majors.map(function(m) { return '<option value="' + TIQ.escapeAttr(m) + '">' + TIQ.escapeHtml(m) + '</option>'; }).join("");
-  var attributePicker = TIQ.renderAttributePills(selectedAttributes, { interactive: true, className: "attribute-picker attribute-picker--interactive" });
-  var dropZone = TIQ.renderDropZone(TIQ.views._kioskFileName || "");
+TIQ.views.renderKiosk = function() {
+  var cfg = TIQ.CONFIG;
+  var formUrl = TIQ.views._kioskFormUrl;
+  var method = TIQ.views._kioskIntakeMethod;
 
   return '<div class="view" id="view-intake">' +
     '<div class="view-header"><span class="section-kicker">Candidate Kiosk</span></div>' +
-    '<div class="kiosk-layout">' +
-      '<section class="kiosk-brand-panel">' +
-        '<div class="kiosk-brand-card">' +
-          '<div class="kiosk-brand-card__eyebrow">Event Booth</div>' +
-          '<div class="kiosk-brand-card__title">' + TIQ.escapeHtml(TIQ.CONFIG.company) + '</div>' +
-          '<div class="kiosk-brand-card__meta">' + TIQ.escapeHtml(TIQ.CONFIG.eventName) + '</div>' +
-          '<div class="kiosk-brand-card__line"></div>' +
-          '<p class="kiosk-brand-card__copy">Quick candidate capture for the career fair floor. Brand only, no QR poster.</p>' +
+    '<div class="kiosk-workspace">' +
+      '<div class="kiosk-col-left">' +
+        '<div class="kiosk-event-card">' +
+          '<div class="kiosk-event-card__eyebrow">Event Booth</div>' +
+          '<div class="kiosk-event-card__title">' + TIQ.escapeHtml(cfg.company) + '</div>' +
+          '<div class="kiosk-event-card__meta">' + TIQ.escapeHtml(cfg.eventName) + '</div>' +
+          '<div class="kiosk-event-card__line"></div>' +
+          '<p class="kiosk-event-card__copy">Quick candidate capture for the career fair floor. Brand &amp; QR Check-in.</p>' +
         '</div>' +
-        '<div class="kiosk-summary">' +
-          '<div class="kiosk-summary__row"><span>Location</span><strong>' + TIQ.escapeHtml(TIQ.CONFIG.eventLocation) + '</strong></div>' +
-          '<div class="kiosk-summary__row"><span>Date</span><strong>' + TIQ.escapeHtml(TIQ.CONFIG.eventDate) + '</strong></div>' +
-          '<div class="kiosk-summary__row"><span>Mode</span><strong>Mobile + Desktop</strong></div>' +
+        '<div class="kiosk-location-card">' +
+          '<div class="kiosk-location-row"><span class="kiosk-location-label">Location</span><span class="kiosk-location-value">' + TIQ.escapeHtml(cfg.eventLocation) + '</span></div>' +
+          '<div class="kiosk-location-row"><span class="kiosk-location-label">Date</span><span class="kiosk-location-value">' + TIQ.escapeHtml(cfg.eventDate) + '</span></div>' +
+          '<div class="kiosk-location-row kiosk-location-row--last"><span class="kiosk-location-label">Mode</span><span class="kiosk-location-value">Mobile + Desktop</span></div>' +
         '</div>' +
-      '</section>' +
-      '<section class="kiosk-form-panel">' +
-        '<form id="intakeForm" class="intake-form kiosk-form" novalidate>' +
-          '<div class="intake-section"><div class="intake-section__title">Required Information</div>' +
-            '<div class="form-row"><label class="form-field"><span class="form-label">First Name *</span><input name="firstName" required placeholder="e.g. Maya" /><span class="field-error" data-for="firstName"></span></label>' +
-            '<label class="form-field"><span class="form-label">Last Name *</span><input name="lastName" required placeholder="e.g. Williams" /><span class="field-error" data-for="lastName"></span></label></div>' +
-            '<label class="form-field"><span class="form-label">Email *</span><input name="email" type="email" required placeholder="you@university.edu" /><span class="field-error" data-for="email"></span></label>' +
-            '<div class="form-row"><label class="form-field"><span class="form-label">University *</span><select name="university" required><option value="">Select...</option>' + uniOptions + '</select><span class="field-error" data-for="university"></span></label>' +
-            '<label class="form-field"><span class="form-label">Major *</span><select name="major" required><option value="">Select...</option>' + majorOptions + '</select><span class="field-error" data-for="major"></span></label></div>' +
-            '<label class="form-field"><span class="form-label">Graduation Date *</span><input name="graduationDate" type="month" required /><span class="field-error" data-for="graduationDate"></span></label>' +
-          '</div>' +
-          '<div class="intake-section"><div class="intake-section__title">Optional Details</div>' +
-            '<div class="form-row"><label class="form-field"><span class="form-label">GPA</span><input name="gpa" placeholder="e.g. 3.75" /></label>' +
-            '<label class="form-field"><span class="form-label">Phone</span><input name="phone" type="tel" placeholder="555-0100" /></label></div>' +
-            '<div class="form-field"><span class="form-label">Work Authorization</span>' +
-              '<div class="radio-group">' +
-                '<label class="radio-label"><input type="radio" name="workAuthorization" value="US Citizen" /> US Citizen</label>' +
-                '<label class="radio-label"><input type="radio" name="workAuthorization" value="Require Sponsorship" /> Require Sponsorship</label>' +
-                '<label class="radio-label"><input type="radio" name="workAuthorization" value="OPT/CPT" /> OPT/CPT</label>' +
-              '</div>' +
-            '</div>' +
-            '<div class="form-field"><span class="form-label">Attribute Tags</span>' + attributePicker + '</div>' +
-            '<div class="form-field"><span class="form-label">Resume Upload</span>' + dropZone + '</div>' +
-          '</div>' +
-          '<button type="submit" class="primary-button intake-submit">Submit Profile</button>' +
-          '<div class="intake-error" id="intakeError"></div>' +
-        '</form>' +
-      '</section>' +
+        '<div class="kiosk-form-config-card">' +
+          '<div class="kiosk-config-title">Form Destination Configurator</div>' +
+          '<label class="kiosk-config-field"><span class="kiosk-config-label">Select Intake Method</span>' +
+            '<select id="kioskIntakeMethod">' +
+              '<option value="google-form"' + (method === "google-form" ? " selected" : "") + '>Google Form / External Link</option>' +
+              '<option value="custom-url"' + (method === "custom-url" ? " selected" : "") + '>Custom URL</option>' +
+            '</select>' +
+          '</label>' +
+          '<label class="kiosk-config-field"><span class="kiosk-config-label">Form / Survey URL</span>' +
+            '<input id="kioskFormUrl" type="url" value="' + TIQ.escapeAttr(formUrl) + '" placeholder="https://..." />' +
+          '</label>' +
+        '</div>' +
+      '</div>' +
+      '<div class="kiosk-qr-panel" id="kioskQrPanel">' +
+        '<div class="kiosk-qr-kicker">Booth QR Code &amp; Candidate Intake Config</div>' +
+        '<div class="kiosk-qr-subtitle">Scan to Submit Profile</div>' +
+        '<div class="kiosk-qr-container" id="kioskQrContainer">' +
+          '<canvas id="kiosk-qr-canvas" width="240" height="240"></canvas>' +
+        '</div>' +
+        '<div class="kiosk-qr-label">Scan to Submit Profile</div>' +
+        '<div class="kiosk-qr-hint">Point your phone camera at the code above</div>' +
+        '<div class="kiosk-qr-actions">' +
+          '<button class="secondary-button kiosk-action-btn" id="kioskPrintPoster">' +
+            '<svg viewBox="0 0 24 24" class="button-icon" aria-hidden="true"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
+            'Print Poster' +
+          '</button>' +
+          '<button class="primary-button kiosk-action-btn" id="kioskCopyLink">' +
+            '<svg viewBox="0 0 24 24" class="button-icon" aria-hidden="true"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
+            'Copy QR Link' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
     '</div>' +
   '</div>';
 };
 
-TIQ.views.initIntakeForm = function() {
-  var form = document.getElementById("intakeForm");
-  if (!form) return;
-
-  TIQ.views._kioskAttributes = TIQ.views._kioskAttributes || [];
-  TIQ.views._kioskFileName = TIQ.views._kioskFileName || "";
-
-  var picker = form.querySelector("[data-attribute-picker]");
-  var fileInput = form.querySelector("#resumeUpload");
-  var fileLabel = form.querySelector("[data-dropzone-file]");
-  var dropzone = form.querySelector("[data-dropzone]");
-
-  var syncAttributes = function() {
-    if (!picker) return;
-    picker.querySelectorAll("[data-attribute-id]").forEach(function(btn) {
-      var active = TIQ.views._kioskAttributes.indexOf(btn.dataset.attributeId) >= 0;
-      btn.classList.toggle("attribute-pill--active", active);
-      btn.setAttribute("aria-pressed", active ? "true" : "false");
-    });
-  };
-
-  var setFileName = function(file) {
-    TIQ.views._kioskFileName = file ? file.name : "";
-    if (fileLabel) fileLabel.textContent = TIQ.views._kioskFileName || "No file selected";
-    if (dropzone) dropzone.classList.toggle("dropzone--filled", Boolean(TIQ.views._kioskFileName));
-  };
-
-  syncAttributes();
-  setFileName(fileInput && fileInput.files ? fileInput.files[0] : null);
-
-  if (picker) {
-    picker.addEventListener("click", function(e) {
-      var btn = e.target.closest("[data-attribute-id]");
-      if (!btn) return;
-      var id = btn.dataset.attributeId;
-      var idx = TIQ.views._kioskAttributes.indexOf(id);
-      if (idx >= 0) TIQ.views._kioskAttributes.splice(idx, 1);
-      else TIQ.views._kioskAttributes.push(id);
-      syncAttributes();
-    });
-  }
-
-  if (fileInput) {
-    fileInput.addEventListener("change", function() { setFileName(fileInput.files && fileInput.files[0]); });
-  }
-
-  if (dropzone) {
-    dropzone.addEventListener("dragover", function(e) { e.preventDefault(); dropzone.classList.add("dropzone--dragging"); });
-    dropzone.addEventListener("dragleave", function() { dropzone.classList.remove("dropzone--dragging"); });
-    dropzone.addEventListener("drop", function(e) {
-      e.preventDefault();
-      dropzone.classList.remove("dropzone--dragging");
-      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
-        setFileName(e.dataTransfer.files[0]);
-      }
-    });
-  }
-
-  // Inline validation on blur
-  var requiredFields = form.querySelectorAll("[required]");
-  requiredFields.forEach(function(field) {
-    field.addEventListener("blur", function() {
-      var errEl = form.querySelector('.field-error[data-for="' + field.name + '"]');
-      if (!errEl) return;
-      var val = (field.value || "").trim();
-      if (!val) {
-        errEl.textContent = "Required";
-        field.style.borderColor = "var(--red)";
-      } else if (field.type === "email" && val.indexOf("@") === -1) {
-        errEl.textContent = "Invalid email";
-        field.style.borderColor = "var(--red)";
-      } else {
-        errEl.textContent = "";
-        field.style.borderColor = "";
-      }
-    });
-    field.addEventListener("input", function() {
-      var errEl = form.querySelector('.field-error[data-for="' + field.name + '"]');
-      if (errEl && errEl.textContent) {
-        var val = (field.value || "").trim();
-        if (val && (field.type !== "email" || val.indexOf("@") >= 0)) {
-          errEl.textContent = "";
-          field.style.borderColor = "";
-        }
-      }
-    });
-  });
-
-  form.addEventListener("submit", function(e) {
-    e.preventDefault();
-    var fd = new FormData(form);
-    var firstName = (fd.get("firstName") || "").trim();
-    var lastName = (fd.get("lastName") || "").trim();
-    var email = (fd.get("email") || "").trim();
-    var university = fd.get("university") || "";
-    var major = fd.get("major") || "";
-    var gradDate = fd.get("graduationDate") || "";
-    var errEl = document.getElementById("intakeError");
-
-    if (!firstName || !lastName || !email || !university || !major || !gradDate) {
-      errEl.textContent = "Please fill in all required fields.";
-      return;
-    }
-    if (email.indexOf("@") === -1) {
-      errEl.textContent = "Please enter a valid email address.";
-      return;
-    }
-    errEl.textContent = "";
-
-    var id = TIQ.CONFIG.idPrefix + (TIQ.CONFIG.idBaseOffset + TIQ.state.candidates.length + 1);
-    var resumeFile = fd.get("resumeUpload");
-    var newCandidate = {
-      id: id, firstName: firstName, lastName: lastName, email: email,
-      phone: fd.get("phone") || "",
-      university: university, degreeProgram: TIQ.CONFIG.defaultDegreeProgram,
-      major: major, graduationDate: gradDate,
-      gpa: fd.get("gpa") || "", resumeUpload: resumeFile ? resumeFile.name : "",
-      function: "General", workLocations: [],
-      workAuthorization: fd.get("workAuthorization") || "",
-      skills: [], keySkills: [], areasDiscussed: [],
-      notes: "", summary: "",
-      traceability: [],
-      recordStatus: "New", approvalStatus: "Pending",
-      approverId: "", approvalTimestamp: "",
-      followUpRequestedBy: "", followUpTimestamp: "",
-      lastUpdated: TIQ.todayISO(), created_at: TIQ.nowISO(),
-      priority: "Normal",
-      attributes: TIQ.views._kioskAttributes.slice(),
-      audioNotes: [],
-      auditLog: [{ action: "CREATED", recruiter_id: TIQ.state.activeRecruiterId, timestamp: TIQ.nowISO(), time_to_complete: 0, detail: "Candidate intake form submitted" }],
-      reviewTimeMs: 0, noteEdits: 0
-    };
-
-    TIQ.state.candidates.push(newCandidate);
-    TIQ.saveState();
-    TIQ.showToast("Profile submitted! Welcome, " + firstName + ".");
-    form.reset();
-    TIQ.views._kioskAttributes = [];
-    TIQ.views._kioskFileName = "";
-    TIQ.router.navigateTo("capture");
-  });
-};
-
-TIQ.views.renderKiosk = function() {
-  return TIQ.views.renderCandidateIntake();
-};
-
 TIQ.views.initKioskForm = function() {
-  return TIQ.views.initIntakeForm();
+  var methodSelect = document.getElementById("kioskIntakeMethod");
+  var urlInput = document.getElementById("kioskFormUrl");
+  var printBtn = document.getElementById("kioskPrintPoster");
+  var copyBtn = document.getElementById("kioskCopyLink");
+  var cfg = TIQ.CONFIG;
+
+  var renderQR = function() {
+    var url = (urlInput ? urlInput.value : TIQ.views._kioskFormUrl) || "https://forms.gle/jbh-tech-fair-2026";
+    var canvas = document.getElementById("kiosk-qr-canvas");
+    if (!canvas) return;
+    TIQ.qr.renderTo(url, canvas, { margin: 2 });
+  };
+
+  renderQR();
+
+  if (methodSelect) {
+    methodSelect.addEventListener("change", function() {
+      TIQ.views._kioskIntakeMethod = methodSelect.value;
+      renderQR();
+    });
+  }
+
+  if (urlInput) {
+    urlInput.addEventListener("input", TIQ.debounce(function() {
+      TIQ.views._kioskFormUrl = urlInput.value;
+      renderQR();
+    }, 300));
+  }
+
+  if (printBtn) {
+    printBtn.addEventListener("click", function() { window.print(); });
+  }
+
+  if (copyBtn) {
+    copyBtn.addEventListener("click", function() {
+      var url = (urlInput ? urlInput.value : TIQ.views._kioskFormUrl) || "";
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function() {
+          TIQ.showToast("QR link copied to clipboard.");
+        });
+      } else {
+        var tmp = document.createElement("textarea");
+        tmp.value = url;
+        document.body.appendChild(tmp);
+        tmp.select();
+        document.execCommand("copy");
+        document.body.removeChild(tmp);
+        TIQ.showToast("QR link copied to clipboard.");
+      }
+    });
+  }
 };
 
 /* ---- Recruiter Capture View ---- */
@@ -317,8 +222,31 @@ TIQ.views._swipeState = null;
 TIQ.views._buildCardHtml = function(c) {
   var flags = TIQ.getMissingFlags(c);
   var flagsHtml = flags.length
-    ? flags.map(TIQ.formatFlagChip).join("")
-    : '<span class="flag-chip flag-clear">[No Critical Missing Info]</span>';
+    ? flags.map(function(f) {
+        return '<span class="flag-chip flag-actionable" data-flag-key="' + TIQ.escapeAttr(f.key) + '">' +
+          '<span class="flag-icon">⚠</span> ' + TIQ.escapeHtml(f.label) +
+        '</span>';
+      }).join("")
+    : '<span class="flag-chip flag-clear">✓ No Missing Info</span>';
+
+  var skillsHtml = '';
+  var allSkills = (c.skills && c.skills.length) ? c.skills : (c.parsedResume && c.parsedResume.skills) || [];
+  if (allSkills.length) {
+    skillsHtml = '<div class="capture-card__skills">' +
+      allSkills.slice(0, 6).map(function(s) {
+        return '<span class="skill-pill">' + TIQ.escapeHtml(s) + '</span>';
+      }).join("") +
+      (allSkills.length > 6 ? '<span class="skill-pill skill-pill--more">+' + (allSkills.length - 6) + '</span>' : '') +
+      '</div>';
+  }
+
+  var summaryHtml = '';
+  if (c.summary) {
+    summaryHtml = '<div class="capture-card__ai-summary">' +
+      '<div class="ai-summary-header"><span class="ai-summary-icon">✦</span> AI Summary</div>' +
+      '<div class="ai-summary-text">' + TIQ.escapeHtml(c.summary.length > 220 ? c.summary.slice(0, 217) + '...' : c.summary) + '</div>' +
+    '</div>';
+  }
 
   return '<div class="capture-card__top">' +
     '<div class="capture-avatar">' + TIQ.initialsFor(c) + '</div>' +
@@ -329,21 +257,47 @@ TIQ.views._buildCardHtml = function(c) {
     '<span class="status-chip ' + (TIQ.statusClassMap[c.recordStatus] || "status-new") + '">' + TIQ.escapeHtml(c.recordStatus) + '</span>' +
   '</div>' +
   '<div class="capture-card__info">' +
-    '<div class="capture-card__edu">' + TIQ.escapeHtml(c.university) + ' &bull; ' + TIQ.escapeHtml(c.major) + '</div>' +
-    '<div class="capture-card__grad">Grad: ' + TIQ.escapeHtml(c.graduationDate || "—") + '</div>' +
+    '<div class="capture-card__field">' +
+      '<span class="field-label">University</span>' +
+      '<span class="field-value editable" data-field="university" contenteditable="false">' + TIQ.escapeHtml(c.university || "—") + '</span>' +
+    '</div>' +
+    '<div class="capture-card__field">' +
+      '<span class="field-label">Major</span>' +
+      '<span class="field-value editable" data-field="major" contenteditable="false">' + TIQ.escapeHtml(c.major || "—") + '</span>' +
+    '</div>' +
+    '<div class="capture-card__field">' +
+      '<span class="field-label">Grad</span>' +
+      '<span class="field-value editable" data-field="graduationDate" contenteditable="false">' + TIQ.escapeHtml(c.graduationDate || "—") + '</span>' +
+    '</div>' +
+    '<div class="capture-card__field">' +
+      '<span class="field-label">GPA</span>' +
+      '<span class="field-value editable" data-field="gpa" contenteditable="false">' + TIQ.escapeHtml(c.gpa || "—") + '</span>' +
+    '</div>' +
+    '<div class="capture-card__field">' +
+      '<span class="field-label">Auth</span>' +
+      '<span class="field-value editable" data-field="workAuthorization" contenteditable="false">' + TIQ.escapeHtml(c.workAuthorization || "—") + '</span>' +
+    '</div>' +
+    '<div class="capture-card__field">' +
+      '<span class="field-label">Location</span>' +
+      '<span class="field-value editable" data-field="workLocations" contenteditable="false">' + (c.workLocations.length ? TIQ.escapeHtml(c.workLocations[0]) : "—") + '</span>' +
+    '</div>' +
+    '<div class="capture-card__field">' +
+      '<span class="field-label">Role</span>' +
+      '<span class="field-value editable" data-field="function" contenteditable="false">' + TIQ.escapeHtml(c.function || "—") + '</span>' +
+    '</div>' +
   '</div>' +
-  (c.skills.length ? '<div class="capture-card__skills">' + c.skills.slice(0, 5).map(function(s) { return '<span>' + TIQ.escapeHtml(s) + '</span>'; }).join("") + '</div>' : '') +
-  '<div class="capture-card__quick">' +
-    '<span>GPA: ' + TIQ.escapeHtml(c.gpa || "—") + '</span>' +
-    '<span>Auth: ' + TIQ.escapeHtml(c.workAuthorization || "—") + '</span>' +
-    '<span>Loc: ' + (c.workLocations.length ? TIQ.escapeHtml(c.workLocations[0]) : "—") + '</span>' +
-  '</div>' +
-  '<div class="capture-card__flags">' + flagsHtml + '</div>';
+  skillsHtml +
+  summaryHtml +
+  '<div class="capture-card__flags">' + flagsHtml + '</div>' +
+  '<button class="capture-card__edit-toggle" title="Toggle edit mode">' +
+    '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
+    ' Edit' +
+  '</button>';
 };
 
 TIQ.views.renderRecruiterCapture = function() {
   var cands = TIQ.state.candidates;
-  if (!cands.length) return '<div class="view" id="view-capture"><div class="view-header"><h1>No candidates to capture</h1></div></div>';
+  if (!cands.length) return '<div class="view" id="view-capture"><div class="view-header"><span class="section-kicker">Live Capture</span><h1>No candidates to capture</h1></div><div class="capture-empty"><p>No candidates in the system yet.</p><button class="primary-button" id="captureGenerateDemo">Generate Demo Candidates</button><button class="secondary-button" id="captureNewCandidateEmpty">Add Candidate Manually</button></div></div>';
 
   var idx = TIQ.views._captureIndex;
   if (idx >= cands.length) {
@@ -373,11 +327,9 @@ TIQ.views.renderRecruiterCapture = function() {
   var audioHtml = "";
   if (c.audioNotes && c.audioNotes.length) {
     audioHtml = c.audioNotes.map(function(a, i) {
-      return '<div class="audio-player-row"><span class="audio-label">Recording ' + (i + 1) + ' (' + a.duration + 's)</span><audio controls src="' + a.blobUrl + '" class="audio-ctrl"></audio><button class="audio-delete-btn" data-audio-index="' + i + '" aria-label="Delete recording">✕</button></div>';
+      return '<div class="audio-player-row"><span class="audio-label">Recording ' + (i + 1) + ' (' + a.duration + 's)</span><audio controls class="audio-ctrl" data-audio-blob-id="' + TIQ.escapeAttr(a.blobId) + '"></audio><button class="audio-delete-btn" data-audio-index="' + i + '" aria-label="Delete recording">✕</button></div>';
     }).join("");
   }
-
-  var transcriptHtml = TIQ.renderTranscriptBlock(c);
 
   var atEnd = idx >= cands.length - 1;
 
@@ -407,6 +359,12 @@ TIQ.views.renderRecruiterCapture = function() {
               '</button>' +
               '<span class="capture-action-label">Contact</span>' +
             '</div>' +
+            '<div class="capture-action-group">' +
+              '<button class="capture-action-btn capture-action--add" id="captureNewCandidate" title="Add new candidate">' +
+                '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
+              '</button>' +
+              '<span class="capture-action-label">New</span>' +
+            '</div>' +
           '</div>' +
         '</div>' +
         '<aside class="capture-col-right">' +
@@ -418,22 +376,61 @@ TIQ.views.renderRecruiterCapture = function() {
               '<span id="audioTimer" class="audio-timer">00:00</span>' +
               '<button id="audioStopBtn" class="audio-stop-btn" disabled aria-label="Stop recording">Stop</button>' +
             '</div>' +
+            '<div id="liveTranscriptPreview" class="live-transcript-preview" style="display:none"><span class="live-transcript-dot"></span><span class="live-transcript-text"></span></div>' +
             '<div id="audioRecordings">' + audioHtml + '</div>' +
           '</div>' +
           '<div class="capture-panel capture-panel--notes">' +
-            '<div class="capture-section-title">Recruiter Notes &amp; Transcript</div>' +
-            transcriptHtml +
-            '<textarea id="captureNotes" class="capture-textarea capture-textarea--inline" rows="4" placeholder="Refine the transcript here...">' + TIQ.escapeHtml(c.notes) + '</textarea>' +
+            '<div class="capture-section-title">Recruiter Notes</div>' +
+            '<textarea id="captureNotes" class="capture-textarea capture-textarea--inline" rows="4" placeholder="Add notes about this candidate...">' + TIQ.escapeHtml(c.notes) + '</textarea>' +
+          '</div>' +
+          '<div class="capture-panel capture-panel--resume">' +
+            '<div class="capture-section-title">Resume</div>' +
+            '<label class="capture-resume-upload" data-dropzone>' +
+              '<input class="capture-resume-input" id="captureResumeInput" type="file" accept=".pdf" />' +
+              '<span class="capture-resume-icon">&#128196;</span>' +
+              '<span class="capture-resume-label">' + (c.resumeUpload ? TIQ.escapeHtml(typeof c.resumeUpload === "object" ? c.resumeUpload.name : c.resumeUpload) : "Upload resume PDF") + '</span>' +
+            '</label>' +
+            (c.parsedResume ? '<div class="capture-resume-status parsed">&#10003; Parsed — ' + ((c.parsedResume.skills && c.parsedResume.skills.length) ? c.parsedResume.skills.length + ' skills' : 'no skills found') + '</div>' : '') +
           '</div>' +
         '</aside>' +
       '</section>' +
 
     '</div>' +
-  '</div>';
+  '</div>' +
+  TIQ.views._newCandidateModalHtml();
 };
 
 TIQ.views.renderCapture = function() {
   return TIQ.views.renderRecruiterCapture();
+};
+
+TIQ.views._newCandidateModalHtml = function() {
+  return '<div id="newCandidateModal" class="modal-overlay" hidden>' +
+    '<div class="modal-dialog">' +
+      '<div class="modal-header">' +
+        '<h3>Add New Candidate</h3>' +
+        '<button class="modal-close" id="newCandidateClose">&times;</button>' +
+      '</div>' +
+      '<form id="newCandidateForm">' +
+        '<div class="modal-body">' +
+          '<div class="modal-row"><label>First Name *</label><input type="text" name="firstName" required /></div>' +
+          '<div class="modal-row"><label>Last Name *</label><input type="text" name="lastName" required /></div>' +
+          '<div class="modal-row"><label>Email *</label><input type="email" name="email" required /></div>' +
+          '<div class="modal-row"><label>University</label><input type="text" name="university" /></div>' +
+          '<div class="modal-row"><label>Major</label><input type="text" name="major" /></div>' +
+          '<div class="modal-row"><label>Graduation</label><input type="text" name="graduationDate" placeholder="May 2027" /></div>' +
+          '<div class="modal-row"><label>GPA</label><input type="text" name="gpa" placeholder="3.5" /></div>' +
+          '<div class="modal-row"><label>Work Auth</label><input type="text" name="workAuthorization" placeholder="US Citizen" /></div>' +
+          '<div class="modal-row"><label>Role</label><input type="text" name="function" placeholder="Software Engineer" /></div>' +
+          '<div class="modal-row"><label>Resume</label><input type="file" name="resume" accept=".pdf" id="newCandidateResume" /></div>' +
+        '</div>' +
+        '<div class="modal-footer">' +
+          '<button type="button" class="secondary-button" id="newCandidateCancel">Cancel</button>' +
+          '<button type="submit" class="primary-button">Add Candidate</button>' +
+        '</div>' +
+      '</form>' +
+    '</div>' +
+  '</div>';
 };
 
 TIQ.views._captureHistory = TIQ.views._captureHistory || [];
@@ -477,14 +474,40 @@ TIQ.views._renderCaptureComplete = function(cands) {
       '<div class="capture-complete__actions">' +
         '<button class="primary-button" id="captureStartOver">Start Over</button>' +
         '<button class="secondary-button" id="captureBackToOverview">Back to Analytics</button>' +
+        '<button class="secondary-button" id="captureGenerateDemo">Generate Demo Candidates</button>' +
       '</div>' +
     '</div>' +
   '</div>';
 };
 
+TIQ.views._loadAudioBlobs = function() {
+  var audios = document.querySelectorAll("audio[data-audio-blob-id]");
+  audios.forEach(function(audio) {
+    if (audio.src) return;
+    var blobId = audio.dataset.audioBlobId;
+    TIQ.AudioDB.getBlob(blobId).then(function(blob) {
+      if (blob) {
+        audio.src = URL.createObjectURL(blob);
+      }
+    });
+  });
+};
+
+TIQ.views._revokeAudioUrls = function() {
+  var audios = document.querySelectorAll("audio[data-audio-blob-id]");
+  audios.forEach(function(audio) {
+    if (audio.src && audio.src.startsWith("blob:")) {
+      URL.revokeObjectURL(audio.src);
+      audio.removeAttribute("src");
+    }
+  });
+};
+
 TIQ.views.initCaptureEvents = function() {
   var container = document.getElementById("view-capture");
   if (!container) return;
+
+  TIQ.views._loadAudioBlobs();
 
   container.addEventListener("click", function(e) {
     var skipBtn = e.target.closest("#captureSkip");
@@ -505,9 +528,11 @@ TIQ.views.initCaptureEvents = function() {
       var delIdx = parseInt(deleteBtn.dataset.audioIndex);
       var c = TIQ.state.candidates[TIQ.views._captureIndex];
       if (c && c.audioNotes[delIdx]) {
+        var blobId = c.audioNotes[delIdx].blobId;
         c.audioNotes.splice(delIdx, 1);
-        TIQ.addAuditEntry(c, "AUDIO_ADDED", "Audio recording deleted");
+        TIQ.addAuditEntry(c, "AUDIO_DELETED", "Audio recording deleted");
         TIQ.saveState();
+        if (blobId) TIQ.AudioDB.deleteBlob(blobId).catch(function() {});
         TIQ.views._rerenderCapture();
       }
     } else if (startOverBtn) {
@@ -519,6 +544,24 @@ TIQ.views.initCaptureEvents = function() {
       var status = categoryBtn.dataset.viewStatus;
       TIQ.views._aiReviewStatus = status;
       TIQ.router.navigateTo("review");
+    } else if (e.target.closest("#captureNewCandidate")) {
+      var modal = document.getElementById("newCandidateModal");
+      if (modal) modal.hidden = false;
+    } else if (e.target.closest("#captureGenerateDemo")) {
+      var count = TIQ.views.generateDemoCandidates();
+      if (count > 0) {
+        TIQ.showToast(count + " demo candidate" + (count > 1 ? "s" : "") + " generated.");
+        TIQ.views._captureIndex = 0;
+        TIQ.views._rerenderCapture();
+      } else {
+        TIQ.showToast("All demo candidates already exist.");
+      }
+    } else if (e.target.closest("#captureNewCandidateEmpty")) {
+      var modal3 = document.getElementById("newCandidateModal");
+      if (modal3) modal3.hidden = false;
+    } else if (e.target.closest("#newCandidateClose") || e.target.closest("#newCandidateCancel")) {
+      var modal2 = document.getElementById("newCandidateModal");
+      if (modal2) modal2.hidden = true;
     }
   });
 
@@ -526,49 +569,282 @@ TIQ.views.initCaptureEvents = function() {
   if (notes) {
     notes.addEventListener("change", function() {
       var c = TIQ.state.candidates[TIQ.views._captureIndex];
-      if (c) { c.notes = notes.value; TIQ.addAuditEntry(c, "NOTES_UPDATED", "Notes updated"); TIQ.saveState(); }
+      if (c) { c.notes = notes.value; TIQ.addAuditEntry(c, "NOTES_UPDATED", "Notes updated"); if (TIQ.ai && TIQ.ai.updateCandidateSummary) TIQ.ai.updateCandidateSummary(c); TIQ.saveState(); }
     });
   }
 
-  var recordBtn = document.getElementById("audioRecordBtn");
-  var stopBtn = document.getElementById("audioStopBtn");
-  if (recordBtn && stopBtn) {
-    if (!TIQ.views._captureRecorder) TIQ.views._captureRecorder = new TIQ.AudioRecorder();
-    var rec = TIQ.views._captureRecorder;
-    var timerEl = document.getElementById("audioTimer");
-    var timerInt = null;
-
-    recordBtn.addEventListener("click", function() {
-      rec.start().then(function() {
-        recordBtn.classList.add("recording");
-        stopBtn.disabled = false;
-        document.getElementById("audioRecordLabel").textContent = "Recording...";
-        var sec = 0;
-        timerEl.textContent = "00:00";
-        timerInt = setInterval(function() { sec++; timerEl.textContent = String(Math.floor(sec/60)).padStart(2,"0") + ":" + String(sec%60).padStart(2,"0"); }, 1000);
-      });
-    });
-
-    stopBtn.addEventListener("click", function() {
-      clearInterval(timerInt);
-      rec.stop().then(function(result) {
-        if (!result) return;
-        var c = TIQ.state.candidates[TIQ.views._captureIndex];
-        if (c) {
-          c.audioNotes.push({ id: Date.now(), blobUrl: result.blobUrl, duration: result.duration, createdAt: TIQ.nowISO(), offlinePending: !navigator.onLine });
-          TIQ.addAuditEntry(c, "AUDIO_ADDED", "Voice note recorded (" + result.duration + "s)");
-          TIQ.saveState();
-          TIQ.showToast("Voice note saved (" + result.duration + "s).");
+  var captureResumeInput = document.getElementById("captureResumeInput");
+  if (captureResumeInput) {
+    captureResumeInput.addEventListener("change", function() {
+      var file = captureResumeInput.files && captureResumeInput.files[0];
+      var c = TIQ.state.candidates[TIQ.views._captureIndex];
+      if (!c || !file) return;
+      c.resumeUpload = { name: file.name, type: file.type };
+      TIQ.addAuditEntry(c, "RESUME_UPLOADED", "Resume uploaded: " + file.name);
+      if (file.type === "application/pdf" && TIQ.ai && TIQ.ai.parseAndStoreResume) {
+        TIQ.ai.parseAndStoreResume(c, file).then(function() {
+          TIQ.ai.updateCandidateSummary(c);
           TIQ.views._rerenderCapture();
-        }
-      });
-      recordBtn.classList.remove("recording");
-      stopBtn.disabled = true;
-      document.getElementById("audioRecordLabel").textContent = "Record";
+        });
+      } else {
+        TIQ.saveState();
+        TIQ.views._rerenderCapture();
+      }
     });
   }
 
-  document.addEventListener("keydown", TIQ.views._captureKeyHandler);
+  var editToggle = container.querySelector(".capture-card__edit-toggle");
+  if (editToggle) {
+    editToggle.addEventListener("click", function() {
+      var card = container.querySelector(".capture-card");
+      if (!card) return;
+      var isEditing = card.classList.toggle("capture-card--editing");
+      editToggle.innerHTML = isEditing
+        ? '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M20 6L9 17l-5-5" fill="none" stroke="currentColor" stroke-width="2"/></svg> Done'
+        : '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" fill="none" stroke="currentColor" stroke-width="2"/></svg> Edit';
+      var editables = card.querySelectorAll(".editable");
+      for (var i = 0; i < editables.length; i++) {
+        editables[i].contentEditable = isEditing ? "true" : "false";
+        editables[i].classList.toggle("editing", isEditing);
+      }
+    });
+  }
+
+  container.addEventListener("focusout", function(e) {
+    var field = e.target.closest(".editable");
+    if (!field) return;
+    var c = TIQ.state.candidates[TIQ.views._captureIndex];
+    if (!c) return;
+    var key = field.dataset.field;
+    var val = (field.textContent || "").trim();
+    if (key === "workLocations") {
+      c.workLocations = val && val !== "—" ? val.split(",").map(function(v) { return v.trim(); }) : [];
+    } else {
+      c[key] = val === "—" ? "" : val;
+    }
+    field.classList.remove("editing");
+    TIQ.ai.updateCandidateSummary(c);
+    TIQ.saveState();
+  });
+
+  var newForm = document.getElementById("newCandidateForm");
+  if (newForm) {
+    newForm.addEventListener("submit", function(e) {
+      e.preventDefault();
+      var fd = new FormData(newForm);
+      var firstName = (fd.get("firstName") || "").trim();
+      var lastName = (fd.get("lastName") || "").trim();
+      var email = (fd.get("email") || "").trim();
+      if (!firstName || !lastName || !email) return;
+      var nextId = "TQ-" + String(2500 + TIQ.state.candidates.length).slice(0);
+      var newC = {
+        id: nextId, firstName: firstName, lastName: lastName, email: email,
+        phone: "", university: fd.get("university") || "", degreeProgram: "Bachelor of Science",
+        major: fd.get("major") || "", graduationDate: fd.get("graduationDate") || "",
+        gpa: fd.get("gpa") || "", resumeUpload: "",
+        function: fd.get("function") || "General", workLocations: [],
+        workAuthorization: fd.get("workAuthorization") || "",
+        skills: [], keySkills: [], areasDiscussed: [], notes: "",
+        summary: "", traceability: [],
+        recordStatus: "New", approvalStatus: "Pending",
+        approverId: "", approvalTimestamp: "",
+        followUpRequestedBy: "", followUpTimestamp: "",
+        lastUpdated: TIQ.todayISO(), created_at: TIQ.nowISO(),
+        priority: "Normal", attributes: [], audioNotes: [],
+        auditLog: [{ action: "CREATED", recruiter_id: TIQ.state.activeRecruiterId, timestamp: TIQ.nowISO(), time_to_complete: 0, detail: "Manually created by recruiter during capture" }],
+        reviewTimeMs: 0, noteEdits: 0
+      };
+      TIQ.state.candidates.push(newC);
+      TIQ.addAuditEntry(newC, "CREATED", "Manually created during capture");
+      var resumeFile = document.getElementById("newCandidateResume");
+      var file = resumeFile && resumeFile.files && resumeFile.files[0];
+      if (file) {
+        newC.resumeUpload = { name: file.name, type: file.type };
+        TIQ.ai.parseAndStoreResume(newC, file).then(function() {
+          TIQ.ai.updateCandidateSummary(newC);
+          TIQ.saveState();
+          document.getElementById("newCandidateModal").hidden = true;
+          newForm.reset();
+          TIQ.views._rerenderCapture();
+        });
+      } else {
+        TIQ.ai.updateCandidateSummary(newC);
+        TIQ.saveState();
+        document.getElementById("newCandidateModal").hidden = true;
+        newForm.reset();
+        TIQ.views._rerenderCapture();
+      }
+    });
+  }
+
+    var recordBtn = document.getElementById("audioRecordBtn");
+    var stopBtn = document.getElementById("audioStopBtn");
+    if (recordBtn && stopBtn) {
+      if (!TIQ.views._captureRecorder) TIQ.views._captureRecorder = new TIQ.AudioRecorder();
+      var rec = TIQ.views._captureRecorder;
+      var timerEl = document.getElementById("audioTimer");
+      var timerInt = null;
+      var voskLive = new TIQ.VoskLiveTranscriber();
+      var transcriptPreview = document.getElementById("liveTranscriptPreview");
+      var transcriptText = transcriptPreview ? transcriptPreview.querySelector(".live-transcript-text") : null;
+
+      recordBtn.addEventListener("click", function() {
+        var startRecording = function() {
+          recordBtn.classList.add("recording");
+          stopBtn.disabled = false;
+          document.getElementById("audioRecordLabel").textContent = "Recording...";
+          var sec = 0;
+          timerEl.textContent = "00:00";
+          timerInt = setInterval(function() { sec++; timerEl.textContent = String(Math.floor(sec/60)).padStart(2,"0") + ":" + String(sec%60).padStart(2,"0"); }, 1000);
+
+          if (transcriptPreview) {
+            transcriptPreview.style.display = "flex";
+            if (transcriptText) {
+              transcriptText.textContent = "Listening...";
+              transcriptText.style.color = "";
+            }
+          }
+
+          if (TIQ.OfflineTranscriber.isReady()) {
+            console.log("[TalentIQ] Starting Vosk live streaming transcription");
+            voskLive.onInterim = function(text) {
+              if (transcriptText) transcriptText.textContent = text || "Listening...";
+            };
+            voskLive.onFinal = function(text) {};
+            voskLive.onEnd = function() {};
+            voskLive.onError = function(err) {
+              console.warn("[TalentIQ] VoskLive error:", err);
+              if (transcriptText) {
+                transcriptText.textContent = "Transcription will process when you stop";
+                transcriptText.style.color = "#9a8c6e";
+              }
+            };
+            voskLive.start(16000);
+            rec.onAudioChunk = function(pcmChunk) {
+              voskLive.feedChunk(pcmChunk);
+            };
+          } else {
+            console.log("[TalentIQ] Vosk not ready, loading model...");
+            if (transcriptText) {
+              transcriptText.textContent = "Loading transcription engine...";
+              transcriptText.style.color = "";
+            }
+            TIQ.OfflineTranscriber.init().then(function() {
+              console.log("[TalentIQ] Vosk model loaded, starting live transcription");
+              voskLive.start(16000);
+              rec.onAudioChunk = function(pcmChunk) {
+                voskLive.feedChunk(pcmChunk);
+              };
+              if (transcriptText) transcriptText.textContent = "Listening...";
+            }).catch(function() {
+              if (transcriptText) {
+                transcriptText.textContent = "Transcription unavailable";
+                transcriptText.style.color = "#9a8c6e";
+              }
+            });
+          }
+        };
+
+        var ensureVoskReady = function() {
+          if (TIQ.OfflineTranscriber.isReady()) {
+            return Promise.resolve();
+          }
+          if (TIQ.OfflineTranscriber.isLoading()) {
+            return TIQ.OfflineTranscriber.init().catch(function() {});
+          }
+          return TIQ.OfflineTranscriber.init().catch(function() {});
+        };
+
+        ensureVoskReady().then(function() {
+          return rec.start();
+        }).then(function() {
+          startRecording();
+        }).catch(function(err) {
+          console.error("[TalentIQ] Failed to start recording:", err);
+        });
+      });
+
+      stopBtn.addEventListener("click", function() {
+        clearInterval(timerInt);
+        var voskTranscript = voskLive.stop();
+        rec.onAudioChunk = null;
+
+        rec.stop().then(function(result) {
+          if (!result) return;
+          var c = TIQ.state.candidates[TIQ.views._captureIndex];
+          if (c) {
+            var blobId = "audio_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+            var note = { id: Date.now(), blobId: blobId, duration: result.duration, createdAt: TIQ.nowISO(), offlinePending: !navigator.onLine, transcript: voskTranscript || "" };
+            c.audioNotes.push(note);
+            TIQ.addAuditEntry(c, "AUDIO_ADDED", "Voice note recorded (" + result.duration + "s)");
+            TIQ.saveState();
+            TIQ.AudioDB.saveBlob(blobId, result.blob).catch(function(err) {
+              console.error("[TalentIQ] Failed to save audio blob:", err);
+            });
+
+            if (voskTranscript) {
+              console.log("[TalentIQ] Vosk live transcription complete:", voskTranscript);
+              c.notes = (c.notes ? c.notes + "\n\n" : "") + "TL;DR: " + TIQ.generateTldr(c) + "\n\n" + TIQ.cleanTranscript(TIQ.correctProperNouns(voskTranscript, c));
+              TIQ.showToast("Voice note saved + transcribed (" + result.duration + "s).");
+              TIQ.views._rerenderCapture();
+            } else {
+              if (transcriptPreview) {
+                transcriptPreview.style.display = "flex";
+                if (transcriptText) {
+                  transcriptText.textContent = "Transcribing...";
+                  transcriptText.style.color = "";
+                }
+              }
+
+              if (TIQ.OfflineTranscriber.isReady()) {
+                console.log("[TalentIQ] Vosk live had no text, falling back to full transcription");
+                TIQ.OfflineTranscriber.transcribe(result.blob).then(function(text) {
+                  console.log("[TalentIQ] Vosk full transcription complete:", text);
+                  note.transcript = text;
+                  if (text) c.notes = (c.notes ? c.notes + "\n\n" : "") + "TL;DR: " + TIQ.generateTldr(c) + "\n\n" + TIQ.cleanTranscript(TIQ.correctProperNouns(text, c));
+                  TIQ.saveState();
+                  TIQ.showToast("Voice note saved + transcribed (" + result.duration + "s).");
+                  TIQ.views._rerenderCapture();
+                }).catch(function(err) {
+                  console.error("[TalentIQ] Vosk full transcription failed:", err);
+                  note.transcript = "[Transcription failed]";
+                  TIQ.saveState();
+                  TIQ.showToast("Voice note saved (" + result.duration + "s). Transcription failed.");
+                  TIQ.views._rerenderCapture();
+                });
+              } else {
+                if (transcriptText) {
+                  transcriptText.textContent = "Loading transcription engine...";
+                  transcriptText.style.color = "";
+                }
+                TIQ.OfflineTranscriber.init().then(function() {
+                  return TIQ.OfflineTranscriber.transcribe(result.blob);
+                }).then(function(text) {
+                  console.log("[TalentIQ] Vosk full transcription complete:", text);
+                  note.transcript = text;
+                  if (text) c.notes = (c.notes ? c.notes + "\n\n" : "") + "TL;DR: " + TIQ.generateTldr(c) + "\n\n" + TIQ.cleanTranscript(TIQ.correctProperNouns(text, c));
+                  TIQ.saveState();
+                  TIQ.showToast("Voice note saved + transcribed (" + result.duration + "s).");
+                  TIQ.views._rerenderCapture();
+                }).catch(function(err) {
+                  console.error("[TalentIQ] Vosk full transcription failed:", err);
+                  note.transcript = "";
+                  TIQ.saveState();
+                  TIQ.showToast("Voice note saved (" + result.duration + "s). Transcription unavailable.");
+                  TIQ.views._rerenderCapture();
+                });
+              }
+            }
+
+            recordBtn.classList.remove("recording");
+            stopBtn.disabled = true;
+            document.getElementById("audioRecordLabel").textContent = "Record";
+          }
+        });
+      });
+    }
+
+    document.addEventListener("keydown", TIQ.views._captureKeyHandler);
   TIQ.views.initSwipeEngine();
 };
 
@@ -638,8 +914,8 @@ TIQ.views._animateSwipeOut = function(direction) {
   if (!frontCard) { TIQ.views._applySwipeAction(direction); return; }
 
   var transforms = {
-    left: "translateX(-150%) rotate(-30deg)",
-    right: "translateX(150%) rotate(30deg)"
+    left: "translateX(-60%) rotate(-15deg)",
+    right: "translateX(60%) rotate(15deg)"
   };
 
   frontCard.classList.remove("capture-card--swiping");
@@ -777,6 +1053,7 @@ TIQ.views._setCaptureStatus = function(status) {
 
 TIQ.views._rerenderCapture = function() {
   document.removeEventListener("keydown", TIQ.views._captureKeyHandler);
+  TIQ.views._revokeAudioUrls();
   var container = document.getElementById("viewContainer");
   if (!container) return;
   var existing = document.getElementById("view-capture");
@@ -849,21 +1126,38 @@ TIQ.views._getFilteredCandidates = function() {
 };
 
 TIQ.views._renderDetailPanel = function(c) {
+  if (!c.summary && TIQ.ai && TIQ.ai.generateSummary) {
+    TIQ.ai.updateCandidateSummary(c);
+  }
   var flags = TIQ.getMissingFlags(c);
-  var flagsHtml = flags.length ? flags.map(TIQ.formatFlagChip).join("") : '<span class="flag-chip flag-clear">[No Critical Missing Info]</span>';
+  var flagsHtml = flags.length ? flags.map(function(f) {
+    return '<button type="button" class="flag-chip flag-actionable" data-flag-key="' + TIQ.escapeAttr(f.key) + '">' + TIQ.escapeHtml(f.label) + '</button>';
+  }).join("") : '<span class="flag-chip flag-clear">[No Critical Missing Info]</span>';
+
+  var aiMissing = [];
+  if (TIQ.ai && TIQ.ai.generateSummary) {
+    var aiResult = TIQ.ai.generateSummary(c);
+    aiMissing = aiResult.missingData || [];
+  }
+  var aiMissingHtml = aiMissing.length ? aiMissing.map(function(m) {
+    return '<button type="button" class="flag-chip flag-ai-missing" data-flag-key="' + TIQ.escapeAttr(m.key) + '"><span class="flag-source">' + TIQ.escapeHtml(m.source) + '</span> ' + TIQ.escapeHtml(m.label) + '</button>';
+  }).join("") : '';
+
   var audioHtml = "";
   if (c.audioNotes && c.audioNotes.length) {
     audioHtml = '<section class="ai-section"><div class="section-title"><span class="section-kicker">Voice Notes</span></div>' +
-      c.audioNotes.map(function(a, i) { return '<div class="audio-player-row"><span class="audio-label">Recording ' + (i+1) + ' (' + a.duration + 's)</span><audio controls src="' + a.blobUrl + '" class="audio-ctrl"></audio></div>'; }).join("") + '</section>';
+      c.audioNotes.map(function(a, i) { return '<div class="audio-player-row"><span class="audio-label">Recording ' + (i+1) + ' (' + a.duration + 's)</span><audio controls class="audio-ctrl" data-audio-blob-id="' + TIQ.escapeAttr(a.blobId) + '"></audio></div>'; }).join("") + '</section>';
   }
 
   var transcriptHtml = '<section class="ai-section"><div class="section-title"><span class="section-kicker">Transcript</span></div>' + TIQ.renderTranscriptBlock(c) + '</section>';
   var citationHtml = '<section class="ai-section"><div class="section-title"><span class="section-kicker">Source Citations</span></div>' + TIQ.renderCitationList(c.traceability) + '</section>';
 
   var traceHtml = (c.traceability || []).map(function(item) {
-    var claim = item.split("—")[0].trim();
+    var claim = item.split("\u2014")[0].trim();
     return '<button type="button" class="trace-item trace-link" data-claim="' + TIQ.escapeAttr(claim) + '">' + TIQ.escapeHtml(item) + '</button>';
   }).join("");
+
+  var summaryText = c.summary || "No summary generated. Upload a resume or complete fields to auto-generate.";
 
   return '<div class="ai-detail">' +
     '<div class="ai-detail__header">' +
@@ -875,9 +1169,10 @@ TIQ.views._renderDetailPanel = function(c) {
     '<div class="ai-detail__actions">' +
       '<button class="primary-button small-button" data-action="approve">Approve</button>' +
       '<button class="secondary-button small-button" data-action="follow">Follow Up</button>' +
+      '<button class="secondary-button small-button" data-action="regen">Regenerate Summary</button>' +
     '</div>' +
-    '<section class="ai-section"><div class="section-title"><span class="section-kicker">AI-Generated Snapshot</span></div><div class="snapshot-card"><p>' + TIQ.escapeHtml(c.summary) + '</p></div></section>' +
-    '<section class="ai-section"><div class="section-title"><span class="section-kicker">Missing Information Flags</span></div><div class="flag-list">' + flagsHtml + '</div></section>' +
+    '<section class="ai-section"><div class="section-title"><span class="section-kicker">AI-Generated Snapshot</span></div><div class="snapshot-card"><p>' + TIQ.escapeHtml(summaryText) + '</p></div></section>' +
+    '<section class="ai-section"><div class="section-title"><span class="section-kicker">Missing Information Flags</span></div><div class="flag-list">' + flagsHtml + (aiMissingHtml ? '<div class="flag-list__ai">' + aiMissingHtml + '</div>' : '') + '</div></section>' +
     (traceHtml ? '<section class="ai-section"><div class="section-title"><span class="section-kicker">Source Traceability</span></div><div class="trace-list" id="aiTraceList">' + traceHtml + '</div></section>' : '') +
     citationHtml +
     audioHtml +
@@ -900,6 +1195,8 @@ TIQ.views._renderAiIntegrity = function(c) {
 TIQ.views.initAIReviewEvents = function() {
   var container = document.getElementById("view-ai-review");
   if (!container) return;
+
+  TIQ.views._loadAudioBlobs();
 
   var rerender = function() {
     var existing = document.getElementById("view-ai-review");
@@ -954,10 +1251,19 @@ TIQ.views.initAIReviewEvents = function() {
           c.recordStatus = "Follow-Up"; c.priority = "High"; c.followUpRequestedBy = TIQ.state.activeRecruiterId; c.followUpTimestamp = TIQ.nowISO();
           TIQ.addAuditEntry(c, "FOLLOW_UP", "Follow-up requested");
           TIQ.saveState(); TIQ.showToast(c.firstName + " flagged for follow-up."); rerender();
+        } else if (actionBtn.dataset.action === "regen") {
+          TIQ.ai.updateCandidateSummary(c);
+          TIQ.addAuditEntry(c, "SUMMARY_REGEN", "Summary regenerated from AI");
+          TIQ.saveState(); TIQ.showToast("Summary regenerated."); rerender();
         }
       }
       if (traceBtn) {
         TIQ.views._highlightTrace(traceBtn.dataset.claim, traceBtn);
+      }
+      var flagChip = e.target.closest(".flag-actionable, .flag-ai-missing");
+      if (flagChip) {
+        var key = flagChip.dataset.flagKey;
+        TIQ.views._focusMissingField(c, key);
       }
     });
 
@@ -965,7 +1271,12 @@ TIQ.views.initAIReviewEvents = function() {
     if (notes) {
       notes.addEventListener("change", function() {
         var c = TIQ.state.candidates.find(function(x) { return x.id === TIQ.views._aiReviewSelected; });
-        if (c) { c.notes = notes.value; TIQ.addAuditEntry(c, "NOTES_UPDATED", "Notes updated"); TIQ.saveState(); }
+        if (c) {
+          c.notes = notes.value;
+          TIQ.addAuditEntry(c, "NOTES_UPDATED", "Notes updated");
+          if (TIQ.ai && TIQ.ai.updateCandidateSummary) TIQ.ai.updateCandidateSummary(c);
+          TIQ.saveState();
+        }
       });
     }
   }
@@ -1011,6 +1322,30 @@ TIQ.views._openCompareModal = function(ids) {
 
   body.innerHTML = '<div class="compare-table"><div class="compare-row compare-row--head">' + headCells + '</div>' + rowHtml + '</div>';
   modal.hidden = false;
+};
+
+TIQ.views._focusMissingField = function(c, key) {
+  var noteArea = document.getElementById("aiNotes");
+  var fieldMap = {
+    "Work Authorization": "Enter work authorization status in notes or capture form.",
+    "Graduation": "Add graduation date in the capture form.",
+    "GPA": "Add GPA in the capture form.",
+    "Phone": "Add phone number in the capture form.",
+    "Resume": "Upload a resume PDF to auto-extract data.",
+    "Location": "Add preferred work locations in the capture form.",
+    "Skills": "Add skills in the capture form or upload a resume.",
+    "Notes": "Add recruiter notes in the textarea below.",
+    "Areas Discussed": "Log areas discussed in the capture form."
+  };
+  var msg = fieldMap[key] || "Complete this field in the capture form.";
+  if (key === "Notes" && noteArea) {
+    noteArea.focus();
+    noteArea.scrollIntoView({ behavior: "smooth", block: "center" });
+  } else if (key === "Resume") {
+    TIQ.showToast(msg + " Navigate to Capture view to upload.", "info");
+  } else {
+    TIQ.showToast(msg, "info");
+  }
 };
 
 TIQ.views._highlightTrace = function(claim, btn) {
@@ -1195,4 +1530,89 @@ TIQ.views.renderCandidateReview = function() {
 
 TIQ.views.initCandidateReview = function() {
   return TIQ.views.initReviewEvents();
+};
+
+/* ---- Test Data Creator ---- */
+TIQ.views._demoCandidates = [
+  {
+    firstName: "Priya", lastName: "Sharma", email: "priya.sharma@uark.edu",
+    university: "University of Arkansas", degreeProgram: "Bachelor of Science", major: "Computer Science",
+    graduationDate: "May 2026", gpa: "3.92", workAuthorization: "US Citizen",
+    workLocations: ["Dallas, TX", "Fayetteville, AR"], function: "Software Engineer",
+    skills: ["Python", "Java", "React", "AWS", "SQL", "Git"],
+    notes: "Strong GPA, spoke about distributed systems project. Very interested in backend infrastructure roles.",
+    areasDiscussed: ["Technical Skills", "Project Experience", "Career Goals"],
+    recordStatus: "New", priority: "High", approvalStatus: "Pending"
+  },
+  {
+    firstName: "Marcus", lastName: "Johnson", email: "marcus.j@memphis.edu",
+    university: "University of Memphis", degreeProgram: "Bachelor of Science", major: "Information Technology",
+    graduationDate: "December 2025", gpa: "3.45", workAuthorization: "US Citizen",
+    workLocations: ["Memphis, TN"], function: "IT Analyst",
+    skills: ["SQL", "Tableau", "Excel", "Python"],
+    notes: "Completed two internships at FedEx. Great communication skills.",
+    areasDiscussed: ["Internship Experience", "Technical Skills"],
+    recordStatus: "Reviewed", priority: "Medium", approvalStatus: "Approved",
+    approverId: "rec-1", approvalTimestamp: "2026-09-14T10:30:00.000Z"
+  },
+  {
+    firstName: "Sofia", lastName: "Rodriguez", email: "sofia.r@ttu.edu",
+    university: "Texas Tech University", degreeProgram: "Master of Science", major: "Data Science",
+    graduationDate: "May 2027", gpa: "3.78", workAuthorization: "F1 CPT",
+    workLocations: ["Dallas, TX", "Houston, TX"], function: "Data Analyst",
+    skills: ["R", "Python", "Machine Learning", "TensorFlow", "SQL", "Tableau", "Pandas"],
+    notes: "Published paper on NLP sentiment analysis. Looking for ML engineering roles.",
+    areasDiscussed: ["Research", "Technical Skills", "Career Goals"],
+    recordStatus: "New", priority: "High", approvalStatus: "Pending"
+  },
+  {
+    firstName: "Jamal", lastName: "Williams", email: "jwilliams@nsu.edu",
+    university: "Nashville State University", degreeProgram: "Bachelor of Science", major: "Cybersecurity",
+    graduationDate: "May 2026", gpa: "", workAuthorization: "",
+    workLocations: [], function: "Security Analyst",
+    skills: ["Wireshark", "Nmap", "Python"],
+    notes: "",
+    areasDiscussed: [],
+    recordStatus: "New", priority: "Low", approvalStatus: "Pending"
+  },
+  {
+    firstName: "Emily", lastName: "Chen", email: "e.chen@auburn.edu",
+    university: "Auburn University", degreeProgram: "Bachelor of Science", major: "Software Engineering",
+    graduationDate: "May 2026", gpa: "3.88", workAuthorization: "US Citizen",
+    workLocations: ["Atlanta, GA", "Nashville, TN"], function: "Software Engineer",
+    skills: ["JavaScript", "TypeScript", "React", "Node.js", "Docker", "Kubernetes", "CI/CD", "PostgreSQL"],
+    notes: "Built a full-stack e-commerce platform as capstone. Active GitHub contributor. Interested in DevOps roles.",
+    areasDiscussed: ["Technical Skills", "Project Experience", "Open Source", "Career Goals"],
+    recordStatus: "Reviewed", priority: "Medium", approvalStatus: "Pending"
+  }
+];
+
+TIQ.views.generateDemoCandidates = function() {
+  var created = 0;
+  TIQ.views._demoCandidates.forEach(function(demo) {
+    var exists = TIQ.state.candidates.some(function(c) {
+      return c.firstName === demo.firstName && c.lastName === demo.lastName;
+    });
+    if (exists) return;
+    var id = "TQ-" + (2400 + TIQ.state.candidates.length + 1);
+    var c = Object.assign({}, demo, {
+      id: id,
+      createdAt: TIQ.nowISO(),
+      lastUpdated: TIQ.todayISO(),
+      capturedBy: TIQ.state.activeRecruiterId || "rec-1",
+      audioNotes: [],
+      areasDiscussed: demo.areasDiscussed || [],
+      skills: demo.skills || [],
+      workLocations: demo.workLocations || []
+    });
+    if (TIQ.ai && TIQ.ai.generateSummary) {
+      var result = TIQ.ai.generateSummary(c);
+      c.summary = result.summary;
+      c.traceability = result.traceability;
+    }
+    TIQ.state.candidates.push(c);
+    created++;
+  });
+  TIQ.saveState();
+  return created;
 };

@@ -138,17 +138,24 @@ TIQ.CONFIG = {
     { recruiter: "Chris Rivera", action: "reviewed", target: "TQ-2406", time: "22 min ago", dotColor: "green" }
   ],
 
+  // --- Attribute Tags (recruiter-applied during capture) ---
+  attributeOptions: [
+    { id: "technical", label: "Technical", icon: "+", cssClass: "attr-technical" },
+    { id: "communication", label: "Strong Comm", icon: "+", cssClass: "attr-communication" },
+    { id: "leadership", label: "Leadership", icon: "+", cssClass: "attr-leadership" },
+    { id: "culture", label: "Culture Fit", icon: "+", cssClass: "attr-culture" }
+  ],
+
   // --- View Titles ---
   viewTitles: {
-    "overview": "Event Overview",
-    "candidate-intake": "Candidate Intake",
-    "recruiter-capture": "Recruiter Capture",
-    "ai-review": "AI Summary & Review",
-    "candidate-review": "Candidate Review"
+    "analytics": "Executive Analytics",
+    "kiosk": "Candidate Kiosk",
+    "capture": "Live Recruiter Capture",
+    "review": "AI Review & Decision Hub"
   },
 
   // --- Default View ---
-  defaultView: "overview",
+  defaultView: "analytics",
 
   // --- Seed Candidates ---
   // Replace with your own test data
@@ -174,6 +181,7 @@ TIQ.CONFIG = {
       followUpRequestedBy: "", followUpTimestamp: "",
       lastUpdated: "2026-09-14", created_at: "2026-09-14T08:30:00Z",
       priority: "High",
+      attributes: ["technical", "communication"],
       audioNotes: [],
       auditLog: [
         { action: "CREATED", recruiter_id: "", timestamp: "2026-09-14T08:30:00Z", time_to_complete: 28, detail: "Candidate intake form submitted" },
@@ -202,6 +210,7 @@ TIQ.CONFIG = {
       followUpRequestedBy: "R2", followUpTimestamp: "2026-09-14T10:00:00Z",
       lastUpdated: "2026-09-14", created_at: "2026-09-14T09:00:00Z",
       priority: "Medium",
+      attributes: [],
       audioNotes: [],
       auditLog: [
         { action: "CREATED", recruiter_id: "", timestamp: "2026-09-14T09:00:00Z", time_to_complete: 32, detail: "Candidate intake form submitted" },
@@ -230,6 +239,7 @@ TIQ.CONFIG = {
       followUpRequestedBy: "", followUpTimestamp: "",
       lastUpdated: "2026-09-14", created_at: "2026-09-14T09:15:00Z",
       priority: "High",
+      attributes: ["technical"],
       audioNotes: [],
       auditLog: [
         { action: "CREATED", recruiter_id: "", timestamp: "2026-09-14T09:15:00Z", time_to_complete: 30, detail: "Candidate intake form submitted" },
@@ -258,6 +268,7 @@ TIQ.CONFIG = {
       followUpRequestedBy: "", followUpTimestamp: "",
       lastUpdated: "2026-09-14", created_at: "2026-09-14T09:30:00Z",
       priority: "Medium",
+      attributes: ["technical"],
       audioNotes: [],
       auditLog: [
         { action: "CREATED", recruiter_id: "", timestamp: "2026-09-14T09:30:00Z", time_to_complete: 25, detail: "Candidate intake form submitted" },
@@ -286,6 +297,7 @@ TIQ.CONFIG = {
       followUpRequestedBy: "", followUpTimestamp: "",
       lastUpdated: "2026-09-14", created_at: "2026-09-14T09:45:00Z",
       priority: "Low",
+      attributes: [],
       audioNotes: [],
       auditLog: [
         { action: "CREATED", recruiter_id: "", timestamp: "2026-09-14T09:45:00Z", time_to_complete: 35, detail: "Candidate intake form submitted" }
@@ -313,6 +325,7 @@ TIQ.CONFIG = {
       followUpRequestedBy: "", followUpTimestamp: "",
       lastUpdated: "2026-09-14", created_at: "2026-09-14T10:00:00Z",
       priority: "High",
+      attributes: ["technical", "communication"],
       audioNotes: [],
       auditLog: [
         { action: "CREATED", recruiter_id: "", timestamp: "2026-09-14T10:00:00Z", time_to_complete: 29, detail: "Candidate intake form submitted" },
@@ -341,6 +354,7 @@ TIQ.CONFIG = {
       followUpRequestedBy: "", followUpTimestamp: "",
       lastUpdated: "2026-09-14", created_at: "2026-09-14T10:15:00Z",
       priority: "Low",
+      attributes: [],
       audioNotes: [],
       auditLog: [
         { action: "CREATED", recruiter_id: "", timestamp: "2026-09-14T10:15:00Z", time_to_complete: 33, detail: "Candidate intake form submitted" }

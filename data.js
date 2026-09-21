@@ -233,16 +233,7 @@ TIQ.recruiterName = function(id) {
   return r ? r.name : "";
 };
 
-TIQ.getMissingFlags = function(c) {
-  var flags = [];
-  if (!c.workAuthorization) flags.push({ key: "Work Authorization", label: "Work Auth Unspecified" });
-  if (!c.graduationDate) flags.push({ key: "Graduation", label: "Grad Date Missing" });
-  if (!c.gpa) flags.push({ key: "GPA", label: "GPA Missing" });
-  if (!c.phone) flags.push({ key: "Phone", label: "Contact Phone Missing" });
-  if (!c.resumeUpload) flags.push({ key: "Resume", label: "Resume Not Uploaded" });
-  if (!c.workLocations || c.workLocations.length === 0) flags.push({ key: "Location", label: "Location Preference Missing" });
-  return flags;
-};
+/* getMissingFlags defined below in TIQ.ai section (enhanced version) */
 
 TIQ.formatFlagChip = function(flag) {
   return '<span class="flag-chip">[Flag: ' + TIQ.escapeHtml(flag.label) + ']</span>';
@@ -317,6 +308,572 @@ TIQ.addAuditEntry = function(candidate, action, detail) {
     detail: detail
   });
   candidate.lastUpdated = TIQ.todayISO();
+};
+
+/* ---- IndexedDB Audio Persistence ---- */
+TIQ.AudioDB = (function() {
+  var DB_NAME = "TalentIQAudio";
+  var DB_VERSION = 1;
+  var STORE = "blobs";
+  var _db = null;
+
+  function open() {
+    if (_db) return Promise.resolve(_db);
+    return new Promise(function(resolve, reject) {
+      var req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = function(e) {
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE)) {
+          db.createObjectStore(STORE);
+        }
+      };
+      req.onsuccess = function(e) {
+        _db = e.target.result;
+        resolve(_db);
+      };
+      req.onerror = function(e) {
+        console.error("[TalentIQ] IndexedDB open failed:", e.target.error);
+        reject(e.target.error);
+      };
+    });
+  }
+
+  function saveBlob(id, blob) {
+    return open().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).put(blob, id);
+        tx.oncomplete = function() { resolve(); };
+        tx.onerror = function(e) { reject(e.target.error); };
+      });
+    });
+  }
+
+  function getBlob(id) {
+    return open().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction(STORE, "readonly");
+        var req = tx.objectStore(STORE).get(id);
+        req.onsuccess = function() { resolve(req.result || null); };
+        req.onerror = function(e) { reject(e.target.error); };
+      });
+    });
+  }
+
+  function deleteBlob(id) {
+    return open().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).delete(id);
+        tx.oncomplete = function() { resolve(); };
+        tx.onerror = function(e) { reject(e.target.error); };
+      });
+    });
+  }
+
+  function deleteAll() {
+    return open().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).clear();
+        tx.oncomplete = function() { resolve(); };
+        tx.onerror = function(e) { reject(e.target.error); };
+      });
+    });
+  }
+
+  return { saveBlob: saveBlob, getBlob: getBlob, deleteBlob: deleteBlob, deleteAll: deleteAll };
+})();
+
+/* ---- Offline Sync ---- */
+window.addEventListener("online", function() {
+  var changed = false;
+  TIQ.state.candidates.forEach(function(c) {
+    (c.audioNotes || []).forEach(function(note) {
+      if (note.offlinePending) {
+        note.offlinePending = false;
+        changed = true;
+      }
+    });
+  });
+  if (changed) {
+    TIQ.saveState();
+    console.log("[TalentIQ] Back online — synced pending audio notes.");
+  }
+});
+
+/* ---- QR Code Generator (via qrcode-generator library) ---- */
+TIQ.qr = (function() {
+  function renderTo(text, targetCanvas, options) {
+    options = options || {};
+    var margin = options.margin || 4;
+    try {
+      var qr = qrcode(0, 'L');
+      qr.addData(text);
+      qr.make();
+
+      var moduleCount = qr.getModuleCount();
+      var scale = options.scale || Math.max(1, Math.round(400 / (moduleCount + margin * 2)));
+      var totalSize = (moduleCount + margin * 2) * scale;
+      targetCanvas.width = totalSize;
+      targetCanvas.height = totalSize;
+      var ctx = targetCanvas.getContext('2d');
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, totalSize, totalSize);
+      ctx.fillStyle = '#000000';
+      for (var r = 0; r < moduleCount; r++) {
+        for (var c = 0; c < moduleCount; c++) {
+          if (qr.isDark(r, c)) {
+            ctx.fillRect((c + margin) * scale, (r + margin) * scale, scale, scale);
+          }
+        }
+      }
+    } catch(e) {
+      console.error('[TalentIQ] QR render error:', e.message, e);
+      targetCanvas.width = 240;
+      targetCanvas.height = 240;
+      var ctx2 = targetCanvas.getContext('2d');
+      ctx2.fillStyle = '#FFEE00';
+      ctx2.fillRect(0, 0, 240, 240);
+      ctx2.fillStyle = '#000';
+      ctx2.font = '14px monospace';
+      ctx2.fillText('QR Error: ' + e.message, 10, 120);
+    }
+  }
+
+  return { renderTo: renderTo };
+})();
+
+/* ============================================
+   TalentIQ — AI Resume Parser & Summarizer
+   ============================================ */
+TIQ.ai = {};
+
+/* ---- Skills dictionary for extraction ---- */
+TIQ.ai.SKILLS_DICT = [
+  "Python", "Java", "JavaScript", "TypeScript", "C", "C++", "C#", "Go", "Rust", "Ruby", "PHP", "Swift", "Kotlin", "R", "MATLAB", "Scala", "Perl", "Lua", "Dart", "Elixir", "Haskell", "Assembly", "COBOL", "Fortran",
+  "React", "React.js", "Vue", "Vue.js", "Angular", "Angular.js", "Svelte", "Next.js", "Nuxt.js", "Node.js", "Express", "Django", "Flask", "FastAPI", "Spring", "Spring Boot", "ASP.NET", "Laravel", "Rails", "Symfony",
+  "HTML", "CSS", "SASS", "SCSS", "Tailwind", "Bootstrap", "jQuery",
+  "SQL", "MySQL", "PostgreSQL", "SQLite", "MongoDB", "Redis", "Cassandra", "DynamoDB", "Firebase", "Supabase", "Neo4j",
+  "AWS", "Azure", "GCP", "Google Cloud", "Heroku", "DigitalOcean", "Linode", "Vercel", "Netlify", "Cloudflare",
+  "Docker", "Kubernetes", "Terraform", "Ansible", "Jenkins", "CircleCI", "GitHub Actions", "GitLab CI", "Travis CI",
+  "Git", "GitHub", "GitLab", "Bitbucket", "Jira", "Confluence", "Trello", "Notion", "Linear",
+  "Machine Learning", "Deep Learning", "NLP", "Natural Language Processing", "Computer Vision", "TensorFlow", "PyTorch", "Keras", "scikit-learn", "Pandas", "NumPy", "SciPy", "Matplotlib", "Seaborn", "OpenCV", "Hugging Face", "LangChain", "OpenAI", "LLM",
+  "REST", "REST API", "GraphQL", "gRPC", "WebSocket", "SOAP",
+  "Agile", "Scrum", "Kanban", "Sprint", "CI/CD", "DevOps", "Microservices",
+  "Linux", "Unix", "Bash", "Shell Scripting", "PowerShell", "Windows Server",
+  "Tableau", "Power BI", "Looker", "Excel", "Google Sheets", "Jupyter", "R Markdown",
+  "Figma", "Sketch", "Adobe XD", "Photoshop", "Illustrator", "InDesign",
+  "Communication", "Leadership", "Teamwork", "Problem Solving", "Critical Thinking",
+  "Supply Chain", "Logistics", "Transportation", "Fleet Management", "Warehouse", "Freight",
+  "JavaScript ES6", "Redux", "MobX", "Webpack", "Vite", "Babel", "ESLint",
+  "Apache", "Nginx", "IIS", "Tomcat",
+  "Spark", "Hadoop", "Hive", "Kafka", "Airflow", "dbt",
+  "Cypress", "Selenium", "Jest", "Mocha", "Chai", "Playwright", "Pytest",
+  "OAuth", "JWT", "SSL", "TLS", "CORS",
+  "Stripe", "Twilio", "SendGrid", "Twilio"
+];
+
+/* ---- Experience section patterns ---- */
+TIQ.ai.SECTION_HEADERS = [
+  "experience", "work experience", "employment", "work history",
+  "education", "academic", "degree",
+  "projects", "project experience", "personal projects", "capstone",
+  "skills", "technical skills", "competencies",
+  "certifications", "licenses", "credentials",
+  "internships", "internship"
+];
+
+TIQ.ai.extractResumeData = function(text) {
+  if (!text) return null;
+  return {
+    skills: TIQ.ai._extractSkills(text),
+    experience: TIQ.ai._extractExperience(text),
+    projects: TIQ.ai._extractProjects(text),
+    education: TIQ.ai._extractEducation(text),
+    gpa: TIQ.ai._extractGPA(text),
+    certifications: TIQ.ai._extractCertifications(text),
+    rawText: text
+  };
+};
+
+TIQ.ai._extractSkills = function(text) {
+  var found = [];
+  var lower = text.toLowerCase();
+  var dict = TIQ.ai.SKILLS_DICT;
+  for (var i = 0; i < dict.length; i++) {
+    var skill = dict[i];
+    var pattern = new RegExp("\\b" + skill.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\.js\\b/i, "\\.?js") + "\\b", "i");
+    if (pattern.test(text)) {
+      var canonical = skill.replace(/\\.js$/i, ".js");
+      if (found.indexOf(canonical) === -1) found.push(canonical);
+    }
+  }
+  var contextual = [
+    /(?:proficient in|experienced with|skilled in|knowledge of|familiar with|background in)\s+([A-Z][A-Za-z+#.\s,\/]+?)(?:\.|,|\n|$)/gi,
+    /(?:technologies?|tools?|languages?):\s*([^\n]+)/gi
+  ];
+  for (var j = 0; j < contextual.length; j++) {
+    var match;
+    while ((match = contextual[j].exec(text)) !== null) {
+      var parts = match[1].split(/[,\/]+/);
+      for (var k = 0; k < parts.length; k++) {
+        var s = parts[k].trim();
+        if (s.length > 1 && s.length < 40 && found.indexOf(s) === -1) found.push(s);
+      }
+    }
+  }
+  return found.slice(0, 20);
+};
+
+TIQ.ai._extractExperience = function(text) {
+  var experiences = [];
+  var lines = text.split("\n");
+  var inSection = false;
+  var current = null;
+  var expPattern = /(?:experience|employment|work history|internships|internship)/i;
+  var nextSectionPattern = /^(?:education|projects|skills|certifications|licenses|references|awards|hobbies)/i;
+  var jobPattern = /(?:(?:Software|Data|Cloud|DevOps|Full[\s-]?Stack|Front[\s-]?End|Back[\s-]?End|Mobile|Web|Junior|Senior|Lead|Associate|Staff|Principal|Systems|Network|Security|Database|QA|Quality|Product|Project|Business|Operations|Research|Teaching|Lab|Graduate|Undergraduate)\s+(?:Engineer|Analyst|Developer|Intern|Scientist|Architect|Administrator|Manager|Consultant|Designer|Specialist|Technician|Coordinator|Assistant))/i;
+  var datePattern = /(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{4}\s*[-–—to]+\s*(?:(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{4}|[Pp]resent|[Cc]urrent)/;
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (expPattern.test(line)) { inSection = true; continue; }
+    if (inSection && nextSectionPattern.test(line)) break;
+    if (inSection && line.length > 0) {
+      if (jobPattern.test(line) || (datePattern.test(line) && line.length < 80)) {
+        if (current && current.title) experiences.push(current);
+        var titleMatch = line.match(jobPattern);
+        var dateMatch = line.match(datePattern);
+        var company = line.replace(jobPattern, "").replace(datePattern, "").replace(/[|,\-–]+/g, "").trim();
+        current = {
+          title: titleMatch ? titleMatch[0] : line,
+          company: company || "",
+          dates: dateMatch ? dateMatch[0] : "",
+          description: ""
+        };
+      } else if (current) {
+        current.description += (current.description ? " " : "") + line;
+      }
+    }
+  }
+  if (current && current.title) experiences.push(current);
+  return experiences.slice(0, 5);
+};
+
+TIQ.ai._extractProjects = function(text) {
+  var projects = [];
+  var lines = text.split("\n");
+  var inSection = false;
+  var current = null;
+  var projPattern = /(?:projects|personal projects|capstone|capstone projects|academic projects)/i;
+  var nextSectionPattern = /^(?:skills|certifications|references|awards|hobbies|extracurricular)/i;
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (projPattern.test(line)) { inSection = true; continue; }
+    if (inSection && nextSectionPattern.test(line)) break;
+    if (inSection && line.length > 2) {
+      if (line.length < 80 && /^[A-Z]/.test(line) && !/^[A-Z]{2,}/.test(line)) {
+        if (current && current.name) projects.push(current);
+        current = { name: line, description: "" };
+      } else if (current) {
+        current.description += (current.description ? " " : "") + line;
+      } else {
+        current = { name: line.split(/[—–\-:|]/)[0].trim(), description: line.split(/[—–\-:|]/).slice(1).join(" ").trim() };
+      }
+    }
+  }
+  if (current && current.name) projects.push(current);
+  return projects.slice(0, 5);
+};
+
+TIQ.ai._extractEducation = function(text) {
+  var education = [];
+  var lines = text.split("\n");
+  var inSection = false;
+  var current = null;
+  var eduPattern = /(?:education|academic|degree)/i;
+  var nextSectionPattern = /^(?:experience|work|projects|skills|certifications)/i;
+  var degreePattern = /(?:Bachelor|Master|Ph\.?D|Associate|MBA|B\.?S\.?|B\.?A\.?|M\.?S\.?|M\.?A\.?|B\.?Sc|M\.?Sc|Doctorate|Certificate|Diploma)/i;
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (eduPattern.test(line)) { inSection = true; continue; }
+    if (inSection && nextSectionPattern.test(line)) break;
+    if (inSection && line.length > 2) {
+      if (degreePattern.test(line) || (line.length < 100 && /[Uu]niversit|[Cc]ollege|[Ii]nstitut|[Ss]chool/.test(line))) {
+        if (current && current.school) education.push(current);
+        var schoolMatch = line.match(/([A-Z][A-Za-z\s.&']+(?:University|College|Institute|School)[A-Za-z\s.&']*)/);
+        var degreeMatch = line.match(degreePattern);
+        current = {
+          school: schoolMatch ? schoolMatch[1].trim() : line,
+          degree: degreeMatch ? degreeMatch[0] : "",
+          major: "",
+          year: ""
+        };
+        var yearMatch = line.match(/\b(20\d{2})\b/);
+        if (yearMatch) current.year = yearMatch[1];
+        var majorMatch = line.match(/(?:in|of)\s+([A-Z][A-Za-z\s]+?)(?:\s*,|\s*\(|$)/);
+        if (majorMatch) current.major = majorMatch[1].trim();
+      } else if (current) {
+        if (!current.major) {
+          var mMatch = line.match(/(?:Major|Concentration|Focus|Specialization):\s*(.+)/i);
+          if (mMatch) current.major = mMatch[1].trim();
+        }
+        if (!current.year) {
+          var yMatch = line.match(/\b(20\d{2})\b/);
+          if (yMatch) current.year = yMatch[1];
+        }
+      }
+    }
+  }
+  if (current && current.school) education.push(current);
+  return education.slice(0, 3);
+};
+
+TIQ.ai._extractGPA = function(text) {
+  var patterns = [
+    /GPA[:\s]*(?:of\s*)?(\d\.\d{1,2})/i,
+    /GPA:\s*(\d\.\d{1,2})/i,
+    /Cumulative\s+(?:GPA|Grade\s+Point\s+Average)[:\s]*(\d\.\d{1,2})/i,
+    /(\d\.\d{1,2})\s*(?:GPA|\/\s*4\.?0)/i
+  ];
+  for (var i = 0; i < patterns.length; i++) {
+    var match = text.match(patterns[i]);
+    if (match) return match[1];
+  }
+  return "";
+};
+
+TIQ.ai._extractCertifications = function(text) {
+  var certs = [];
+  var certPatterns = [
+    /AWS\s+Certified\s+[\w\s]+/gi,
+    /CompTIA\s+[\w\s]+/gi,
+    /Google\s+Cloud\s+Certified[\w\s]*/gi,
+    /Microsoft\s+Certified[\w\s]*/gi,
+    /Azure\s+Certified[\w\s]*/gi,
+    /Cisco\s+Certified[\w\s]*/gi,
+    /PMP/gi,
+    /Six\s+Sigma\s+(?:Green|Black|Yellow)\s+Belt/gi,
+    /Certified\s+[\w\s]+(?:Professional|Specialist|Engineer|Associate|Practitioner)/gi,
+    /[A-Z]{2,5}-\d{3,5}/g
+  ];
+  for (var i = 0; i < certPatterns.length; i++) {
+    var match;
+    while ((match = certPatterns[i].exec(text)) !== null) {
+      var cert = match[0].trim();
+      if (cert.length > 3 && cert.length < 60 && certs.indexOf(cert) === -1) certs.push(cert);
+    }
+  }
+  return certs.slice(0, 5);
+};
+
+/* ---- Summary Generator ---- */
+TIQ.ai.generateSummary = function(c) {
+  if (!c) return { summary: "", traceability: [], missingData: [] };
+  var resume = c.parsedResume || null;
+  var parts = [];
+  var trace = [];
+  var missing = [];
+
+  var name = (c.firstName || "The candidate") + (c.lastName ? " " + c.lastName : "");
+  var school = c.university || (resume && resume.education && resume.education[0] && resume.education[0].school) || "";
+  var major = c.major || (resume && resume.education && resume.education[0] && resume.education[0].major) || "";
+  var gradDate = c.graduationDate || "";
+  var gpa = c.gpa || (resume && resume.gpa) || "";
+
+  if (school || major) {
+    var eduStr = name + " is";
+    if (school && major) {
+      eduStr += " a " + major + " student at " + school;
+      trace.push("Education: " + school + " " + major + " — intake form");
+    } else if (school) {
+      eduStr += " a student at " + school;
+      trace.push("School: " + school + " — intake form");
+    } else {
+      eduStr += " a " + major + " student";
+      trace.push("Major: " + major + " — intake form");
+    }
+    if (gradDate) {
+      eduStr += " (graduating " + gradDate + ")";
+      trace.push("Graduation: " + gradDate + " — intake form");
+    }
+    eduStr += ".";
+    parts.push(eduStr);
+  } else {
+    parts.push(name + " is a candidate in the system.");
+    missing.push({ key: "Education", label: "Education details missing", source: "intake form" });
+  }
+
+  var allSkills = (c.skills && c.skills.length) ? c.skills : (resume && resume.skills) || [];
+  if (allSkills.length) {
+    var skillList = allSkills.length <= 3 ? allSkills.join(", ") : allSkills.slice(0, 3).join(", ") + " and " + allSkills.slice(3).join(", ");
+    var skillSource = (c.skills && c.skills.length) ? " — recruiter input" : " — resume";
+    parts.push(skillSource.indexOf("resume") >= 0
+      ? "Their resume highlights proficiency in " + skillList + "."
+      : "Skills captured include " + skillList + ".");
+    trace.push("Skills: " + skillList + skillSource);
+  } else {
+    missing.push({ key: "Skills", label: "No skills captured", source: "resume/inputs" });
+  }
+
+  if (resume && resume.experience && resume.experience.length) {
+    var exp = resume.experience[0];
+    var expStr = "Experience includes " + (exp.title || "a role");
+    if (exp.company) expStr += " at " + exp.company;
+    if (exp.dates) expStr += " (" + exp.dates + ")";
+    expStr += ".";
+    parts.push(expStr);
+    trace.push("Experience: " + exp.title + (exp.company ? " at " + exp.company : "") + " — resume");
+  } else if (resume && resume.projects && resume.projects.length) {
+    var proj = resume.projects[0];
+    parts.push("Notable project: " + proj.name + (proj.description ? " — " + proj.description.slice(0, 80) : "") + ".");
+    trace.push("Project: " + proj.name + " — resume");
+  }
+
+  if (c.workAuthorization) {
+    parts.push("Work authorization: " + c.workAuthorization + ".");
+    trace.push("Work authorization: " + c.workAuthorization + " — recruiter input");
+  } else {
+    missing.push({ key: "Work Authorization", label: "Work authorization not confirmed", source: "recruiter input" });
+  }
+
+  if (c.workLocations && c.workLocations.length) {
+    parts.push("Preferred location" + (c.workLocations.length > 1 ? "s" : "") + ": " + c.workLocations.join(", ") + ".");
+    trace.push("Location preference: " + c.workLocations.join(", ") + " — recruiter input");
+  } else {
+    missing.push({ key: "Location", label: "Location preference missing", source: "recruiter input" });
+  }
+
+  if (c.function) {
+    trace.push("Role interest: " + c.function + " — recruiter input");
+  }
+
+  if (c.notes) {
+    var notePreview = c.notes.length > 120 ? c.notes.slice(0, 117) + "..." : c.notes;
+    parts.push("Recruiter notes: \"" + notePreview + "\"");
+    trace.push("Recruiter notes — capture conversation");
+  } else {
+    missing.push({ key: "Notes", label: "No recruiter notes captured", source: "capture conversation" });
+  }
+
+  if (c.areasDiscussed && c.areasDiscussed.length) {
+    parts.push("Areas discussed: " + c.areasDiscussed.join(", ") + ".");
+    trace.push("Areas discussed: " + c.areasDiscussed.join(", ") + " — recruiter input");
+  } else {
+    missing.push({ key: "Areas Discussed", label: "Areas discussed not logged", source: "recruiter input" });
+  }
+
+  if (resume && resume.certifications && resume.certifications.length) {
+    parts.push("Certifications: " + resume.certifications.join(", ") + ".");
+    trace.push("Certifications: " + resume.certifications.join(", ") + " — resume");
+  }
+
+  if (!c.phone) {
+    missing.push({ key: "Phone", label: "Contact phone missing", source: "intake form" });
+  }
+
+  return {
+    summary: parts.join(" "),
+    traceability: trace,
+    missingData: missing
+  };
+};
+
+/* ---- PDF Parsing Orchestrator ---- */
+TIQ.ai.parseAndStoreResume = function(candidate, file) {
+  if (!window.pdfjsLib) {
+    console.warn("[TalentIQ] PDF.js not loaded — skipping resume parse");
+    return Promise.resolve(null);
+  }
+  return new Promise(function(resolve) {
+    var reader = new FileReader();
+    reader.onload = function() {
+      var typedArray = new Uint8Array(reader.result);
+      pdfjsLib.getDocument(typedArray).promise.then(function(pdf) {
+        var textParts = [];
+        var promises = [];
+        for (var i = 1; i <= Math.min(pdf.numPages, 10); i++) {
+          (function(pageNum) {
+            promises.push(pdf.getPage(pageNum).then(function(page) {
+              return page.getTextContent().then(function(content) {
+                var pageText = content.items.map(function(item) { return item.str; }).join(" ");
+                textParts.push(pageText);
+              });
+            }));
+          })(i);
+        }
+        Promise.all(promises).then(function() {
+          var fullText = textParts.join("\n");
+          console.log("[TalentIQ] Resume text extracted, length:", fullText.length);
+          var parsed = TIQ.ai.extractResumeData(fullText);
+          candidate.parsedResume = parsed;
+
+          if (parsed && parsed.gpa && !candidate.gpa) candidate.gpa = parsed.gpa;
+          if (parsed && parsed.skills && parsed.skills.length && (!candidate.skills || !candidate.skills.length)) {
+            candidate.skills = parsed.skills;
+          }
+
+          var result = TIQ.ai.generateSummary(candidate);
+          candidate.summary = result.summary;
+          candidate.traceability = result.traceability;
+
+          console.log("[TalentIQ] Resume parsed successfully:", {
+            skills: (parsed && parsed.skills) || [],
+            gpa: (parsed && parsed.gpa) || "",
+            experience: (parsed && parsed.experience) || [],
+            education: (parsed && parsed.education) || [],
+            summaryLength: result.summary.length,
+            traceCount: result.traceability.length,
+            missingCount: result.missingData.length
+          });
+
+          TIQ.addAuditEntry(candidate, "RESUME_PARSED", "Extracted data from uploaded resume");
+          TIQ.saveState();
+          resolve(parsed);
+        }).catch(function(err) {
+          console.error("[TalentIQ] PDF page extraction error:", err);
+          resolve(null);
+        });
+      }).catch(function(err) {
+        console.error("[TalentIQ] PDF load error:", err);
+        resolve(null);
+      });
+    };
+    reader.onerror = function() {
+      console.error("[TalentIQ] Failed to read resume file");
+      resolve(null);
+    };
+    reader.readAsArrayBuffer(file);
+  });
+};
+
+/* ---- Summary Update Convenience ---- */
+TIQ.ai.updateCandidateSummary = function(candidate) {
+  var result = TIQ.ai.generateSummary(candidate);
+  candidate.summary = result.summary;
+  candidate.traceability = result.traceability;
+  candidate.lastUpdated = TIQ.todayISO();
+  TIQ.saveState();
+  return result;
+};
+
+/* ---- Update getMissingFlags to handle parsedResume + summary gaps ---- */
+TIQ.getMissingFlags = function(c) {
+  var flags = [];
+  if (!c.workAuthorization) flags.push({ key: "Work Authorization", label: "Work Auth Unspecified" });
+  if (!c.graduationDate) flags.push({ key: "Graduation", label: "Grad Date Missing" });
+  if (!c.gpa) flags.push({ key: "GPA", label: "GPA Missing" });
+  if (!c.phone) flags.push({ key: "Phone", label: "Contact Phone Missing" });
+  if (!c.resumeUpload) flags.push({ key: "Resume", label: "Resume Not Uploaded" });
+  if (!c.workLocations || c.workLocations.length === 0) flags.push({ key: "Location", label: "Location Preference Missing" });
+  if (!c.skills || c.skills.length === 0) flags.push({ key: "Skills", label: "No Skills Captured" });
+  if (!c.notes) flags.push({ key: "Notes", label: "No Recruiter Notes" });
+  if (!c.areasDiscussed || c.areasDiscussed.length === 0) flags.push({ key: "Areas Discussed", label: "Areas Not Logged" });
+  return flags;
 };
 
 
