@@ -7,6 +7,11 @@ Thumbs.db
 node_modules/
 venv/
 venv 2/
+.venv-ml/
+__pycache__/
+*.pyc
+ml/**/__pycache__/
+.deepface/
 
 # Environment files
 .env

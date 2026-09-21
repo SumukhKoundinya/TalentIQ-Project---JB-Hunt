@@ -103,6 +103,15 @@ TIQ.views.renderCandidateIntake = function() {
     '<div class="view-header"><div><span class="section-kicker">Student Self-Service</span><h1>Candidate Intake</h1></div></div>' +
     '<div class="intake-form-wrap">' +
       '<form id="intakeForm" class="intake-form" novalidate>' +
+        '<div class="intake-section intake-resume-banner">' +
+          '<div class="intake-section__title">Start with your resume</div>' +
+          '<p class="intake-resume-hint">Upload a PDF or DOCX — we fill any blanks we can find. Review everything before submitting.</p>' +
+          '<label class="form-field resume-drop">' +
+            '<span class="form-label">Resume (PDF or DOCX)</span>' +
+            '<input name="resumeUpload" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />' +
+          '</label>' +
+          '<div class="resume-parse-status" id="resumeParseStatus" aria-live="polite"></div>' +
+        '</div>' +
         '<div class="intake-section"><div class="intake-section__title">Required Information</div>' +
           '<div class="form-row"><label class="form-field"><span class="form-label">First Name *</span><input name="firstName" required placeholder="e.g. Maya" /></label>' +
           '<label class="form-field"><span class="form-label">Last Name *</span><input name="lastName" required placeholder="e.g. Williams" /></label></div>' +
@@ -121,7 +130,11 @@ TIQ.views.renderCandidateIntake = function() {
               '<label class="radio-label"><input type="radio" name="workAuthorization" value="OPT/CPT" /> OPT/CPT</label>' +
             '</div>' +
           '</div>' +
-          '<label class="form-field"><span class="form-label">Resume</span><input name="resumeUpload" type="file" accept=".pdf,.doc,.docx" /></label>' +
+        '</div>' +
+        '<div class="intake-section">' +
+          (TIQ.face && TIQ.face.enrollment
+            ? TIQ.face.enrollment.renderWizardHtml({ candidateId: "", mode: "intake", enrolled: false })
+            : '') +
         '</div>' +
         '<button type="submit" class="primary-button intake-submit">Submit Profile</button>' +
         '<div class="intake-error" id="intakeError"></div>' +
@@ -157,6 +170,10 @@ TIQ.views.initIntakeForm = function() {
 
     var id = TIQ.CONFIG.idPrefix + (TIQ.CONFIG.idBaseOffset + TIQ.state.candidates.length + 1);
     var resumeFile = fd.get("resumeUpload");
+    var resumeSkills = [];
+    if (form.dataset.resumeSkills) {
+      resumeSkills = form.dataset.resumeSkills.split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+    }
     var newCandidate = {
       id: id, firstName: firstName, lastName: lastName, email: email,
       phone: fd.get("phone") || "",
@@ -165,25 +182,97 @@ TIQ.views.initIntakeForm = function() {
       gpa: fd.get("gpa") || "", resumeUpload: resumeFile ? resumeFile.name : "",
       function: "General", workLocations: [],
       workAuthorization: fd.get("workAuthorization") || "",
-      skills: [], keySkills: [], areasDiscussed: [],
+      skills: resumeSkills.slice(), keySkills: resumeSkills.slice(0, 6), areasDiscussed: [],
       notes: "", summary: "",
-      traceability: [],
+      traceability: resumeSkills.length
+        ? ["Skills suggested from resume — pending Info Cards review"]
+        : [],
       recordStatus: "New", approvalStatus: "Pending",
       approverId: "", approvalTimestamp: "",
       followUpRequestedBy: "", followUpTimestamp: "",
       lastUpdated: TIQ.todayISO(), created_at: TIQ.nowISO(),
       priority: "Normal",
       audioNotes: [],
+      faceEnrollment: TIQ.defaultFaceEnrollment(),
       auditLog: [{ action: "CREATED", recruiter_id: TIQ.state.activeRecruiterId, timestamp: TIQ.nowISO(), time_to_complete: 0, detail: "Candidate intake form submitted" }],
       reviewTimeMs: 0, noteEdits: 0
     };
 
     TIQ.state.candidates.push(newCandidate);
     TIQ.saveState();
-    TIQ.showToast("Profile submitted! Welcome, " + firstName + ".");
-    form.reset();
-    TIQ.router.navigateTo("recruiter-capture");
+
+    if (TIQ.views._lastResumeParse && TIQ.pipeline && TIQ.pipeline.enqueueResumeProposals) {
+      var rp = TIQ.views._lastResumeParse;
+      var n = TIQ.pipeline.enqueueResumeProposals(
+        newCandidate.id, rp.fields || {}, rp.confidence || {},
+        (rp.filename || (resumeFile && resumeFile.name) || "")
+      );
+      if (n) TIQ.showToast(n + " resume field(s) queued for Info Cards.");
+      TIQ.views._lastResumeParse = null;
+    }
+
+    var finish = function() {
+      if (TIQ.face && TIQ.face.enrollment) TIQ.face.enrollment.stopCamera();
+      TIQ.showToast("Profile submitted! Welcome, " + firstName + ".");
+      form.reset();
+      TIQ.router.navigateTo("recruiter-capture");
+    };
+
+    if (TIQ.face && TIQ.face.enrollment && TIQ.face.enrollment._pending[TIQ.face.enrollment._intakeDraftId]) {
+      TIQ.face.enrollment.commitIntakeDraft(id).then(finish).catch(function(err) {
+        TIQ.showToast("Profile saved; face enroll partial: " + (err.message || "error"));
+        finish();
+      });
+    } else {
+      finish();
+    }
   });
+
+  // Resume parse → autofill
+  TIQ.views._lastResumeParse = null;
+  var resumeInput = form.querySelector('input[name="resumeUpload"]');
+  var statusEl = document.getElementById("resumeParseStatus");
+  function setResumeStatus(msg, kind) {
+    if (!statusEl) return;
+    statusEl.textContent = msg || "";
+    statusEl.className = "resume-parse-status" + (kind ? " resume-parse-status--" + kind : "");
+  }
+  if (resumeInput) {
+    resumeInput.addEventListener("change", function() {
+      var file = resumeInput.files && resumeInput.files[0];
+      if (!file) {
+        setResumeStatus("");
+        return;
+      }
+      if (!TIQ.pipeline || !TIQ.pipeline.parseResume) {
+        setResumeStatus("Resume parser unavailable — start the ML server.", "error");
+        TIQ.showToast("Resume parser unavailable (start ML server).");
+        return;
+      }
+      setResumeStatus("Parsing " + file.name + "…", "busy");
+      TIQ.showToast("Parsing resume...");
+      TIQ.pipeline.parseResume(file).then(function(body) {
+        TIQ.views._lastResumeParse = body;
+        var filled = TIQ.pipeline.autofillIntake(body.fields || {}, body.confidence || {});
+        var n = (filled && filled.count) || Object.keys(body.fields || {}).length;
+        var labels = (filled && filled.labels) || Object.keys(body.fields || {});
+        setResumeStatus(
+          n
+            ? "Filled " + n + " field" + (n === 1 ? "" : "s") + ": " + labels.join(", ") + ". Review highlighted fields before submit."
+            : "Resume read, but no matching fields found. Fill the form manually.",
+          n ? "ok" : "warn"
+        );
+        TIQ.showToast(n ? "Resume fields filled — review before submit." : "No fields extracted from resume.");
+      }).catch(function(err) {
+        setResumeStatus(err.message || "Resume parse failed", "error");
+        TIQ.showToast(err.message || "Resume parse failed");
+      });
+    });
+  }
+
+  if (TIQ.face && TIQ.face.enrollment) {
+    TIQ.face.enrollment.init({ mode: "intake", candidateId: "" });
+  }
 };
 
 /* ---- Recruiter Capture View ---- */
@@ -252,6 +341,11 @@ TIQ.views.renderRecruiterCapture = function() {
   }
 
   var atEnd = idx >= cands.length - 1;
+  var faceEnrolled = !!(c.faceEnrollment && c.faceEnrollment.enrolled);
+  var candName = TIQ.escapeHtml(c.firstName + " " + c.lastName);
+  var facePill = faceEnrolled
+    ? '<span class="rec-pill rec-pill--ok" title="Face enrolled — matches will attach to this profile">Face ready</span>'
+    : '<span class="rec-pill rec-pill--warn" title="Enroll a face on Intake so matches aren\'t Unknown">No face</span>';
 
   return '<div class="view" id="view-capture">' +
     '<div class="capture-header">' +
@@ -259,6 +353,60 @@ TIQ.views.renderRecruiterCapture = function() {
       '<div class="capture-meta"><span class="capture-counter">Card ' + (idx + 1) + ' of ' + cands.length + '</span>' +
       '<span class="capture-recruiter">' + TIQ.escapeHtml(recruiterName) + '</span></div>' +
     '</div>' +
+    '<section class="capture-video capture-video--primary" id="captureVideoPanel" data-rec-state="idle" aria-label="Conversation recorder">' +
+      '<div class="capture-video__head">' +
+        '<div class="capture-video__head-text">' +
+          '<div class="capture-section-title">Record Conversation</div>' +
+          '<div class="capture-video__subject">' +
+            '<span class="capture-video__subject-name">' + candName + '</span>' +
+            '<span class="capture-video__subject-id">' + TIQ.escapeHtml(c.id) + '</span>' +
+          '</div>' +
+        '</div>' +
+        facePill +
+      '</div>' +
+      '<div class="capture-video__stage" id="captureVideoStage">' +
+        '<video id="captureVideoPreview" class="capture-video__preview" playsinline muted autoplay></video>' +
+        '<div class="capture-video__placeholder" id="captureVideoPlaceholder">' +
+          '<div class="capture-video__ph-icon" aria-hidden="true">' +
+            '<svg viewBox="0 0 48 48" width="48" height="48"><rect x="6" y="12" width="28" height="22" rx="3" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M34 20l8-4v16l-8-4z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/><circle cx="20" cy="23" r="5" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
+          '</div>' +
+          '<div class="capture-video__ph-title">Camera off</div>' +
+          '<div class="capture-video__ph-sub">Open the camera, then record the booth conversation</div>' +
+        '</div>' +
+        '<div class="capture-video__hud" id="captureVideoHud" hidden>' +
+          '<div class="capture-video__rec-badge" id="captureRecBadge" hidden><span class="capture-video__rec-dot"></span> REC</div>' +
+          '<div class="capture-video__timer-pill" id="videoTimer">00:00</div>' +
+        '</div>' +
+        '<div class="capture-video__processing" id="captureVideoProcessing" hidden>' +
+          '<div class="capture-video__processing-spin" aria-hidden="true"></div>' +
+          '<div class="capture-video__processing-label" id="captureProcessingLabel">Processing…</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="video-controls">' +
+        '<button type="button" id="videoOpenCamBtn" class="rec-btn rec-btn--ghost">' +
+          '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 7h11v10H4zM15 10l5-3v10l-5-3z" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
+          '<span id="videoOpenCamLabel">Open Camera</span>' +
+        '</button>' +
+        '<button type="button" id="videoRecordBtn" class="rec-btn rec-btn--record" aria-label="Start recording conversation" disabled>' +
+          '<span class="video-record-btn__dot" aria-hidden="true"></span>' +
+          '<span id="videoRecordLabel">Start Recording</span>' +
+        '</button>' +
+        '<button type="button" id="videoStopBtn" class="rec-btn rec-btn--stop" disabled>' +
+          '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor"/></svg>' +
+          'Stop &amp; Process' +
+        '</button>' +
+      '</div>' +
+      '<div class="capture-video__footer">' +
+        '<p id="videoStatus" class="capture-video__status">Open the camera to begin</p>' +
+        '<div class="capture-video__steps" aria-hidden="true">' +
+          '<span class="capture-video__step" data-step="1">1. Camera</span>' +
+          '<span class="capture-video__step-sep"></span>' +
+          '<span class="capture-video__step" data-step="2">2. Record</span>' +
+          '<span class="capture-video__step-sep"></span>' +
+          '<span class="capture-video__step" data-step="3">3. Process</span>' +
+        '</div>' +
+      '</div>' +
+    '</section>' +
     stackHtml +
     '<div class="capture-notes">' +
       '<div class="capture-section-title">Recruiter Notes</div>' +
@@ -424,6 +572,209 @@ TIQ.views.initCaptureEvents = function() {
       recordBtn.classList.remove("recording");
       stopBtn.disabled = true;
       document.getElementById("audioRecordLabel").textContent = "Record";
+    });
+  }
+
+
+  /* Conversation video: open camera → record → process */
+  var vOpen = document.getElementById("videoOpenCamBtn");
+  var vStart = document.getElementById("videoRecordBtn");
+  var vStop = document.getElementById("videoStopBtn");
+  var vTimer = document.getElementById("videoTimer");
+  var vStatus = document.getElementById("videoStatus");
+  var vPreview = document.getElementById("captureVideoPreview");
+  var vPlaceholder = document.getElementById("captureVideoPlaceholder");
+  var vPanel = document.getElementById("captureVideoPanel");
+  var vHud = document.getElementById("captureVideoHud");
+  var vRecBadge = document.getElementById("captureRecBadge");
+  var vProcessing = document.getElementById("captureVideoProcessing");
+  var vProcessingLabel = document.getElementById("captureProcessingLabel");
+  var vOpenLabel = document.getElementById("videoOpenCamLabel");
+  if (vStart && vStop) {
+    if (!TIQ.views._videoRecorder) TIQ.views._videoRecorder = new TIQ.VideoRecorder();
+    var vrec = TIQ.views._videoRecorder;
+    var vInt = null;
+
+    function setRecState(state) {
+      if (vPanel) vPanel.setAttribute("data-rec-state", state || "idle");
+      if (vPanel) {
+        vPanel.querySelectorAll(".capture-video__step").forEach(function(el) {
+          var step = Number(el.getAttribute("data-step"));
+          el.classList.remove("is-active", "is-done");
+          if (state === "idle" && step === 1) el.classList.add("is-active");
+          if (state === "ready") {
+            if (step === 1) el.classList.add("is-done");
+            if (step === 2) el.classList.add("is-active");
+          }
+          if (state === "recording") {
+            if (step === 1) el.classList.add("is-done");
+            if (step === 2) el.classList.add("is-active");
+          }
+          if (state === "processing") {
+            if (step <= 2) el.classList.add("is-done");
+            if (step === 3) el.classList.add("is-active");
+          }
+          if (state === "done") {
+            el.classList.add("is-done");
+          }
+        });
+      }
+    }
+
+    function setStatus(msg) {
+      if (vStatus) vStatus.textContent = msg || "";
+      if (vProcessingLabel && msg) vProcessingLabel.textContent = msg;
+    }
+
+    function attachPreview(stream) {
+      if (!vPreview || !stream) return;
+      vPreview.srcObject = stream;
+      vPreview.muted = true;
+      vPreview.setAttribute("playsinline", "");
+      vPreview.setAttribute("autoplay", "");
+      var playPromise = vPreview.play();
+      if (playPromise && playPromise.catch) playPromise.catch(function() {});
+      vPreview.classList.add("capture-video__preview--live");
+      if (vPlaceholder) vPlaceholder.hidden = true;
+      if (vHud) vHud.hidden = false;
+    }
+
+    function clearPreview() {
+      if (!vPreview) return;
+      vPreview.srcObject = null;
+      vPreview.classList.remove("capture-video__preview--live");
+      if (vPlaceholder) vPlaceholder.hidden = false;
+      if (vHud) vHud.hidden = true;
+      if (vRecBadge) vRecBadge.hidden = true;
+    }
+
+    function setProcessingUi(on) {
+      if (vProcessing) vProcessing.hidden = !on;
+      if (vPanel) vPanel.classList.toggle("is-processing", !!on);
+    }
+
+    vrec.onStateChange = function(state, stream) {
+      if ((state === "stream" || state === "recording") && stream) attachPreview(stream);
+      if (state === "idle") clearPreview();
+    };
+
+    setRecState("idle");
+
+    if (vOpen) {
+      vOpen.addEventListener("click", function() {
+        setStatus("Requesting camera…");
+        vOpen.disabled = true;
+        vrec.openCamera().then(function(stream) {
+          attachPreview(stream);
+          vStart.disabled = false;
+          vOpen.disabled = false;
+          if (vOpenLabel) vOpenLabel.textContent = "Camera On";
+          vOpen.classList.add("is-live");
+          var tracks = stream.getVideoTracks ? stream.getVideoTracks() : [];
+          setRecState("ready");
+          setStatus(tracks.length ? "Camera live — tap Start Recording when ready" : "No video track — check permissions");
+          if (vTimer) vTimer.textContent = "00:00";
+          TIQ.showToast("Camera ready");
+        }).catch(function(err) {
+          vOpen.disabled = false;
+          vStart.disabled = true;
+          clearPreview();
+          setRecState("idle");
+          if (vOpenLabel) vOpenLabel.textContent = "Open Camera";
+          vOpen.classList.remove("is-live");
+          setStatus((err && err.message) || "Camera failed");
+        });
+      });
+    }
+
+    vStart.addEventListener("click", function() {
+      var vLabel = document.getElementById("videoRecordLabel");
+      setStatus("Starting recording…");
+      vStart.disabled = true;
+      if (vOpen) vOpen.disabled = true;
+      vrec.start().then(function(stream) {
+        attachPreview(stream);
+        vStart.classList.add("recording");
+        if (vLabel) vLabel.textContent = "Recording…";
+        vStop.disabled = false;
+        setRecState("recording");
+        setStatus("Recording — speak clearly toward the camera");
+        if (vRecBadge) vRecBadge.hidden = false;
+        var sec = 0;
+        if (vTimer) vTimer.textContent = "00:00";
+        clearInterval(vInt);
+        vInt = setInterval(function() {
+          sec++;
+          if (vTimer) vTimer.textContent = String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0");
+        }, 1000);
+      }).catch(function(err) {
+        vStart.disabled = false;
+        if (vOpen) vOpen.disabled = false;
+        vStart.classList.remove("recording");
+        vStop.disabled = true;
+        if (vLabel) vLabel.textContent = "Start Recording";
+        if (vRecBadge) vRecBadge.hidden = true;
+        setRecState(vrec.isLive && vrec.isLive() ? "ready" : "idle");
+        setStatus((err && err.message) || "Recording failed");
+      });
+    });
+
+    vStop.addEventListener("click", function() {
+      clearInterval(vInt);
+      vStop.disabled = true;
+      vStart.classList.remove("recording");
+      var vLabel = document.getElementById("videoRecordLabel");
+      if (vLabel) vLabel.textContent = "Start Recording";
+      if (vRecBadge) vRecBadge.hidden = true;
+      setRecState("processing");
+      setProcessingUi(true);
+      setStatus("Processing video + face match…");
+      vrec.stop().then(function(result) {
+        clearPreview();
+        vStart.disabled = true;
+        if (vOpen) {
+          vOpen.disabled = false;
+          vOpen.classList.remove("is-live");
+          if (vOpenLabel) vOpenLabel.textContent = "Open Camera";
+        }
+        if (!result || !result.blob) {
+          setProcessingUi(false);
+          setRecState("idle");
+          setStatus("No video captured");
+          return;
+        }
+        var c = TIQ.state.candidates[TIQ.views._captureIndex];
+        if (!c) {
+          setProcessingUi(false);
+          setRecState("idle");
+          setStatus("No candidate");
+          return;
+        }
+        if (!TIQ.pipeline || !TIQ.pipeline.processConversationVideo) {
+          setProcessingUi(false);
+          setRecState("idle");
+          setStatus("Pipeline not loaded");
+          TIQ.showToast("Conversation pipeline unavailable.");
+          return;
+        }
+        TIQ.pipeline.processConversationVideo(result.blob, c.id, function(msg) {
+          setStatus(msg);
+        }).then(function(summary) {
+          var n = (summary && summary.proposalsCreated) || 0;
+          var matched = (summary && summary.matchedCandidates) || [];
+          setProcessingUi(false);
+          setRecState("done");
+          setStatus("Done — " + n + " card(s)" + (matched.length ? ("; faces: " + matched.join(", ")) : ""));
+          TIQ.showToast(n ? (n + " info card(s) ready in Info Cards.") : "Processed — no new fields found.");
+          TIQ.addAuditEntry(c, "CONVERSATION_RECORDED", "Conversation video processed (" + result.duration + "s)");
+          TIQ.saveState();
+        }).catch(function(err) {
+          setProcessingUi(false);
+          setRecState("idle");
+          setStatus("Failed: " + ((err && err.message) || "error"));
+          TIQ.showToast((err && err.message) || "Video processing failed");
+        });
+      });
     });
   }
 
@@ -685,7 +1036,18 @@ TIQ.views._renderDetailPanel = function(c) {
     '<div class="ai-detail__actions">' +
       '<button class="primary-button small-button" data-action="approve">Approve</button>' +
       '<button class="secondary-button small-button" data-action="follow">Follow Up</button>' +
+      '<button class="secondary-button small-button" data-action="face-enroll" type="button">' +
+        ((c.faceEnrollment && c.faceEnrollment.enrolled) ? "Re-enroll Face" : "Enroll Face") +
+      '</button>' +
     '</div>' +
+    (function() {
+      var fe = TIQ.ensureFaceEnrollment(c);
+      var faceBadge = fe.enrolled
+        ? '<span class="face-badge face-badge--ok">Face enrolled</span>'
+        : '<span class="face-badge">Face not enrolled</span>';
+      return '<section class="ai-section" id="faceEnrollSection"><div class="section-title"><span class="section-kicker">Face Enrollment</span> ' + faceBadge + '</div>' +
+        '<div id="faceEnrollPanelHost" hidden></div></section>';
+    })() +
     '<section class="ai-section"><div class="section-title"><span class="section-kicker">AI-Generated Snapshot</span></div><div class="snapshot-card"><p>' + TIQ.escapeHtml(c.summary) + '</p></div></section>' +
     '<section class="ai-section"><div class="section-title"><span class="section-kicker">Missing Information Flags</span></div><div class="flag-list">' + flagsHtml + '</div></section>' +
     (traceHtml ? '<section class="ai-section"><div class="section-title"><span class="section-kicker">Source Traceability</span></div><div class="trace-list" id="aiTraceList">' + traceHtml + '</div></section>' : '') +
@@ -756,6 +1118,8 @@ TIQ.views.initAIReviewEvents = function() {
           c.recordStatus = "Follow-Up"; c.priority = "High"; c.followUpRequestedBy = TIQ.state.activeRecruiterId; c.followUpTimestamp = TIQ.nowISO();
           TIQ.addAuditEntry(c, "FOLLOW_UP", "Follow-up requested");
           TIQ.saveState(); TIQ.showToast(c.firstName + " flagged for follow-up."); rerender();
+        } else if (actionBtn.dataset.action === "face-enroll") {
+          TIQ.views._openFaceEnrollPanel(c.id, rerender);
         }
       }
       if (traceBtn) {
@@ -839,6 +1203,34 @@ TIQ.views._highlightTrace = function(claim, btn) {
     }
   }
   btn.classList.add("trace-active");
+};
+
+TIQ.views._openFaceEnrollPanel = function(candidateId, onDone) {
+  var host = document.getElementById("faceEnrollPanelHost");
+  if (!host || !TIQ.face || !TIQ.face.enrollment) {
+    TIQ.showToast("Face enrollment module not loaded.");
+    return;
+  }
+  var c = TIQ.state.candidates.find(function(x) { return x.id === candidateId; });
+  if (!c) return;
+  TIQ.ensureFaceEnrollment(c);
+  host.hidden = false;
+  host.innerHTML = TIQ.face.enrollment.renderWizardHtml({
+    candidateId: candidateId,
+    mode: "panel",
+    enrolled: !!(c.faceEnrollment && c.faceEnrollment.enrolled)
+  });
+  TIQ.face.enrollment.init({
+    candidateId: candidateId,
+    mode: "panel",
+    onProgress: function() {
+      var updated = TIQ.state.candidates.find(function(x) { return x.id === candidateId; });
+      if (updated && updated.faceEnrollment && updated.faceEnrollment.enrolled && typeof onDone === "function") {
+        if (TIQ.face && TIQ.face.enrollment) TIQ.face.enrollment.stopCamera();
+        onDone();
+      }
+    }
+  });
 };
 
 /* ---- Candidate Review View (ported from original) ---- */
@@ -959,6 +1351,8 @@ TIQ.views._bindReviewEvents = function() {
           if (!TIQ.state.activeRecruiterId) { TIQ.showToast("Select a recruiter first."); return; }
           c.recordStatus = "Follow-Up"; c.priority = "High"; c.followUpRequestedBy = TIQ.state.activeRecruiterId; c.followUpTimestamp = TIQ.nowISO();
           TIQ.addAuditEntry(c, "FOLLOW_UP", "Follow-up requested"); TIQ.saveState(); TIQ.showToast(c.firstName + " flagged for follow-up."); rerender();
+        } else if (act.dataset.action === "face-enroll") {
+          TIQ.views._openFaceEnrollPanel(c.id, rerender);
         }
       }
       if (tr) TIQ.views._highlightTrace(tr.dataset.claim, tr);
@@ -978,3 +1372,111 @@ TIQ.views._bindReviewEvents = function() {
     document.getElementById("reviewCompareClear").addEventListener("click", function() { TIQ.views._reviewCompare = []; rerender(); });
   } else if (bar) { bar.hidden = true; }
 };
+
+
+/* ---- Info Cards Review (proposal swipe) ---- */
+TIQ.views._infoDeck = null;
+
+TIQ.views.renderInfoReview = function() {
+  var pending = TIQ.getPendingProposals();
+  var count = pending.length;
+  return '<div class="view" id="view-info-review">' +
+    '<div class="view-header"><div><span class="section-kicker">AI Proposals</span><h1>Info Cards Review</h1></div>' +
+      '<div class="info-review-meta">' + count + ' pending</div></div>' +
+    '<p class="info-review-intro">Swipe right to accept and write to the profile. Swipe left to reject. Rejected values are never stored as verified profile data.</p>' +
+    '<div id="swipeDeckRoot" class="info-review-deck"></div>' +
+    '<div class="info-review-actions">' +
+      '<button type="button" class="secondary-button" id="infoRejectBtn">← Reject</button>' +
+      '<button type="button" class="primary-button" id="infoAcceptBtn">Accept →</button>' +
+    '</div>' +
+    '<div class="info-review-empty" id="infoReviewEmpty"' + (count ? ' hidden' : '') + '>No pending info cards. Record a conversation on <strong>Recruiter Capture</strong>, or upload a resume on Intake.</div>' +
+  '</div>';
+};
+
+TIQ.views._infoCardHtml = function(p) {
+  var c = TIQ.state.candidates.find(function(x) { return x.id === p.candidateId; });
+  var name = c ? (c.firstName + " " + c.lastName) : p.candidateId;
+  var quote = (p.sourceRef && p.sourceRef.quote) ? p.sourceRef.quote : "";
+  var srcLabel = p.source === "resume" ? "Resume" : "Today's conversation";
+  return '<div class="info-card">' +
+    '<div class="info-card__name">' + TIQ.escapeHtml(name) + '</div>' +
+    '<div class="info-card__id">' + TIQ.escapeHtml(p.candidateId) + '</div>' +
+    '<div class="info-card__section">Proposed information</div>' +
+    '<div class="info-card__field">' + TIQ.escapeHtml(p.label) + '</div>' +
+    '<div class="info-card__value">' + TIQ.escapeHtml(String(p.value)) + '</div>' +
+    (p.previousValue ? '<div class="info-card__prev">Current: ' + TIQ.escapeHtml(String(p.previousValue)) + '</div>' : '') +
+    '<div class="info-card__section">Source</div>' +
+    '<div class="info-card__source">' + TIQ.escapeHtml(srcLabel) + '</div>' +
+    (quote ? '<blockquote class="info-card__quote">' + TIQ.escapeHtml(quote) + '</blockquote>' : '') +
+  '</div>';
+};
+
+TIQ.views._refreshInfoDeck = function() {
+  var pending = TIQ.getPendingProposals();
+  var empty = document.getElementById("infoReviewEmpty");
+  var actions = document.querySelector(".info-review-actions");
+  var meta = document.querySelector(".info-review-meta");
+  if (meta) meta.textContent = pending.length + " pending";
+
+  if (!pending.length) {
+    if (empty) empty.hidden = false;
+    if (actions) actions.hidden = true;
+    var root = document.getElementById("swipeDeckRoot");
+    if (root) root.innerHTML = "";
+    return;
+  }
+  if (empty) empty.hidden = true;
+  if (actions) actions.hidden = false;
+
+  var current = pending[0];
+  function advance() {
+    var next = TIQ.getPendingProposals();
+    if (meta) meta.textContent = next.length + " pending";
+    if (!next.length) {
+      if (empty) empty.hidden = false;
+      if (actions) actions.hidden = true;
+      var rootEl = document.getElementById("swipeDeckRoot");
+      if (rootEl) rootEl.innerHTML = "";
+      return;
+    }
+    current = next[0];
+    deck.mount(TIQ.views._infoCardHtml(current));
+  }
+
+  var deck = new TIQ.SwipeDeck({
+    rootSelector: "#swipeDeckRoot",
+    leftLabel: "WRONG",
+    rightLabel: "CORRECT",
+    onLeft: function() {
+      TIQ.rejectProposal(current.id);
+      TIQ.showToast("Proposal rejected.");
+      advance();
+    },
+    onRight: function() {
+      TIQ.acceptProposal(current.id);
+      TIQ.showToast("Saved to profile.");
+      advance();
+    }
+  });
+  TIQ.views._infoDeck = deck;
+  deck.mount(TIQ.views._infoCardHtml(current));
+
+  var rej = document.getElementById("infoRejectBtn");
+  var acc = document.getElementById("infoAcceptBtn");
+  if (rej) rej.onclick = function() { deck.trigger("left"); };
+  if (acc) acc.onclick = function() { deck.trigger("right"); };
+};
+
+TIQ.views.initInfoReview = function() {
+  TIQ.views._refreshInfoDeck();
+
+  TIQ.views._infoKeyHandler = function(e) {
+    if (!document.getElementById("view-info-review")) return;
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
+    if (e.key === "ArrowLeft" && TIQ.views._infoDeck) TIQ.views._infoDeck.trigger("left");
+    else if (e.key === "ArrowRight" && TIQ.views._infoDeck) TIQ.views._infoDeck.trigger("right");
+  };
+  document.removeEventListener("keydown", TIQ.views._infoKeyHandler);
+  document.addEventListener("keydown", TIQ.views._infoKeyHandler);
+};
+

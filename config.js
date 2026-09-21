@@ -143,6 +143,7 @@ TIQ.CONFIG = {
     "overview": "Event Overview",
     "candidate-intake": "Candidate Intake",
     "recruiter-capture": "Recruiter Capture",
+    "info-review": "Info Cards Review",
     "ai-review": "AI Summary & Review",
     "candidate-review": "Candidate Review"
   },

@@ -24,6 +24,11 @@ TIQ.router = {
 
     // Remove old capture keydown listener
     document.removeEventListener("keydown", TIQ.views._captureKeyHandler);
+    document.removeEventListener("keydown", TIQ.views._infoKeyHandler);
+    if (TIQ.face && TIQ.face.enrollment) TIQ.face.enrollment.stopCamera();
+    if (TIQ.views._videoRecorder && TIQ.views._videoRecorder.getState && TIQ.views._videoRecorder.getState() !== "idle") {
+      try { TIQ.views._videoRecorder.cancel(); } catch (e) {}
+    }
 
     switch (viewName) {
       case "overview":
@@ -39,6 +44,11 @@ TIQ.router = {
         container.innerHTML = TIQ.views.renderRecruiterCapture();
         if (searchWrap) searchWrap.style.display = "none";
         TIQ.views.initCaptureEvents();
+        break;
+      case "info-review":
+        container.innerHTML = TIQ.views.renderInfoReview();
+        if (searchWrap) searchWrap.style.display = "none";
+        TIQ.views.initInfoReview();
         break;
       case "ai-review":
         container.innerHTML = TIQ.views.renderAIReview();

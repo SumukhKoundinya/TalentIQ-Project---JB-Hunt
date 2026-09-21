@@ -287,6 +287,8 @@ TIQ.state = (function() {
     candidates: (persisted && persisted.candidates) || TIQ.seedCandidates.map(function(c) { return Object.assign({}, c); }),
     activeRecruiterId: (persisted && persisted.activeRecruiterId) || "",
     selectedId: (persisted && persisted.lastSelectedId) || "",
+    proposals: (persisted && Array.isArray(persisted.proposals)) ? persisted.proposals : [],
+    recordings: (persisted && Array.isArray(persisted.recordings)) ? persisted.recordings : [],
     metrics: TIQ.loadMetrics()
   };
 })();
@@ -296,7 +298,9 @@ TIQ.saveState = function() {
     localStorage.setItem(TIQ.STORAGE_KEY, JSON.stringify({
       candidates: TIQ.state.candidates,
       activeRecruiterId: TIQ.state.activeRecruiterId,
-      lastSelectedId: TIQ.state.selectedId
+      lastSelectedId: TIQ.state.selectedId,
+      proposals: TIQ.state.proposals || [],
+      recordings: TIQ.state.recordings || []
     }));
   } catch (_) {}
 };
@@ -319,4 +323,301 @@ TIQ.addAuditEntry = function(candidate, action, detail) {
   candidate.lastUpdated = TIQ.todayISO();
 };
 
+/* ---- Face enrollment helpers (Milestone 1) ---- */
+TIQ.FACE_ANGLES = ["front", "left", "right", "slight_up", "slight_down"];
+TIQ.FACE_MODEL = "Facenet512";
+TIQ.FACE_DB_NAME = "talentiq_face_v1";
+TIQ.FACE_STORE = "embeddings";
+
+TIQ.defaultFaceEnrollment = function() {
+  return {
+    enrolled: false,
+    model: TIQ.FACE_MODEL,
+    angles: {
+      front: null,
+      left: null,
+      right: null,
+      slight_up: null,
+      slight_down: null
+    },
+    enrolledAt: null,
+    embeddingVersion: 1
+  };
+};
+
+TIQ.ensureFaceEnrollment = function(candidate) {
+  if (!candidate) return null;
+  if (!candidate.faceEnrollment) {
+    candidate.faceEnrollment = TIQ.defaultFaceEnrollment();
+  }
+  return candidate.faceEnrollment;
+};
+
+/* Migrate persisted candidates missing faceEnrollment */
+TIQ.state.candidates.forEach(function(c) { TIQ.ensureFaceEnrollment(c); });
+
+TIQ.faceDB = {
+  _db: null,
+
+  open: function() {
+    var self = this;
+    if (self._db) return Promise.resolve(self._db);
+    return new Promise(function(resolve, reject) {
+      var req = indexedDB.open(TIQ.FACE_DB_NAME, 1);
+      req.onupgradeneeded = function(e) {
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains(TIQ.FACE_STORE)) {
+          db.createObjectStore(TIQ.FACE_STORE, { keyPath: "id" });
+        }
+      };
+      req.onsuccess = function(e) {
+        self._db = e.target.result;
+        resolve(self._db);
+      };
+      req.onerror = function() { reject(req.error || new Error("IndexedDB open failed")); };
+    });
+  },
+
+  _key: function(candidateId, angle) {
+    return candidateId + ":" + angle;
+  },
+
+  put: function(record) {
+    return this.open().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction(TIQ.FACE_STORE, "readwrite");
+        var store = tx.objectStore(TIQ.FACE_STORE);
+        var payload = Object.assign({}, record, {
+          id: TIQ.faceDB._key(record.candidateId, record.angle)
+        });
+        var req = store.put(payload);
+        req.onsuccess = function() { resolve(payload); };
+        req.onerror = function() { reject(req.error); };
+      });
+    });
+  },
+
+  get: function(candidateId, angle) {
+    return this.open().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction(TIQ.FACE_STORE, "readonly");
+        var req = tx.objectStore(TIQ.FACE_STORE).get(TIQ.faceDB._key(candidateId, angle));
+        req.onsuccess = function() { resolve(req.result || null); };
+        req.onerror = function() { reject(req.error); };
+      });
+    });
+  },
+
+  getAllForCandidate: function(candidateId) {
+    return this.open().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction(TIQ.FACE_STORE, "readonly");
+        var req = tx.objectStore(TIQ.FACE_STORE).getAll();
+        req.onsuccess = function() {
+          var all = req.result || [];
+          resolve(all.filter(function(r) { return r.candidateId === candidateId; }));
+        };
+        req.onerror = function() { reject(req.error); };
+      });
+    });
+  },
+
+  deleteAngle: function(candidateId, angle) {
+    return this.open().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction(TIQ.FACE_STORE, "readwrite");
+        var req = tx.objectStore(TIQ.FACE_STORE).delete(TIQ.faceDB._key(candidateId, angle));
+        req.onsuccess = function() { resolve(); };
+        req.onerror = function() { reject(req.error); };
+      });
+    });
+  },
+
+  deleteCandidate: function(candidateId) {
+    var self = this;
+    return self.getAllForCandidate(candidateId).then(function(rows) {
+      return Promise.all(rows.map(function(r) {
+        return self.deleteAngle(r.candidateId, r.angle);
+      }));
+    });
+  }
+};
+
+TIQ.applyFaceAngleResult = function(candidate, angle, embeddingId, qualityOk) {
+  var fe = TIQ.ensureFaceEnrollment(candidate);
+  fe.angles[angle] = {
+    capturedAt: TIQ.nowISO(),
+    embeddingId: embeddingId,
+    qualityOk: !!qualityOk
+  };
+  fe.model = TIQ.FACE_MODEL;
+  var allOk = TIQ.FACE_ANGLES.every(function(a) {
+    return fe.angles[a] && fe.angles[a].qualityOk;
+  });
+  if (allOk) {
+    fe.enrolled = true;
+    fe.enrolledAt = TIQ.nowISO();
+  } else {
+    fe.enrolled = false;
+  }
+  return fe;
+};
+
+/* ---- Info proposals (conversation / resume → swipe cards) ---- */
+TIQ.FIELD_LABELS = {
+  firstName: "First Name",
+  lastName: "Last Name",
+  email: "Email",
+  phone: "Phone",
+  university: "University",
+  major: "Major",
+  graduationDate: "Graduation Date",
+  gpa: "GPA",
+  workAuthorization: "Work Authorization",
+  skills: "Skills",
+  notes: "Notes",
+  function: "Function"
+};
+
+TIQ.createProposal = function(opts) {
+  opts = opts || {};
+  var candidate = TIQ.state.candidates.find(function(c) { return c.id === opts.candidateId; });
+  var prev = candidate ? candidate[opts.field] : null;
+  if (Array.isArray(prev)) prev = prev.join(", ");
+  var proposal = {
+    id: "P-" + Date.now() + "-" + Math.floor(Math.random() * 10000),
+    candidateId: opts.candidateId,
+    field: opts.field,
+    label: opts.label || TIQ.FIELD_LABELS[opts.field] || opts.field,
+    value: opts.value,
+    previousValue: prev == null ? "" : String(prev),
+    source: opts.source || "conversation",
+    sourceRef: opts.sourceRef || {},
+    status: "pending",
+    verified: false,
+    createdAt: TIQ.nowISO()
+  };
+  if (!TIQ.state.proposals) TIQ.state.proposals = [];
+  // Skip duplicate pending same candidate+field+value
+  var dup = TIQ.state.proposals.some(function(p) {
+    return p.status === "pending" && p.candidateId === proposal.candidateId &&
+      p.field === proposal.field && String(p.value) === String(proposal.value);
+  });
+  if (dup) return null;
+  TIQ.state.proposals.push(proposal);
+  TIQ.saveState();
+  return proposal;
+};
+
+TIQ.getPendingProposals = function() {
+  return (TIQ.state.proposals || []).filter(function(p) { return p.status === "pending"; });
+};
+
+TIQ.acceptProposal = function(proposalId) {
+  var p = (TIQ.state.proposals || []).find(function(x) { return x.id === proposalId; });
+  if (!p || p.status !== "pending") return null;
+  var c = TIQ.state.candidates.find(function(x) { return x.id === p.candidateId; });
+  if (!c) return null;
+
+  if (p.field === "skills") {
+    var parts = String(p.value).split(/[,;]+/).map(function(s) { return s.trim(); }).filter(Boolean);
+    c.skills = Array.isArray(c.skills) ? c.skills.slice() : [];
+    parts.forEach(function(sk) {
+      if (c.skills.indexOf(sk) < 0) c.skills.push(sk);
+    });
+  } else {
+    c[p.field] = p.value;
+  }
+
+  if (!c.traceability) c.traceability = [];
+  c.traceability.push(
+    p.label + " = " + p.value + " — " + p.source +
+    (p.sourceRef && p.sourceRef.quote ? ' ("' + p.sourceRef.quote + '")' : "")
+  );
+  p.status = "accepted";
+  p.verified = true;
+  p.resolvedAt = TIQ.nowISO();
+  TIQ.addAuditEntry(c, "PROPOSAL_ACCEPTED",
+    "Accepted " + p.label + " from " + p.source + ": " + p.value);
+  TIQ.saveState();
+  return p;
+};
+
+TIQ.rejectProposal = function(proposalId) {
+  var p = (TIQ.state.proposals || []).find(function(x) { return x.id === proposalId; });
+  if (!p || p.status !== "pending") return null;
+  p.status = "rejected";
+  p.verified = false;
+  p.resolvedAt = TIQ.nowISO();
+  var c = TIQ.state.candidates.find(function(x) { return x.id === p.candidateId; });
+  if (c) {
+    TIQ.addAuditEntry(c, "PROPOSAL_REJECTED",
+      "Rejected " + p.label + " from " + p.source + ": " + p.value);
+  }
+  TIQ.saveState();
+  return p;
+};
+
+/* ---- Recording metadata + blob store ---- */
+TIQ.RECORDING_DB_NAME = "talentiq_recordings_v1";
+TIQ.RECORDING_STORE = "blobs";
+
+TIQ.recordingDB = {
+  _db: null,
+  open: function() {
+    var self = this;
+    if (self._db) return Promise.resolve(self._db);
+    return new Promise(function(resolve, reject) {
+      var req = indexedDB.open(TIQ.RECORDING_DB_NAME, 1);
+      req.onupgradeneeded = function(e) {
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains(TIQ.RECORDING_STORE)) {
+          db.createObjectStore(TIQ.RECORDING_STORE, { keyPath: "id" });
+        }
+      };
+      req.onsuccess = function(e) { self._db = e.target.result; resolve(self._db); };
+      req.onerror = function() { reject(req.error || new Error("recording DB open failed")); };
+    });
+  },
+  put: function(id, blob, meta) {
+    return this.open().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction(TIQ.RECORDING_STORE, "readwrite");
+        var req = tx.objectStore(TIQ.RECORDING_STORE).put({
+          id: id, blob: blob, meta: meta || {}, createdAt: TIQ.nowISO()
+        });
+        req.onsuccess = function() { resolve(id); };
+        req.onerror = function() { reject(req.error); };
+      });
+    });
+  },
+  get: function(id) {
+    return this.open().then(function(db) {
+      return new Promise(function(resolve, reject) {
+        var tx = db.transaction(TIQ.RECORDING_STORE, "readonly");
+        var req = tx.objectStore(TIQ.RECORDING_STORE).get(id);
+        req.onsuccess = function() { resolve(req.result || null); };
+        req.onerror = function() { reject(req.error); };
+      });
+    });
+  }
+};
+
+TIQ.addRecordingMeta = function(meta) {
+  if (!TIQ.state.recordings) TIQ.state.recordings = [];
+  TIQ.state.recordings.push(meta);
+  TIQ.saveState();
+  return meta;
+};
+
+TIQ.getAllFaceEmbeddings = function() {
+  return TIQ.faceDB.open().then(function(db) {
+    return new Promise(function(resolve, reject) {
+      var tx = db.transaction(TIQ.FACE_STORE, "readonly");
+      var req = tx.objectStore(TIQ.FACE_STORE).getAll();
+      req.onsuccess = function() { resolve(req.result || []); };
+      req.onerror = function() { reject(req.error); };
+    });
+  });
+};
 
