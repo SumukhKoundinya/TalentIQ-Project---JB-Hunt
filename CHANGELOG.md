@@ -2,6 +2,83 @@
 
 All notable changes to TalentIQ will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- **View Renames**: "Candidate Kiosk" → "Event Info" and "Live Recruiter Capture" → "Candidate Cards" in sidebar, view titles, and wirefile (`index.html`, `config.js`, `views.js`, `wireframe-kiosk.html`)
+- **Capture Card JD Alignment**: Meta strip now prefers `Projects` count (JDs value academic/personal projects over prior employment; `Experience: N roles` is fallback only) and soft-skill chips are hidden on the card — qualities stay covered by grounded AI highlights (`views.js`)
+- **Capture Card Profile Structure**: Flat GPA+skills chip row replaced with a labeled meta strip (GPA / certifications / prior roles — only when present) plus skills grouped under category labels (Languages, Frameworks & Web, Data & Analytics, Ops, etc.); capped at 3 groups × 4 chips with `+N` overflow (`views.js`, `styles.css`)
+- **Skill Taxonomy**: New `TIQ.SKILL_GROUPS` taxonomy and `TIQ.categorizeSkills()` helper — case-insensitive, dedupes across resume/recruiter sources, unknown skills fall back to Other Skills (`data.js`)
+
+### Fixed
+- **Swipe Animation Paint Order**: Exiting/dragged capture card no longer gets cut off at the left-column edge (looked like it slid *under* Recruiter Notes/sidebar) — `.capture-workspace` and `.capture-col-left` now use `overflow: visible` so the card paints over surrounding UI; `.app-shell` gains `overflow-x: clip` to prevent a horizontal scrollbar from the fly-out (`styles.css`)
+- **Dead Record Toggle**: Card swipe engine no longer captures pointer events on buttons/inputs (including the voice toggle), so the single start/stop button receives clicks (`views.js`)
+- **Orphaned Recorder State**: If the singleton AudioRecorder was left in `recording` after a re-render, the toggle now force-cancels it and starts fresh instead of no-op'ing forever (`views.js`)
+- **Vosk Preload Feedback**: Successful background model load logs to console; failure shows a one-time toast that recording still works (`views.js`)
+- **Mic Error Messages**: `NotAllowedError` / missing-device failures show a specific toast instead of a generic denial message (`components.js`)
+- **Voice Memo Recording**: Record no longer waits for the 41MB Vosk model before opening the mic — recording starts immediately, the model preloads in the background when Capture opens, and live transcription wires in as soon as the model is ready (`views.js`)
+- **Stop/Save Reliability**: Voice note save now captures the candidate at record-start (survives mid-recording swipes), always resets button/indicator/timer UI, flushes the Vosk recognizer before reading the final transcript, and interrupts cleanly if the card rerenders mid-recording (`views.js`, `components.js`)
+- **Live Waveform**: In-card waveform bars now driven by the recorder's AnalyserNode while recording (static pattern when idle); red indicator only lights during active capture (`views.js`, `styles.css`)
+- **Vosk Sample Rate**: Live recognizer and PCM feed use the AudioContext's actual sample rate instead of a hardcoded 16000 (`components.js`)
+- **Offline Transcript Cleanup**: Full-blob transcription fallback now runs the same proper-noun/grammar cleanup as the live path (`views.js`)
+
+### Changed
+- **Capture Card Avatar**: Header avatar now stretches to match the height of the stacked name/university/major lines while staying square via `aspect-ratio: 1` (larger, neatly aligned) (`styles.css`)
+- **Script/Style Cache Busters**: `styles.css` bumped to `?v=2`, `views.js` to `?v=8` (`index.html`)
+- **Missing-Flag Banners Combined**: Capture card compliance alerts now render as one banner joining up to 3 flag labels with • (plus "+N more" if needed) instead of one banner per flag (`views.js`, `styles.css`)
+- **Waveform Colors**: Idle bars are solid grey; while recording all bars turn red (heights still driven by the mic analyser) (`views.js`, `styles.css`)
+- **Script Cache Busters**: `config/data/components/views/app` bumped to `?v=3` so browsers pick up voice-toggle fixes (`index.html`); `views.js` later bumped to `?v=6` for capture-card UI changes (`index.html`)
+- **Voice Memo Single Toggle**: Replaced the two-button ⏸/✓ record flow with one YouTube-style toggle — blue ● click starts recording, same button turns red ■ and click stops & saves; waveform flex-fills the freed space (`views.js`, `styles.css`)
+- **Recordings Panel**: Playback list (`Recording N` players w/ delete) moved out of the candidate card into a new "Recordings" panel at the top of the right column, above Recruiter Notes (`views.js`, `styles.css`)
+- **Capture Triage Bar**: Bottom control bar re-sequenced into a single centered 3-button row — `← Reviewed` (left), `Undo` (center, styled as neutral outline pill), `Follow-Up →` (right) (`views.js`, `styles.css`)
+- **Capture Vertical Flex**: `.capture-col-left` now uses `justify-content: flex-start` with `.capture-stack-shell` at `flex: 1 1 auto`, so the Candidate Card expands into the space freed by the removed action row (`styles.css`)
+- **Swipe Hint Compacted**: Two space-between labels combined into one centered single line — "‹ Swipe left = Reviewed • Swipe right = Follow-Up ›" (`views.js`, `styles.css`)
+
+### Removed
+- **Capture Card Meta Clutter**: Swipe hint line ("‹ Swipe left = Reviewed • Swipe right = Follow-Up ›"), candidate ID pill (TQ-####), and status badge (FOLLOW-UP/REVIEWED/etc.) removed from all capture deck cards (`views.js`, `styles.css`)
+- **"Request via Kiosk SMS"**: Dropped from missing-flag alert banners on the capture card (`views.js`)
+- **Resume PDF Boxes**: In-card resume pill (filename + Preview) and right-column Resume upload panel removed from `/capture` — resumes reviewed in later hiring stages (`views.js`)
+- **"New" (+) Button**: Circular New action button deleted from the capture bottom control bar; manual candidate creation remains available via the empty-state "Add Candidate Manually" button (`views.js`)
+
+### Added
+- **Candidate Review Card**: New high-density card design for `/capture` — Apple-style voice memo widget (waveform bars, red record indicator, pause/confirm round buttons), grounded AI highlights panel with `source:` citation tags, resume pill w/ Preview modal, and compliance alert banners (`views.js`, `styles.css`)
+- Resume parser now extracts name/email/phone/graduation from text (data.js, tests/resume-parser.test.js)
+
+### Changed
+- **Capture Card Layout**: Card shell now uses the `candidate-card` class (scoped under `.capture-stack`) — swipe hint, header w/ 48px avatar + status badge, GPA/skill chips, AI highlights, voice memo, resume pill, and missing-data alerts; old absolute swipe hint removed
+- **Voice Recorder Controls**: Record/Stop now render as circular ⏸/✓ buttons; `#audioRecordLabel` text updates are null-guarded since the label element was removed (`views.js`)
+- **In-Card Voice Recorder**: Live voice recording controls (Record / timer / Stop, live transcript preview, recordings list) now embedded directly in the front candidate card below the Grounded Summary (`capture-card__voice`) instead of the right sidebar panel
+
+### Changed
+- **Capture Right Column**: Voice Notes panel removed from right column; left column no longer empty — Recruiter Notes and Resume panels remain
+- **Card Layout**: Voice recorder block styled to match card radius (`--radius-md`) and internal padding; `#cardRecordNote` footer button now scrolls the card itself into view
+
+### Removed
+- **Orphaned `.capture-panel--voice` CSS**: Removed unused voice-panel rules after relocating the recorder into the card
+
+### Added
+- **Full-Height Capture Layout**: `/capture` workspace is now a locked viewport-height grid (`420px | 1fr`) with zero window scroll; card fills 100% of the left column
+- **Grounded Summary Body**: Capture card now renders 3-4 summary bullets with inline `[source: …]` citation badges as the main content fill
+- **Triage Action Bar**: Prominent `← Reviewed` / `Follow-Up →` buttons anchored beneath the card stack (swipe semantics preserved)
+- **Card Quick Actions**: `🎙️ Record Note` (triggers the voice recorder) and `✏️ Edit` buttons pinned to the card footer
+- **Attribute Chips Row**: GPA chip (≥3.5) alongside top 4 skill pills
+- **Header Meta Lines**: University and `Major · Grad` on separate lines so dates are never truncated
+- **Key Highlights (Accomplishments)**: Replaced AI Summary on capture card with 1-3 key accomplishments per candidate, auto-extracted from parsed resume data
+- **Accomplishment Generator**: `TIQ.generateAccomplishments()` extracts certifications, metrics, leadership keywords, and projects from resume; falls back to recruiter notes
+- **One-Line Info Row**: Condensed 7 field rows into `School · Major · Grad · Work Auth` single line on capture card
+
+### Changed
+- **Capture Card Redesign**: Compact glance card — GPA shown only if ≥3.5, skills reduced to top 4 pills, flags hidden when empty
+- **Seed Data**: Added `accomplishments` field to all 7 test candidates
+- **Triage Buttons**: Circular Review/Contact buttons replaced by full-width labeled triage bar; Undo/New kept as compact secondary actions
+
+### Fixed
+- **Legacy Saved State**: Backfills new accomplishments from seed data for previously saved candidates on app load
+
+### Removed
+- **AI Summary from Card**: Removed blue AI Summary box from capture card (summary still available in AI Review detail panel)
+- **7-Field Row Layout**: Removed individual University/Major/Grad/GPA/Auth/Location/Role field rows from card
+
 ## [0.4.0] - 2026-09-21
 
 ### Added

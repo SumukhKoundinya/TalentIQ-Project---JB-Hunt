@@ -272,10 +272,71 @@ TIQ.loadMetrics = function() {
   } catch (_) { return []; }
 };
 
+var TIQ_STATE_MIGRATION_NEEDED = false;
+
+function buildAccomplishments(c) {
+  if (!c) return [];
+  var accs = [];
+  var resume = c.parsedResume || null;
+  var experience = (resume && resume.experience) || [];
+  var projects = (resume && resume.projects) || [];
+  var certs = (resume && resume.certifications) || [];
+
+  certs.forEach(function(cert) {
+    if (accs.length < 3) accs.push({ text: cert, source: "resume" });
+  });
+
+  experience.forEach(function(exp) {
+    var desc = exp.description || "";
+    var metricMatch = desc.match(/(\d+[KkMm+]?[+]?)\s*(?:records|users|students|projects|team|employees|clients|orders|transactions|requests|API calls|percent|%|reduction|improvement|increase)/i);
+    if (metricMatch && accs.length < 3) {
+      accs.push({ text: "Handled " + metricMatch[0], source: "resume" });
+    }
+    var leadMatch = desc.match(/((?:led|managed|mentored|supervised|directed|coordinated|organized)\s+[^.!?]{10,60})/i);
+    if (leadMatch && accs.length < 3) {
+      accs.push({ text: leadMatch[1].trim(), source: "resume" });
+    }
+  });
+
+  projects.forEach(function(proj) {
+    if (proj.name && accs.length < 3) {
+      accs.push({ text: "Project: " + proj.name, source: "resume" });
+    }
+  });
+
+  if (accs.length === 0 && c.notes) {
+    var sentences = c.notes.split(/[.!?]+/).filter(function(s) { return s.trim().length > 10; });
+    if (sentences.length) {
+      accs.push({ text: sentences[0].trim(), source: "conversation" });
+    }
+  }
+
+  return accs.slice(0, 3);
+}
+
+TIQ.normalizeCandidate = function(candidate, seedCandidate) {
+  var c = Object.assign({}, seedCandidate || {}, candidate || {});
+  if (!c.accomplishments || !c.accomplishments.length) {
+    c.accomplishments = (seedCandidate && seedCandidate.accomplishments && seedCandidate.accomplishments.length)
+      ? seedCandidate.accomplishments.slice()
+      : buildAccomplishments(c);
+  }
+  return c;
+};
+
 TIQ.state = (function() {
   var persisted = TIQ.loadPersistedState();
+  var persistedCandidates = (persisted && persisted.candidates) || [];
+  var normalizedCandidates = persistedCandidates.length
+    ? persistedCandidates.map(function(c) {
+        var seed = TIQ.seedCandidates.find(function(s) { return s.id === c.id; });
+        var normalized = TIQ.normalizeCandidate(c, seed);
+        if (!c.accomplishments || !c.accomplishments.length) TIQ_STATE_MIGRATION_NEEDED = true;
+        return normalized;
+      })
+    : TIQ.seedCandidates.map(function(c) { return TIQ.normalizeCandidate(c, c); });
   return {
-    candidates: (persisted && persisted.candidates) || TIQ.seedCandidates.map(function(c) { return Object.assign({}, c); }),
+    candidates: normalizedCandidates,
     activeRecruiterId: (persisted && persisted.activeRecruiterId) || "",
     selectedId: (persisted && persisted.lastSelectedId) || "",
     metrics: TIQ.loadMetrics()
@@ -291,6 +352,8 @@ TIQ.saveState = function() {
     }));
   } catch (_) {}
 };
+
+if (TIQ_STATE_MIGRATION_NEEDED) TIQ.saveState();
 
 TIQ.logMetric = function(entry) {
   TIQ.state.metrics.push(Object.assign({ ts: TIQ.nowISO() }, entry));
@@ -475,6 +538,78 @@ TIQ.ai.SKILLS_DICT = [
   "Stripe", "Twilio", "SendGrid", "Twilio"
 ];
 
+/* ---- Skill taxonomy — recruiter-scannable groups (display order) ---- */
+TIQ.SKILL_GROUPS = [
+  {
+    key: "languages", label: "Languages",
+    match: ["python", "java", "javascript", "typescript", "c", "c++", "c#", "go", "rust", "ruby", "php", "swift", "kotlin", "r", "matlab", "scala", "perl", "lua", "dart", "elixir", "haskell", "assembly", "cobol", "fortran", "javascript es6"]
+  },
+  {
+    key: "frameworks", label: "Frameworks & Web",
+    match: ["react", "react.js", "vue", "vue.js", "angular", "angular.js", "svelte", "next.js", "nuxt.js", "node.js", "express", "django", "flask", "fastapi", "spring", "spring boot", "asp.net", "laravel", "rails", "symfony", "html", "css", "sass", "scss", "tailwind", "bootstrap", "jquery", "rest", "rest api", "apis", "api", "graphql", "grpc", "websocket", "soap", "redux", "mobx", "webpack", "vite", "babel", "eslint", "microservices", "cypress", "selenium", "jest", "mocha", "chai", "playwright", "pytest"]
+  },
+  {
+    key: "data", label: "Data & Analytics",
+    match: ["sql", "mysql", "postgresql", "sqlite", "mongodb", "redis", "cassandra", "dynamodb", "firebase", "supabase", "neo4j", "tableau", "power bi", "looker", "excel", "google sheets", "jupyter", "r markdown", "pandas", "numpy", "scipy", "matplotlib", "seaborn", "spark", "hadoop", "hive", "kafka", "airflow", "dbt", "statistics", "visualization", "data visualization", "etl", "analytics"]
+  },
+  {
+    key: "ai", label: "AI / ML",
+    match: ["machine learning", "deep learning", "nlp", "natural language processing", "computer vision", "tensorflow", "pytorch", "keras", "scikit-learn", "hugging face", "langchain", "openai", "llm", "ai"]
+  },
+  {
+    key: "cloud", label: "Cloud & DevOps",
+    match: ["aws", "azure", "gcp", "google cloud", "heroku", "digitalocean", "linode", "vercel", "netlify", "cloudflare", "docker", "kubernetes", "terraform", "ansible", "jenkins", "circleci", "github actions", "gitlab ci", "travis ci", "ci/cd", "devops", "git", "github", "gitlab", "bitbucket", "apache", "nginx", "iis", "tomcat", "stripe", "twilio", "sendgrid"]
+  },
+  {
+    key: "systems", label: "Systems & Security",
+    match: ["linux", "unix", "bash", "shell scripting", "powershell", "windows server", "networking", "incident response", "oauth", "jwt", "ssl", "tls", "cors", "cybersecurity", "vulnerability assessment", "penetration testing", "wireshark"]
+  },
+  {
+    key: "ops", label: "Operations & Supply Chain",
+    match: ["supply chain", "logistics", "transportation", "fleet management", "warehouse", "freight", "operations", "forecasting", "process improvement", "process mapping", "lean", "simulation", "erp", "six sigma", "inventory", "procurement", "optimization", "scheduling", "quality improvement", "safety"]
+  },
+  {
+    key: "methods", label: "Methods & Soft Skills",
+    match: ["agile", "scrum", "kanban", "sprint", "communication", "leadership", "teamwork", "problem solving", "critical thinking", "decision making", "collaboration", "project management", "jira", "confluence", "trello", "notion", "linear", "figma", "sketch", "adobe xd", "photoshop", "illustrator", "indesign"]
+  },
+  {
+    key: "other", label: "Other Skills",
+    match: []
+  }
+];
+
+TIQ.categorizeSkills = function(skills) {
+  if (!skills || !skills.length) return [];
+  if (!TIQ._skillGroupIndex) {
+    var idx = {};
+    for (var g = 0; g < TIQ.SKILL_GROUPS.length; g++) {
+      var group = TIQ.SKILL_GROUPS[g];
+      for (var m = 0; m < group.match.length; m++) idx[group.match[m]] = group.key;
+    }
+    TIQ._skillGroupIndex = idx;
+  }
+  var byKey = {};
+  var seen = {};
+  for (var i = 0; i < skills.length; i++) {
+    var raw = String(skills[i] == null ? "" : skills[i]).replace(/\s+/g, " ").trim();
+    if (!raw) continue;
+    var norm = raw.toLowerCase();
+    if (seen[norm]) continue;
+    seen[norm] = true;
+    var key = TIQ._skillGroupIndex[norm] || "other";
+    if (!byKey[key]) byKey[key] = [];
+    byKey[key].push(raw);
+  }
+  var out = [];
+  for (var j = 0; j < TIQ.SKILL_GROUPS.length; j++) {
+    var gi = TIQ.SKILL_GROUPS[j];
+    if (byKey[gi.key] && byKey[gi.key].length) {
+      out.push({ key: gi.key, label: gi.label, items: byKey[gi.key] });
+    }
+  }
+  return out;
+};
+
 /* ---- Experience section patterns ---- */
 TIQ.ai.SECTION_HEADERS = [
   "experience", "work experience", "employment", "work history",
@@ -494,6 +629,7 @@ TIQ.ai.extractResumeData = function(text) {
     education: TIQ.ai._extractEducation(text),
     gpa: TIQ.ai._extractGPA(text),
     certifications: TIQ.ai._extractCertifications(text),
+    contact: this._extractContact(text),
     rawText: text
   };
 };
@@ -545,10 +681,17 @@ TIQ.ai._extractExperience = function(text) {
       if (jobPattern.test(line) || (datePattern.test(line) && line.length < 80)) {
         if (current && current.title) experiences.push(current);
         var titleMatch = line.match(jobPattern);
+        var title = line;
+        var companySource = line;
+        if (titleMatch) {
+          var levelMatch = line.slice(titleMatch[0].length).match(/^\s*((?:Junior|Senior|Lead|Associate|Staff|Principal|Graduate|Undergraduate|Intern|Apprentice|Trainee)\w*)/i);
+          title = titleMatch[0] + (levelMatch ? " " + levelMatch[1] : "");
+          companySource = line.slice(title.length);
+        }
         var dateMatch = line.match(datePattern);
-        var company = line.replace(jobPattern, "").replace(datePattern, "").replace(/[|,\-–]+/g, "").trim();
+        var company = companySource.replace(datePattern, "").replace(/[|,\-–]+/g, "").trim();
         current = {
-          title: titleMatch ? titleMatch[0] : line,
+          title: title,
           company: company || "",
           dates: dateMatch ? dateMatch[0] : "",
           description: ""
@@ -605,7 +748,7 @@ TIQ.ai._extractEducation = function(text) {
     if (inSection && line.length > 2) {
       if (degreePattern.test(line) || (line.length < 100 && /[Uu]niversit|[Cc]ollege|[Ii]nstitut|[Ss]chool/.test(line))) {
         if (current && current.school) education.push(current);
-        var schoolMatch = line.match(/([A-Z][A-Za-z\s.&']+(?:University|College|Institute|School)[A-Za-z\s.&']*)/);
+        var schoolMatch = line.match(/((?:University|College|Institute|School)[A-Za-z .&']*|[A-Z][A-Za-z .&']+(?:University|College|Institute|School)[A-Za-z .&']*)/);
         var degreeMatch = line.match(degreePattern);
         current = {
           school: schoolMatch ? schoolMatch[1].trim() : line,
@@ -669,6 +812,69 @@ TIQ.ai._extractCertifications = function(text) {
     }
   }
   return certs.slice(0, 5);
+};
+
+/* ---- Contact Extraction ---- */
+TIQ.ai.MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+TIQ.ai._extractEmail = function (text) {
+  var m = text.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i);
+  return m ? m[0] : '';
+};
+
+TIQ.ai._extractPhone = function (text) {
+  var m = text.match(/(?:\+?1[\s.-]?)?\(?[0-9]{3}\)?[\s.-]?[0-9]{3}[\s.-]?[0-9]{4}/);
+  return m ? m[0] : '';
+};
+
+TIQ.ai._extractName = function (text) {
+  var lines = text.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; });
+  for (var i = 0; i < Math.min(lines.length, 6); i++) {
+    var ln = lines[i];
+    if (ln.length > 40) continue;
+    if (/[[\]{}<>;@|]/.test(ln) || /^[A-Za-z]+,\s*[A-Z]{2}\b/.test(ln)) continue;
+    if (/@/.test(ln) || /\b(address|email|contact|resume|cv|name)\b/i.test(ln)) continue;
+    if (/\d/.test(ln)) continue;
+    var words = ln.split(/\s+/);
+    if (words.length < 2 || words.length > 4) continue;
+    if (!/^[A-Z]/.test(ln)) continue;
+    if (ln.replace(/[^a-zA-Z]/g, '').length < 6) continue;
+    return ln;
+  }
+  return '';
+};
+
+TIQ.ai._normalizeMonthYear = function (monthWord, year) {
+  monthWord = monthWord.toLowerCase();
+  var full = this.MONTHS.find(function (m) { return m.toLowerCase().indexOf(monthWord) === 0 && monthWord.length >= 3; });
+  return full ? full + ' ' + year : '';
+};
+
+TIQ.ai._extractGraduationDate = function (text) {
+  var monthPat = '(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*|(?:January|February|March|April|May|June|July|August|September|October|November|December))';
+  var exp = new RegExp('(?:expected|anticipated|grad\\w*)[^\\n]{0,40}?(' + monthPat + ')\\s*(\\d{4})', 'i');
+  var m = text.match(exp);
+  if (m) return this._normalizeMonthYear(m[1], m[2]);
+  var plain = text.match(new RegExp('(?:graduat\\w*|class of|graduation\\w*)[^\\n]{0,40}?(' + monthPat + ')\\s*(\\d{4})', 'i'));
+  if (plain) return this._normalizeMonthYear(plain[1], plain[2]);
+  var first = text.match(new RegExp('(' + monthPat + ')\\s*(\\d{4})'));
+  return first ? this._normalizeMonthYear(first[1], first[2]) : '';
+};
+
+TIQ.ai._extractContact = function (rawText) {
+  var email = this._extractEmail(rawText);
+  var phone = this._extractPhone(rawText);
+  var name = this._extractName(rawText);
+  var graduationDate = this._extractGraduationDate(rawText);
+  var parts = name ? name.split(/\s+/) : [];
+  return {
+    name: name,
+    firstName: parts.length ? parts[0] : '',
+    lastName: parts.length > 1 ? parts[parts.length - 1] : '',
+    email: email,
+    phone: phone,
+    graduationDate: graduationDate
+  };
 };
 
 /* ---- Summary Generator ---- */
@@ -821,6 +1027,10 @@ TIQ.ai.parseAndStoreResume = function(candidate, file) {
           candidate.summary = result.summary;
           candidate.traceability = result.traceability;
 
+          if (!candidate.accomplishments || !candidate.accomplishments.length) {
+            candidate.accomplishments = TIQ.generateAccomplishments(candidate);
+          }
+
           console.log("[TalentIQ] Resume parsed successfully:", {
             skills: (parsed && parsed.skills) || [],
             gpa: (parsed && parsed.gpa) || "",
@@ -851,11 +1061,19 @@ TIQ.ai.parseAndStoreResume = function(candidate, file) {
   });
 };
 
+/* ---- Accomplishment Generator ---- */
+TIQ.generateAccomplishments = function(c) {
+  return buildAccomplishments(c);
+};
+
 /* ---- Summary Update Convenience ---- */
 TIQ.ai.updateCandidateSummary = function(candidate) {
   var result = TIQ.ai.generateSummary(candidate);
   candidate.summary = result.summary;
   candidate.traceability = result.traceability;
+  if (!candidate.accomplishments || !candidate.accomplishments.length) {
+    candidate.accomplishments = TIQ.generateAccomplishments(candidate);
+  }
   candidate.lastUpdated = TIQ.todayISO();
   TIQ.saveState();
   return result;
@@ -875,5 +1093,3 @@ TIQ.getMissingFlags = function(c) {
   if (!c.areasDiscussed || c.areasDiscussed.length === 0) flags.push({ key: "Areas Discussed", label: "Areas Not Logged" });
   return flags;
 };
-
-
