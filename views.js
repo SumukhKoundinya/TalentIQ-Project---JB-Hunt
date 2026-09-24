@@ -99,7 +99,7 @@ TIQ.views.renderAnalytics = function() {
 
 TIQ.views.initAnalyticsEvents = function() {};
 
-/* ---- Candidate Kiosk (QR Poster + Configurator) ---- */
+/* ---- Event Info (QR Poster + Configurator) ---- */
 TIQ.views._kioskFormUrl = TIQ.views._kioskFormUrl || (window.location.origin + "/candidate-form.html");
 TIQ.views._kioskIntakeMethod = TIQ.views._kioskIntakeMethod || "google-form";
 
@@ -109,7 +109,6 @@ TIQ.views.renderKiosk = function() {
   var method = TIQ.views._kioskIntakeMethod;
 
   return '<div class="view" id="view-intake">' +
-    '<div class="view-header"><span class="section-kicker">Candidate Kiosk</span></div>' +
     '<div class="kiosk-workspace">' +
       '<div class="kiosk-col-left">' +
         '<div class="kiosk-event-card">' +
@@ -141,7 +140,7 @@ TIQ.views.renderKiosk = function() {
         '<div class="kiosk-qr-kicker">Booth QR Code &amp; Candidate Intake Config</div>' +
         '<div class="kiosk-qr-subtitle">Scan to Submit Profile</div>' +
         '<div class="kiosk-qr-container" id="kioskQrContainer">' +
-          '<canvas id="kiosk-qr-canvas" width="240" height="240"></canvas>' +
+          '<canvas id="kiosk-qr-canvas" width="200" height="200"></canvas>' +
         '</div>' +
         '<div class="kiosk-qr-label">Scan to Submit Profile</div>' +
         '<div class="kiosk-qr-hint">Point your phone camera at the code above</div>' +
@@ -218,86 +217,188 @@ TIQ.views.initKioskForm = function() {
 TIQ.views._captureIndex = 0;
 TIQ.views._captureRecorder = null;
 TIQ.views._swipeState = null;
+TIQ.views._importingResumes = false;
 
-TIQ.views._buildCardHtml = function(c) {
+/* Waveform visualizer — decorative bars for the Apple-style voice memo widget */
+TIQ.views._waveformBars = function(n) {
+  n = n || 26;
+  var out = "";
+  for (var i = 0; i < n; i++) {
+    var h = 8 + ((i % 5) * 3);
+    if (i % 3 === 2) h += 3;
+    out += '<span class="bar bar-inactive" style="height:' + h + 'px"></span>';
+  }
+  return out;
+};
+
+/* Live waveform — drives bars from the recorder's AnalyserNode while recording */
+TIQ.views._waveformRaf = null;
+TIQ.views._startLiveWaveform = function(rec) {
+  TIQ.views._stopLiveWaveform();
+  var analyser = rec && rec.getAnalyser ? rec.getAnalyser() : null;
+  var bars = document.querySelectorAll(".voice-memo-widget .waveform .bar");
+  if (!analyser || !bars.length) return;
+  var data = new Uint8Array(analyser.frequencyBinCount);
+  var tick = function() {
+    analyser.getByteFrequencyData(data);
+    for (var i = 0; i < bars.length; i++) {
+      var v = data[Math.floor(i * data.length / bars.length)] / 255;
+      var h = 5 + Math.round(v * 30);
+      bars[i].style.height = h + "px";
+      /* All bars stay red while recording — only height reacts to the mic */
+      bars[i].classList.add("bar-active");
+      bars[i].classList.remove("bar-inactive");
+    }
+    TIQ.views._waveformRaf = requestAnimationFrame(tick);
+  };
+  tick();
+};
+TIQ.views._stopLiveWaveform = function() {
+  if (TIQ.views._waveformRaf) {
+    cancelAnimationFrame(TIQ.views._waveformRaf);
+    TIQ.views._waveformRaf = null;
+  }
+  var wave = document.querySelector(".voice-memo-widget .waveform");
+  if (wave) wave.innerHTML = TIQ.views._waveformBars(24);
+};
+
+/* Candidate Review Card — high-density card for the capture deck */
+TIQ.views._buildCardHtml = function(c, isFront) {
   var flags = TIQ.getMissingFlags(c);
-  var flagsHtml = flags.length
-    ? flags.map(function(f) {
-        return '<span class="flag-chip flag-actionable" data-flag-key="' + TIQ.escapeAttr(f.key) + '">' +
-          '<span class="flag-icon">⚠</span> ' + TIQ.escapeHtml(f.label) +
-        '</span>';
-      }).join("")
-    : '<span class="flag-chip flag-clear">✓ No Missing Info</span>';
+  var gradDate = c.graduationDate || "";
 
-  var skillsHtml = '';
-  var allSkills = (c.skills && c.skills.length) ? c.skills : (c.parsedResume && c.parsedResume.skills) || [];
-  if (allSkills.length) {
-    skillsHtml = '<div class="capture-card__skills">' +
-      allSkills.slice(0, 6).map(function(s) {
-        return '<span class="skill-pill">' + TIQ.escapeHtml(s) + '</span>';
-      }).join("") +
-      (allSkills.length > 6 ? '<span class="skill-pill skill-pill--more">+' + (allSkills.length - 6) + '</span>' : '') +
-      '</div>';
+  /* Section 1: header — avatar + name + school */
+  var headerHtml = '<div class="card-header">' +
+    '<div class="avatar-box">' + TIQ.initialsFor(c) + '</div>' +
+    '<div class="header-details">' +
+      '<div class="name-row">' +
+        '<h3 class="candidate-name">' + TIQ.escapeHtml(c.firstName) + ' ' + TIQ.escapeHtml(c.lastName) + '</h3>' +
+      '</div>' +
+      (c.university ? '<p class="university">' + TIQ.escapeHtml(c.university) + '</p>' : '') +
+      '<p class="major-grad">' +
+        [c.major, gradDate].filter(Boolean).map(TIQ.escapeHtml).join(' &bull; ') +
+      '</p>' +
+    '</div>' +
+  '</div>';
+
+  /* Section 2: meta strip (labeled facts) + categorized skill groups */
+  var metaFacts = [];
+  var gpaNum = parseFloat(c.gpa);
+  if (!isNaN(gpaNum) && gpaNum > 0) {
+    metaFacts.push({ label: "GPA", value: String(c.gpa), mod: "meta-fact--gpa" });
+  }
+  var parsed = c.parsedResume || null;
+  var certCount = (parsed && parsed.certifications && parsed.certifications.length) || 0;
+  if (certCount > 0) {
+    metaFacts.push({ label: "Certs", value: certCount + (certCount === 1 ? " certification" : " certifications") });
+  }
+  var roleCount = (parsed && parsed.experience && parsed.experience.length) || 0;
+  var projectCount = (parsed && parsed.projects && parsed.projects.length) || 0;
+  /* JDs value projects (academic/personal/capstone) over prior employment — show projects first */
+  if (projectCount > 0) {
+    metaFacts.push({ label: "Projects", value: String(projectCount) });
+  } else if (roleCount > 0) {
+    metaFacts.push({ label: "Experience", value: roleCount + (roleCount === 1 ? " role" : " roles") });
   }
 
-  var summaryHtml = '';
-  if (c.summary) {
-    summaryHtml = '<div class="capture-card__ai-summary">' +
-      '<div class="ai-summary-header"><span class="ai-summary-icon">✦</span> AI Summary</div>' +
-      '<div class="ai-summary-text">' + TIQ.escapeHtml(c.summary.length > 220 ? c.summary.slice(0, 217) + '...' : c.summary) + '</div>' +
+  var allSkills = (c.skills && c.skills.length) ? c.skills : (c.parsedResume && c.parsedResume.skills) || [];
+  /* Soft-skill chips are low signal on a resume — qualities are covered by grounded highlights below */
+  var skillGroups = TIQ.categorizeSkills(allSkills).filter(function(g) {
+    return g.key !== "methods";
+  }).slice(0, 3);
+
+  var profileHtml = "";
+  if (metaFacts.length || skillGroups.length) {
+    var metaHtml = "";
+    if (metaFacts.length) {
+      metaHtml = '<div class="meta-strip">' + metaFacts.map(function(f, i) {
+        return (i > 0 ? '<span class="meta-divider" aria-hidden="true"></span>' : '') +
+          '<span class="meta-fact ' + (f.mod || "") + '">' +
+            '<span class="meta-fact__label">' + TIQ.escapeHtml(f.label) + '</span>' +
+            '<span class="meta-fact__value">' + TIQ.escapeHtml(f.value) + '</span>' +
+          '</span>';
+      }).join("") + '</div>';
+    }
+    var groupsHtml = "";
+    if (skillGroups.length) {
+      groupsHtml = '<div class="skill-groups">' + skillGroups.map(function(g) {
+        var shown = g.items.slice(0, 4);
+        var more = g.items.length - shown.length;
+        return '<div class="skill-group">' +
+          '<span class="skill-group__label">' + TIQ.escapeHtml(g.label) + '</span>' +
+          '<div class="skill-group__chips">' +
+            shown.map(function(s) {
+              return '<span class="chip">' + TIQ.escapeHtml(s) + '</span>';
+            }).join("") +
+            (more > 0
+              ? '<span class="chip chip-more" title="' + TIQ.escapeAttr(g.items.slice(4).join(", ")) + '">+' + more + '</span>'
+              : '') +
+          '</div>' +
+        '</div>';
+      }).join("") + '</div>';
+    }
+    profileHtml = '<div class="card-profile">' + metaHtml + groupsHtml + '</div>';
+  }
+
+  /* Section 3: grounded AI highlights — bullets with inline source tags */
+  var bullets = (c.accomplishments && c.accomplishments.length) ? c.accomplishments.slice(0, 3).map(function(a) {
+    return { text: a.text, source: a.source || "recruiter notes" };
+  }) : [];
+  if (bullets.length < 3 && c.summary) {
+    var sentences = (c.summary.match(/[^.!?]+[.!?]+/g) || []).map(function(s) { return s.replace(/\s+/g, " ").trim(); });
+    var traces = c.traceability || [];
+    for (var i = 0; bullets.length < 3 && i < sentences.length; i++) {
+      var src = traces.length
+        ? (function(t) { var m = /\u2014([^\u2014]+)$/.exec(t.trim()); return (m && m[1] ? m[1].trim() : "source").replace(/\.$/, ""); })(traces[Math.min(i, traces.length - 1)])
+        : "intake form";
+      bullets.push({ text: sentences[i], source: src });
+    }
+  }
+  var highlightHtml = bullets.map(function(b, i) {
+    var txt = b.text.length > 140 ? b.text.slice(0, 137) + '...' : b.text;
+    return '<div class="highlight-item">' +
+      (i > 0 ? '<hr class="highlight-divider" />' : '') +
+      '<p>' + TIQ.escapeHtml(txt) + '</p>' +
+      '<span class="source-tag">source: ' + TIQ.escapeAttr(b.source) + '</span>' +
+    '</div>';
+  }).join("");
+  var highlightsHtml = '<div class="highlights-box">' +
+    '<div class="highlights-title">&#9733; Grounded AI Highlights</div>' +
+    (bullets.length ? highlightHtml : '<div class="highlight-item"><p>No grounded highlights yet &mdash; add a conversation note.</p></div>') +
+  '</div>';
+
+  /* Section 4: Apple-style voice memo widget — front card only */
+  var voiceHtml = "";
+  if (isFront) {
+    voiceHtml = '<div class="voice-memo-widget">' +
+      '<span class="record-indicator"></span>' +
+      '<div class="voice-meta">' +
+        '<span class="voice-label">Voice Memo</span>' +
+        '<span class="voice-timer" id="audioTimer">00:00</span>' +
+      '</div>' +
+      '<div class="waveform">' + TIQ.views._waveformBars(24) + '</div>' +
+      '<button type="button" id="audioRecordBtn" class="voice-btn btn-toggle" title="Start recording" aria-label="Start or stop recording" aria-pressed="false">&#9679;</button>' +
+    '</div>' +
+    '<div id="liveTranscriptPreview" class="live-transcript-preview" style="display:none"><span class="live-transcript-dot"></span><span class="live-transcript-text"></span></div>';
+  }
+
+  /* Section 6: compliance alert banner(s) — verified missing-data flags */
+  var alertHtml = "";
+  if (flags.length) {
+    var shown = flags.slice(0, 3);
+    var more = flags.length - shown.length;
+    alertHtml = '<div class="alert-banner" data-flag-key="' + TIQ.escapeAttr(shown[0].key) + '">' +
+      '&#9888;&#65039; ' + shown.map(function(f) { return TIQ.escapeHtml(f.label); }).join(' &bull; ') +
+      (more > 0 ? ' &bull; +' + more + ' more' : '') +
     '</div>';
   }
 
-  return '<div class="capture-card__top">' +
-    '<div class="capture-avatar">' + TIQ.initialsFor(c) + '</div>' +
-    '<div class="capture-card__identity">' +
-      '<div class="capture-card__name">' + TIQ.escapeHtml(c.firstName) + ' ' + TIQ.escapeHtml(c.lastName) + '</div>' +
-      '<div class="capture-card__id">' + TIQ.escapeHtml(c.id) + '</div>' +
-    '</div>' +
-    '<span class="status-chip ' + (TIQ.statusClassMap[c.recordStatus] || "status-new") + '">' + TIQ.escapeHtml(c.recordStatus) + '</span>' +
-  '</div>' +
-  '<div class="capture-card__info">' +
-    '<div class="capture-card__field">' +
-      '<span class="field-label">University</span>' +
-      '<span class="field-value editable" data-field="university" contenteditable="false">' + TIQ.escapeHtml(c.university || "—") + '</span>' +
-    '</div>' +
-    '<div class="capture-card__field">' +
-      '<span class="field-label">Major</span>' +
-      '<span class="field-value editable" data-field="major" contenteditable="false">' + TIQ.escapeHtml(c.major || "—") + '</span>' +
-    '</div>' +
-    '<div class="capture-card__field">' +
-      '<span class="field-label">Grad</span>' +
-      '<span class="field-value editable" data-field="graduationDate" contenteditable="false">' + TIQ.escapeHtml(c.graduationDate || "—") + '</span>' +
-    '</div>' +
-    '<div class="capture-card__field">' +
-      '<span class="field-label">GPA</span>' +
-      '<span class="field-value editable" data-field="gpa" contenteditable="false">' + TIQ.escapeHtml(c.gpa || "—") + '</span>' +
-    '</div>' +
-    '<div class="capture-card__field">' +
-      '<span class="field-label">Auth</span>' +
-      '<span class="field-value editable" data-field="workAuthorization" contenteditable="false">' + TIQ.escapeHtml(c.workAuthorization || "—") + '</span>' +
-    '</div>' +
-    '<div class="capture-card__field">' +
-      '<span class="field-label">Location</span>' +
-      '<span class="field-value editable" data-field="workLocations" contenteditable="false">' + (c.workLocations.length ? TIQ.escapeHtml(c.workLocations[0]) : "—") + '</span>' +
-    '</div>' +
-    '<div class="capture-card__field">' +
-      '<span class="field-label">Role</span>' +
-      '<span class="field-value editable" data-field="function" contenteditable="false">' + TIQ.escapeHtml(c.function || "—") + '</span>' +
-    '</div>' +
-  '</div>' +
-  skillsHtml +
-  summaryHtml +
-  '<div class="capture-card__flags">' + flagsHtml + '</div>' +
-  '<button class="capture-card__edit-toggle" title="Toggle edit mode">' +
-    '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
-    ' Edit' +
-  '</button>';
+  return headerHtml + profileHtml + highlightsHtml + voiceHtml + alertHtml;
 };
 
 TIQ.views.renderRecruiterCapture = function() {
   var cands = TIQ.state.candidates;
-  if (!cands.length) return '<div class="view" id="view-capture"><div class="view-header"><span class="section-kicker">Live Capture</span><h1>No candidates to capture</h1></div><div class="capture-empty"><p>No candidates in the system yet.</p><button class="primary-button" id="captureGenerateDemo">Generate Demo Candidates</button><button class="secondary-button" id="captureNewCandidateEmpty">Add Candidate Manually</button></div></div>';
+  if (!cands.length) return '<div class="view" id="view-capture"><div class="view-header"><span class="section-kicker">Live Capture</span><h1>No candidates to capture</h1></div><div class="capture-empty"><p>No candidates in the system yet.</p><button class="primary-button" id="captureGenerateDemo">Generate Demo Candidates</button><button class="secondary-button" id="captureImportEmpty">Import Resumes (PDF)</button><button class="secondary-button" id="captureNewCandidateEmpty">Add Candidate Manually</button><input type="file" id="captureImportEmptyInput" accept=".pdf,application/pdf" multiple style="display:none"></div></div>';
 
   var idx = TIQ.views._captureIndex;
   if (idx >= cands.length) {
@@ -315,82 +416,58 @@ TIQ.views.renderRecruiterCapture = function() {
   var stackSize = Math.min(3, cands.length - idx);
   for (var s = stackSize - 1; s >= 0; s--) {
     var sc = cands[idx + s];
-    stackHtml += '<div class="capture-card capture-card--' + s + '" data-stack="' + s + '">' +
-      TIQ.views._buildCardHtml(sc) +
+    stackHtml += '<div class="capture-card candidate-card capture-card--' + s + '" data-stack="' + s + '">' +
+      TIQ.views._buildCardHtml(sc, s === 0) +
       (s === 0 ? '<div class="capture-overlay capture-overlay--left"><span class="capture-overlay__label">REVIEWED</span></div>' +
-       '<div class="capture-overlay capture-overlay--right"><span class="capture-overlay__label">CONTACT</span></div>' +
-       '<div class="capture-card__swipe-hint">← Swipe left = Reviewed &nbsp;|&nbsp; Swipe right = Contact →</div>' : '') +
+       '<div class="capture-overlay capture-overlay--right"><span class="capture-overlay__label">CONTACT</span></div>' : '') +
     '</div>';
   }
   stackHtml += '</div>';
 
-  var audioHtml = "";
+  var atEnd = idx >= cands.length - 1;
+
+  var recordingsHtml = "";
   if (c.audioNotes && c.audioNotes.length) {
-    audioHtml = c.audioNotes.map(function(a, i) {
+    recordingsHtml = c.audioNotes.map(function(a, i) {
       return '<div class="audio-player-row"><span class="audio-label">Recording ' + (i + 1) + ' (' + a.duration + 's)</span><audio controls class="audio-ctrl" data-audio-blob-id="' + TIQ.escapeAttr(a.blobId) + '"></audio><button class="audio-delete-btn" data-audio-index="' + i + '" aria-label="Delete recording">✕</button></div>';
     }).join("");
   }
 
-  var atEnd = idx >= cands.length - 1;
-
   return '<div class="view app-view-container" id="view-capture">' +
     '<div class="capture-layout">' +
       '<section class="capture-workspace">' +
-        '<div class="capture-col-left">' +
-          '<div class="capture-stack-shell">' +
-            stackHtml +
-          '</div>' +
-          '<div class="capture-actions">' +
-            '<div class="capture-action-group">' +
-              '<button class="capture-action-btn capture-action--review" id="captureReview" title="Mark as Reviewed (← or swipe left)">' +
-                '<svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>' +
-              '</button>' +
-              '<span class="capture-action-label">Reviewed</span>' +
+'<div class="capture-col-left">' +
+            '<div class="capture-stack-shell">' +
+              stackHtml +
             '</div>' +
-            '<div class="capture-action-group">' +
-              '<button class="capture-action-btn capture-action--skip" id="captureSkip" title="Undo last action">' +
-                '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>' +
+            '<div class="capture-triage">' +
+              '<button class="capture-triage-btn capture-triage--review" id="captureReview" title="Mark as Reviewed (swipe left / &larr;)">' +
+                '<span class="capture-triage-arrow">&larr;</span><span class="capture-triage-label">Reviewed</span>' +
               '</button>' +
-              '<span class="capture-action-label">Undo</span>' +
-            '</div>' +
-            '<div class="capture-action-group">' +
-              '<button class="capture-action-btn capture-action--follow" id="captureFollow" title="Mark as Contact / Follow-Up (→ or swipe right)">' +
-                '<svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>' +
+              '<button class="capture-triage-btn capture-triage--undo" id="captureSkip" title="Undo last action">' +
+                '<svg class="capture-triage-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>' +
+                '<span class="capture-triage-label">Undo</span>' +
               '</button>' +
-              '<span class="capture-action-label">Contact</span>' +
-            '</div>' +
-            '<div class="capture-action-group">' +
-              '<button class="capture-action-btn capture-action--add" id="captureNewCandidate" title="Add new candidate">' +
-                '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
+              '<button class="capture-triage-btn capture-triage--follow" id="captureFollow" title="Mark as Follow-Up (swipe right / &rarr;)">' +
+                '<span class="capture-triage-label">Follow-Up</span><span class="capture-triage-arrow">&rarr;</span>' +
               '</button>' +
-              '<span class="capture-action-label">New</span>' +
             '</div>' +
           '</div>' +
-        '</div>' +
         '<aside class="capture-col-right">' +
-          '<div class="capture-panel capture-panel--voice">' +
-            '<div class="capture-section-title">Voice Notes</div>' +
-            '<div class="capture-live-indicator"><span class="capture-live-dot"></span><span>Live Voice Recording</span></div>' +
-            '<div class="audio-controls">' +
-              '<button id="audioRecordBtn" class="audio-record-btn" aria-label="Record audio"><span class="audio-record-dot"></span><span id="audioRecordLabel">Record</span></button>' +
-              '<span id="audioTimer" class="audio-timer">00:00</span>' +
-              '<button id="audioStopBtn" class="audio-stop-btn" disabled aria-label="Stop recording">Stop</button>' +
-            '</div>' +
-            '<div id="liveTranscriptPreview" class="live-transcript-preview" style="display:none"><span class="live-transcript-dot"></span><span class="live-transcript-text"></span></div>' +
-            '<div id="audioRecordings">' + audioHtml + '</div>' +
+          (recordingsHtml ? '<div class="capture-panel capture-panel--recordings">' +
+            '<div class="capture-section-title">Recordings</div>' +
+            '<div id="audioRecordings" class="audio-recordings">' + recordingsHtml + '</div>' +
+          '</div>' : '') +
+          '<div class="capture-panel capture-panel--intake">' +
+            '<div class="capture-section-title">Resume Intake</div>' +
+            '<p class="capture-intake-sub">Import PDFs and we build the candidate cards from them.</p>' +
+            '<button type="button" class="primary-button" id="captureImportResumes">Import Resumes (PDF)</button>' +
+            '<button type="button" class="secondary-button" id="captureNewCandidate">Add Manually</button>' +
+            '<input type="file" id="captureImportInput" accept=".pdf,application/pdf" multiple style="display:none">' +
           '</div>' +
           '<div class="capture-panel capture-panel--notes">' +
             '<div class="capture-section-title">Recruiter Notes</div>' +
             '<textarea id="captureNotes" class="capture-textarea capture-textarea--inline" rows="4" placeholder="Add notes about this candidate...">' + TIQ.escapeHtml(c.notes) + '</textarea>' +
-          '</div>' +
-          '<div class="capture-panel capture-panel--resume">' +
-            '<div class="capture-section-title">Resume</div>' +
-            '<label class="capture-resume-upload" data-dropzone>' +
-              '<input class="capture-resume-input" id="captureResumeInput" type="file" accept=".pdf" />' +
-              '<span class="capture-resume-icon">&#128196;</span>' +
-              '<span class="capture-resume-label">' + (c.resumeUpload ? TIQ.escapeHtml(typeof c.resumeUpload === "object" ? c.resumeUpload.name : c.resumeUpload) : "Upload resume PDF") + '</span>' +
-            '</label>' +
-            (c.parsedResume ? '<div class="capture-resume-status parsed">&#10003; Parsed — ' + ((c.parsedResume.skills && c.parsedResume.skills.length) ? c.parsedResume.skills.length + ' skills' : 'no skills found') + '</div>' : '') +
           '</div>' +
         '</aside>' +
       '</section>' +
@@ -480,6 +557,55 @@ TIQ.views._renderCaptureComplete = function(cands) {
   '</div>';
 };
 
+TIQ.views.importResumeFiles = function(files) {
+  files = Array.prototype.slice.call(files || []);
+  if (!files.length || TIQ.views._importingResumes) return;
+  TIQ.views._importingResumes = true;
+  var created = 0;
+  var failed = 0;
+  var chain = Promise.resolve();
+  files.forEach(function(file) {
+    chain = chain.then(function() {
+      if (!/\.pdf$/i.test(file.name) && file.type !== "application/pdf") {
+        failed++;
+        return;
+      }
+      var c = {
+        id: TIQ.CONFIG.idPrefix + (2500 + TIQ.state.candidates.length + created),
+        firstName: "", lastName: "",
+        email: "", phone: "", gpa: "", university: "", major: "",
+        graduationDate: "", workAuthorization: "", workLocations: [],
+        function: "", skills: [], areasDiscussed: [], notes: "",
+        audioNotes: [], recordStatus: "New", priority: "Medium",
+        approvalStatus: "Pending", createdAt: TIQ.nowISO(), lastUpdated: TIQ.nowISO(),
+        capturedBy: TIQ.state.activeRecruiterId || "rec-1",
+        parsedResume: null, resumeUpload: null, auditLog: [], traceability: [],
+        accomplishments: [], summary: "", approvedBy: null, approvalTimestamp: null
+      };
+      TIQ.addAuditEntry(c, "CREATED", "Imported from resume " + file.name);
+      TIQ.state.candidates.push(c);
+      return TIQ.ai.parseAndStoreResume(c, file).then(function() {
+        created++;
+        if (!c.summary) TIQ.ai.updateCandidateSummary(c);
+      }).catch(function() {
+        failed++;
+      });
+    });
+  });
+  chain.then(function() {
+    TIQ.views._importingResumes = false;
+    TIQ.views._finalizeImport(created, failed);
+  });
+};
+
+TIQ.views._finalizeImport = function(created, failed) {
+  TIQ.logMetric({ type: "resume-import", count: created, failed: failed, recruiterId: TIQ.state.activeRecruiterId || "rec-1" });
+  TIQ.saveState();
+  TIQ.showToast(created + " candidate(s) imported" + (failed ? " (" + failed + " resume(s) could not be parsed)" : ""));
+  TIQ.views._captureIndex = 0;
+  TIQ.views._rerenderCapture();
+};
+
 TIQ.views._loadAudioBlobs = function() {
   var audios = document.querySelectorAll("audio[data-audio-blob-id]");
   audios.forEach(function(audio) {
@@ -503,6 +629,28 @@ TIQ.views._revokeAudioUrls = function() {
   });
 };
 
+/* Resume preview — opens a lightweight read-only modal with the file name + candidate fields */
+TIQ.views._previewResume = function(c, fileName) {
+  var modal = document.createElement("div");
+  modal.className = "resume-preview-modal";
+  modal.innerHTML =
+    '<div class="resume-preview-card">' +
+      '<div class="resume-preview-head">' +
+        '<div class="avatar-box" style="width:40px;height:40px;font-size:15px;border-radius:10px">' + TIQ.initialsFor(c) + '</div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div class="resume-preview-name">' + TIQ.escapeHtml(c.firstName) + ' ' + TIQ.escapeHtml(c.lastName) + '</div>' +
+          '<div class="resume-preview-file">&#128196; ' + TIQ.escapeHtml(fileName) + '</div>' +
+        '</div>' +
+        '<button type="button" class="resume-preview-close" aria-label="Close preview">&#10005;</button>' +
+      '</div>' +
+      '<div class="resume-preview-body"><p>Resume files are referenced by the candidate\'s intake submission. Store the original upload in your ATS after the fair.</p></div>' +
+    '</div>';
+  document.body.appendChild(modal);
+  function closePreview() { if (modal.parentNode) modal.parentNode.removeChild(modal); }
+  modal.addEventListener("click", function(e) { if (e.target === modal || e.target.closest(".resume-preview-close")) closePreview(); });
+  return modal;
+};
+
 TIQ.views.initCaptureEvents = function() {
   var container = document.getElementById("view-capture");
   if (!container) return;
@@ -517,6 +665,7 @@ TIQ.views.initCaptureEvents = function() {
     var startOverBtn = e.target.closest("#captureStartOver");
     var backBtn = e.target.closest("#captureBackToOverview");
     var categoryBtn = e.target.closest(".capture-complete__card-btn");
+    var previewBtn = e.target.closest(".preview-btn");
 
     if (skipBtn) {
       TIQ.views._undoLastCaptureAction();
@@ -544,9 +693,18 @@ TIQ.views.initCaptureEvents = function() {
       var status = categoryBtn.dataset.viewStatus;
       TIQ.views._aiReviewStatus = status;
       TIQ.router.navigateTo("review");
+    } else if (e.target.closest("#captureImportResumes") || e.target.closest("#captureImportEmpty")) {
+      var impInput = e.target.closest("#captureImportResumes") ? document.getElementById("captureImportInput") : document.getElementById("captureImportEmptyInput");
+      if (impInput) impInput.click();
     } else if (e.target.closest("#captureNewCandidate")) {
       var modal = document.getElementById("newCandidateModal");
       if (modal) modal.hidden = false;
+    } else if (previewBtn) {
+      var pc = TIQ.state.candidates[TIQ.views._captureIndex];
+      if (pc && pc.resumeUpload) {
+        var pname = typeof pc.resumeUpload === "object" ? (pc.resumeUpload.name || "resume.pdf") : pc.resumeUpload;
+        TIQ.views._previewResume(pc, pname);
+      }
     } else if (e.target.closest("#captureGenerateDemo")) {
       var count = TIQ.views.generateDemoCandidates();
       if (count > 0) {
@@ -573,23 +731,19 @@ TIQ.views.initCaptureEvents = function() {
     });
   }
 
-  var captureResumeInput = document.getElementById("captureResumeInput");
-  if (captureResumeInput) {
-    captureResumeInput.addEventListener("change", function() {
-      var file = captureResumeInput.files && captureResumeInput.files[0];
-      var c = TIQ.state.candidates[TIQ.views._captureIndex];
-      if (!c || !file) return;
-      c.resumeUpload = { name: file.name, type: file.type };
-      TIQ.addAuditEntry(c, "RESUME_UPLOADED", "Resume uploaded: " + file.name);
-      if (file.type === "application/pdf" && TIQ.ai && TIQ.ai.parseAndStoreResume) {
-        TIQ.ai.parseAndStoreResume(c, file).then(function() {
-          TIQ.ai.updateCandidateSummary(c);
-          TIQ.views._rerenderCapture();
-        });
-      } else {
-        TIQ.saveState();
-        TIQ.views._rerenderCapture();
-      }
+  var captureImportInput = document.getElementById("captureImportInput");
+  if (captureImportInput) {
+    captureImportInput.addEventListener("change", function() {
+      TIQ.views.importResumeFiles(this.files);
+      this.value = "";
+    });
+  }
+
+  var captureImportEmptyInput = document.getElementById("captureImportEmptyInput");
+  if (captureImportEmptyInput) {
+    captureImportEmptyInput.addEventListener("change", function() {
+      TIQ.views.importResumeFiles(this.files);
+      this.value = "";
     });
   }
 
@@ -678,8 +832,7 @@ TIQ.views.initCaptureEvents = function() {
   }
 
     var recordBtn = document.getElementById("audioRecordBtn");
-    var stopBtn = document.getElementById("audioStopBtn");
-    if (recordBtn && stopBtn) {
+    if (recordBtn) {
       if (!TIQ.views._captureRecorder) TIQ.views._captureRecorder = new TIQ.AudioRecorder();
       var rec = TIQ.views._captureRecorder;
       var timerEl = document.getElementById("audioTimer");
@@ -687,92 +840,86 @@ TIQ.views.initCaptureEvents = function() {
       var voskLive = new TIQ.VoskLiveTranscriber();
       var transcriptPreview = document.getElementById("liveTranscriptPreview");
       var transcriptText = transcriptPreview ? transcriptPreview.querySelector(".live-transcript-text") : null;
+      var recording = false;
+      var targetCandidate = null;
+      var saveInFlight = false;
+      var widget = recordBtn.closest(".voice-memo-widget");
 
-      recordBtn.addEventListener("click", function() {
-        var startRecording = function() {
-          recordBtn.classList.add("recording");
-          stopBtn.disabled = false;
-          document.getElementById("audioRecordLabel").textContent = "Recording...";
-          var sec = 0;
-          timerEl.textContent = "00:00";
-          timerInt = setInterval(function() { sec++; timerEl.textContent = String(Math.floor(sec/60)).padStart(2,"0") + ":" + String(sec%60).padStart(2,"0"); }, 1000);
+      var setWidgetRecording = function(on) {
+        if (widget) widget.classList.toggle("is-recording", !!on);
+      };
 
-          if (transcriptPreview) {
-            transcriptPreview.style.display = "flex";
-            if (transcriptText) {
-              transcriptText.textContent = "Listening...";
-              transcriptText.style.color = "";
-            }
-          }
-
-          if (TIQ.OfflineTranscriber.isReady()) {
-            console.log("[TalentIQ] Starting Vosk live streaming transcription");
-            voskLive.onInterim = function(text) {
-              if (transcriptText) transcriptText.textContent = text || "Listening...";
-            };
-            voskLive.onFinal = function(text) {};
-            voskLive.onEnd = function() {};
-            voskLive.onError = function(err) {
-              console.warn("[TalentIQ] VoskLive error:", err);
-              if (transcriptText) {
-                transcriptText.textContent = "Transcription will process when you stop";
-                transcriptText.style.color = "#9a8c6e";
-              }
-            };
-            voskLive.start(16000);
-            rec.onAudioChunk = function(pcmChunk) {
-              voskLive.feedChunk(pcmChunk);
-            };
-          } else {
-            console.log("[TalentIQ] Vosk not ready, loading model...");
-            if (transcriptText) {
-              transcriptText.textContent = "Loading transcription engine...";
-              transcriptText.style.color = "";
-            }
-            TIQ.OfflineTranscriber.init().then(function() {
-              console.log("[TalentIQ] Vosk model loaded, starting live transcription");
-              voskLive.start(16000);
-              rec.onAudioChunk = function(pcmChunk) {
-                voskLive.feedChunk(pcmChunk);
-              };
-              if (transcriptText) transcriptText.textContent = "Listening...";
-            }).catch(function() {
-              if (transcriptText) {
-                transcriptText.textContent = "Transcription unavailable";
-                transcriptText.style.color = "#9a8c6e";
-              }
-            });
-          }
-        };
-
-        var ensureVoskReady = function() {
-          if (TIQ.OfflineTranscriber.isReady()) {
-            return Promise.resolve();
-          }
-          if (TIQ.OfflineTranscriber.isLoading()) {
-            return TIQ.OfflineTranscriber.init().catch(function() {});
-          }
-          return TIQ.OfflineTranscriber.init().catch(function() {});
-        };
-
-        ensureVoskReady().then(function() {
-          return rec.start();
-        }).then(function() {
-          startRecording();
+      /* Preload the Vosk model in the background as soon as capture opens */
+      if (window.Vosk && !TIQ.OfflineTranscriber.isReady() && !TIQ.OfflineTranscriber.isLoading()) {
+        TIQ.OfflineTranscriber.init().then(function() {
+          console.log("[TalentIQ] Vosk model ready for live transcription");
         }).catch(function(err) {
-          console.error("[TalentIQ] Failed to start recording:", err);
+          console.warn("[TalentIQ] Background Vosk preload failed:", err);
+          if (!TIQ.views._voskToastShown) {
+            TIQ.views._voskToastShown = true;
+            TIQ.showToast("Transcription engine failed to load — recording still works.");
+          }
         });
-      });
+      }
 
-      stopBtn.addEventListener("click", function() {
-        clearInterval(timerInt);
-        var voskTranscript = voskLive.stop();
+      var setTranscript = function(text, color) {
+        if (!transcriptPreview || !transcriptText) return;
+        transcriptPreview.style.display = "flex";
+        transcriptText.textContent = text;
+        transcriptText.style.color = color || "";
+      };
+
+      var wireLiveTranscription = function() {
+        if (!recording || voskLive.getState() === "listening" || voskLive.getState() === "flushing") return;
+        if (!TIQ.OfflineTranscriber.isReady()) return;
+        var sr = rec.getSampleRate ? rec.getSampleRate() : 16000;
+        voskLive.onInterim = function(text) {
+          if (transcriptText) transcriptText.textContent = text || "Listening...";
+        };
+        voskLive.onFinal = function() {};
+        voskLive.onEnd = function() {};
+        voskLive.onError = function(err) {
+          console.warn("[TalentIQ] VoskLive error:", err);
+          setTranscript("Transcription will process when you stop", "#9a8c6e");
+        };
+        voskLive.start(sr);
+        rec.onAudioChunk = function(pcmChunk) {
+          voskLive.feedChunk(pcmChunk, sr);
+        };
+        setTranscript("Listening...");
+      };
+
+      var setToggleGlyph = function(isRecording) {
+        recordBtn.innerHTML = isRecording ? "&#9632;" : "&#9679;";
+        recordBtn.setAttribute("aria-pressed", isRecording ? "true" : "false");
+        recordBtn.title = isRecording ? "Stop & save" : "Start recording";
+      };
+
+      var resetRecordingUI = function() {
+        recording = false;
+        recordBtn.classList.remove("recording");
+        setToggleGlyph(false);
+        setWidgetRecording(false);
+        if (timerInt) { clearInterval(timerInt); timerInt = null; }
+        TIQ.views._stopLiveWaveform();
+      };
+
+      var finishRecording = function() {
+        if (!recording || saveInFlight) return Promise.resolve();
+        saveInFlight = true;
+        resetRecordingUI();
         rec.onAudioChunk = null;
 
-        rec.stop().then(function(result) {
-          if (!result) return;
-          var c = TIQ.state.candidates[TIQ.views._captureIndex];
-          if (c) {
+        var candidateAtStart = targetCandidate;
+        return Promise.resolve(voskLive.stop()).then(function(voskTranscript) {
+          return rec.stop().then(function(result) {
+            if (!result) { saveInFlight = false; return; }
+            var c = candidateAtStart;
+            if (!c || TIQ.state.candidates.indexOf(c) === -1) {
+              c = TIQ.state.candidates[TIQ.views._captureIndex];
+            }
+            if (!c) { saveInFlight = false; return; }
+
             var blobId = "audio_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
             var note = { id: Date.now(), blobId: blobId, duration: result.duration, createdAt: TIQ.nowISO(), offlinePending: !navigator.onLine, transcript: voskTranscript || "" };
             c.audioNotes.push(note);
@@ -782,64 +929,100 @@ TIQ.views.initCaptureEvents = function() {
               console.error("[TalentIQ] Failed to save audio blob:", err);
             });
 
+            var applyTranscript = function(text) {
+              note.transcript = text || "";
+              if (text) {
+                c.notes = (c.notes ? c.notes + "\n\n" : "") + "TL;DR: " + TIQ.generateTldr(c) + "\n\n" + TIQ.cleanTranscript(TIQ.correctProperNouns(text, c));
+                TIQ.showToast("Voice note saved + transcribed (" + result.duration + "s).");
+              } else {
+                TIQ.showToast("Voice note saved (" + result.duration + "s).");
+              }
+              if (TIQ.ai && TIQ.ai.updateCandidateSummary) TIQ.ai.updateCandidateSummary(c);
+              TIQ.saveState();
+              saveInFlight = false;
+              if (TIQ.views._finishActiveRecording === finishRecording) TIQ.views._finishActiveRecording = null;
+              TIQ.views._rerenderCapture();
+            };
+
             if (voskTranscript) {
               console.log("[TalentIQ] Vosk live transcription complete:", voskTranscript);
-              c.notes = (c.notes ? c.notes + "\n\n" : "") + "TL;DR: " + TIQ.generateTldr(c) + "\n\n" + TIQ.cleanTranscript(TIQ.correctProperNouns(voskTranscript, c));
-              TIQ.showToast("Voice note saved + transcribed (" + result.duration + "s).");
-              TIQ.views._rerenderCapture();
+              applyTranscript(TIQ.cleanTranscript(TIQ.correctProperNouns(voskTranscript, c)));
             } else {
-              if (transcriptPreview) {
-                transcriptPreview.style.display = "flex";
-                if (transcriptText) {
-                  transcriptText.textContent = "Transcribing...";
-                  transcriptText.style.color = "";
-                }
-              }
-
-              if (TIQ.OfflineTranscriber.isReady()) {
-                console.log("[TalentIQ] Vosk live had no text, falling back to full transcription");
-                TIQ.OfflineTranscriber.transcribe(result.blob).then(function(text) {
-                  console.log("[TalentIQ] Vosk full transcription complete:", text);
-                  note.transcript = text;
-                  if (text) c.notes = (c.notes ? c.notes + "\n\n" : "") + "TL;DR: " + TIQ.generateTldr(c) + "\n\n" + TIQ.cleanTranscript(TIQ.correctProperNouns(text, c));
-                  TIQ.saveState();
-                  TIQ.showToast("Voice note saved + transcribed (" + result.duration + "s).");
-                  TIQ.views._rerenderCapture();
-                }).catch(function(err) {
-                  console.error("[TalentIQ] Vosk full transcription failed:", err);
-                  note.transcript = "[Transcription failed]";
-                  TIQ.saveState();
-                  TIQ.showToast("Voice note saved (" + result.duration + "s). Transcription failed.");
-                  TIQ.views._rerenderCapture();
-                });
-              } else {
-                if (transcriptText) {
-                  transcriptText.textContent = "Loading transcription engine...";
-                  transcriptText.style.color = "";
-                }
-                TIQ.OfflineTranscriber.init().then(function() {
-                  return TIQ.OfflineTranscriber.transcribe(result.blob);
-                }).then(function(text) {
-                  console.log("[TalentIQ] Vosk full transcription complete:", text);
-                  note.transcript = text;
-                  if (text) c.notes = (c.notes ? c.notes + "\n\n" : "") + "TL;DR: " + TIQ.generateTldr(c) + "\n\n" + TIQ.cleanTranscript(TIQ.correctProperNouns(text, c));
-                  TIQ.saveState();
-                  TIQ.showToast("Voice note saved + transcribed (" + result.duration + "s).");
-                  TIQ.views._rerenderCapture();
-                }).catch(function(err) {
-                  console.error("[TalentIQ] Vosk full transcription failed:", err);
-                  note.transcript = "";
-                  TIQ.saveState();
-                  TIQ.showToast("Voice note saved (" + result.duration + "s). Transcription unavailable.");
-                  TIQ.views._rerenderCapture();
-                });
-              }
+              setTranscript("Transcribing...");
+              var offline = TIQ.OfflineTranscriber.isReady()
+                ? Promise.resolve()
+                : TIQ.OfflineTranscriber.init();
+              offline.then(function() {
+                return TIQ.OfflineTranscriber.transcribe(result.blob);
+              }).then(function(text) {
+                console.log("[TalentIQ] Vosk full transcription complete:", text);
+                applyTranscript(text ? TIQ.cleanTranscript(TIQ.correctProperNouns(text, c)) : "");
+              }).catch(function(err) {
+                console.error("[TalentIQ] Vosk full transcription failed:", err);
+                note.transcript = "";
+                saveInFlight = false;
+                if (TIQ.views._finishActiveRecording === finishRecording) TIQ.views._finishActiveRecording = null;
+                TIQ.showToast("Voice note saved (" + result.duration + "s). Transcription unavailable.");
+                TIQ.views._rerenderCapture();
+              });
             }
+          });
+        });
+      };
+      TIQ.views._finishActiveRecording = finishRecording;
 
-            recordBtn.classList.remove("recording");
-            stopBtn.disabled = true;
-            document.getElementById("audioRecordLabel").textContent = "Record";
+      recordBtn.addEventListener("click", function() {
+        if (saveInFlight) return;
+
+        /* Local flag drives save; recorder state may be orphaned after a re-render */
+        if (recording) {
+          finishRecording();
+          return;
+        }
+        if (rec.getState() === "recording") {
+          /* Orphaned singleton recorder — force cleanup then start fresh */
+          try { rec.cancel(); } catch (ex) {}
+          resetRecordingUI();
+        }
+
+        targetCandidate = TIQ.state.candidates[TIQ.views._captureIndex] || null;
+
+        /* Mic first — never block on the Vosk model download */
+        rec.start().then(function() {
+          recording = true;
+          saveInFlight = false;
+          recordBtn.classList.add("recording");
+          setToggleGlyph(true);
+          setWidgetRecording(true);
+
+          var sec = 0;
+          if (timerEl) {
+            timerEl.textContent = "00:00";
+            timerInt = setInterval(function() {
+              sec++;
+              timerEl.textContent = String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0");
+            }, 1000);
           }
+
+          setTranscript("Listening...");
+          TIQ.views._startLiveWaveform(rec);
+
+          if (TIQ.OfflineTranscriber.isReady()) {
+            console.log("[TalentIQ] Starting Vosk live streaming transcription");
+            wireLiveTranscription();
+          } else {
+            console.log("[TalentIQ] Vosk not ready, loading model in parallel...");
+            setTranscript("Loading transcription engine...");
+            TIQ.OfflineTranscriber.init().then(function() {
+              console.log("[TalentIQ] Vosk model loaded, starting live transcription");
+              wireLiveTranscription();
+            }).catch(function() {
+              setTranscript("Transcription will process when you stop", "#9a8c6e");
+            });
+          }
+        }).catch(function(err) {
+          console.error("[TalentIQ] Failed to start recording:", err);
+          resetRecordingUI();
         });
       });
     }
@@ -857,6 +1040,8 @@ TIQ.views.initSwipeEngine = function() {
 
   function onPointerDown(e) {
     if (e.button && e.button !== 0) return;
+    /* Don't hijack clicks on interactive controls (record toggle, audio players, etc.) */
+    if (e.target.closest("button, a, input, textarea, select, audio, label, .voice-memo-widget")) return;
     dragging = true;
     startX = e.clientX;
     startY = e.clientY;
@@ -1051,7 +1236,13 @@ TIQ.views._setCaptureStatus = function(status) {
   TIQ.views._rerenderCapture();
 };
 
+TIQ.views._finishActiveRecording = null;
+
 TIQ.views._rerenderCapture = function() {
+  /* Flush any in-progress voice memo before the card DOM is replaced */
+  if (TIQ.views._finishActiveRecording && TIQ.views._captureRecorder && TIQ.views._captureRecorder.getState() === "recording") {
+    TIQ.views._finishActiveRecording();
+  }
   document.removeEventListener("keydown", TIQ.views._captureKeyHandler);
   TIQ.views._revokeAudioUrls();
   var container = document.getElementById("viewContainer");
