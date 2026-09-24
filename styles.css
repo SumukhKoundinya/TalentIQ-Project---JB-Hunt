@@ -415,6 +415,10 @@ a { color: inherit; text-decoration: none; }
 /* Notes & Audio (below stack) */
 .capture-section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 8px; }
 .capture-notes { margin-bottom: 16px; max-width: 420px; margin-left: auto; margin-right: auto; }
+.capture-notes__tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.local-engine-status { color: var(--text-muted); font-size: 11px; }
+.local-extraction-preview { min-height: 18px; color: var(--brand); font-size: 11px; margin-top: 6px; }
+.capture-notes__tools .secondary-button { padding: 7px 10px; font-size: 11px; }
 .capture-textarea {
   width: 100%; min-height: 72px; border: 1px solid var(--line); border-radius: var(--radius-sm);
   padding: 10px 12px; font-size: 13px; resize: vertical; color: var(--text); background: var(--surface);

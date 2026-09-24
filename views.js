@@ -198,7 +198,17 @@ TIQ.views.initIntakeForm = function() {
       reviewTimeMs: 0, noteEdits: 0
     };
 
+    var duplicateMatches = TIQ.localEngine && TIQ.localEngine.findDuplicates
+      ? TIQ.localEngine.findDuplicates(newCandidate, TIQ.state.candidates)
+      : [];
+    if (duplicateMatches.length) {
+      newCandidate.duplicateOf = duplicateMatches[0].candidate.id;
+      newCandidate.duplicateConfidence = duplicateMatches[0].score;
+      newCandidate.auditLog.push({ action: "DUPLICATE_FLAGGED", recruiter_id: TIQ.state.activeRecruiterId, timestamp: TIQ.nowISO(), time_to_complete: 0, detail: "Possible duplicate of " + duplicateMatches[0].candidate.id });
+    }
     TIQ.state.candidates.push(newCandidate);
+    if (TIQ.localEngine) TIQ.localEngine.queue({ type: "candidate-created", candidateId: newCandidate.id, payload: newCandidate });
+    if (duplicateMatches.length) TIQ.showToast("Possible duplicate of " + duplicateMatches[0].candidate.id + " flagged for review.");
     TIQ.saveState();
 
     if (TIQ.views._lastResumeParse && TIQ.pipeline && TIQ.pipeline.enqueueResumeProposals) {
@@ -410,7 +420,9 @@ TIQ.views.renderRecruiterCapture = function() {
     stackHtml +
     '<div class="capture-notes">' +
       '<div class="capture-section-title">Recruiter Notes</div>' +
+      '<div class="capture-notes__tools"><span id="localEngineStatus" class="local-engine-status">Local parser ready</span><button type="button" id="localVoiceBtn" class="secondary-button">Start local voice note</button></div>' +
       '<textarea id="captureNotes" class="capture-textarea" rows="3" placeholder="Quick notes from the conversation...">' + TIQ.escapeHtml(c.notes) + '</textarea>' +
+      '<div id="localExtractionPreview" class="local-extraction-preview" aria-live="polite"></div>' +
     '</div>' +
     '<div class="capture-audio">' +
       '<div class="capture-section-title">Voice Notes</div>' +
@@ -533,7 +545,58 @@ TIQ.views.initCaptureEvents = function() {
   if (notes) {
     notes.addEventListener("change", function() {
       var c = TIQ.state.candidates[TIQ.views._captureIndex];
-      if (c) { c.notes = notes.value; TIQ.addAuditEntry(c, "NOTES_UPDATED", "Notes updated"); TIQ.saveState(); }
+      if (c) {
+        c.notes = notes.value;
+        if (TIQ.localEngine) {
+          var parsed = TIQ.localEngine.parseText(notes.value);
+          if (Object.keys(parsed.fields).length) {
+            TIQ.localEngine.applyFields(c, parsed);
+            if (extractionPreview) extractionPreview.textContent = "Detected: " + Object.keys(parsed.fields).join(", ");
+          }
+          TIQ.localEngine.queue({ type: "candidate-update", candidateId: c.id, payload: { notes: notes.value, fields: parsed.fields } });
+        }
+        TIQ.addAuditEntry(c, "NOTES_UPDATED", "Notes updated"); TIQ.saveState();
+      }
+    });
+  }
+
+  var voiceBtn = document.getElementById("localVoiceBtn");
+  var voiceStatus = document.getElementById("localEngineStatus");
+  var extractionPreview = document.getElementById("localExtractionPreview");
+  var voiceActive = false;
+  if (voiceBtn && TIQ.localEngine) {
+    var caps = TIQ.localEngine.capabilities();
+    if (!caps.indexedDb || !caps.webAssembly) voiceStatus.textContent = "Local storage limited";
+    if (!caps.speechRecognition) voiceBtn.textContent = "Use typed note";
+    voiceBtn.addEventListener("click", function() {
+      var candidate = TIQ.state.candidates[TIQ.views._captureIndex];
+      if (!candidate) return;
+      if (!caps.speechRecognition) {
+        voiceStatus.textContent = "Type a note, then fields will parse locally";
+        return;
+      }
+      if (voiceActive) return;
+      voiceActive = true;
+      voiceBtn.disabled = true;
+      voiceBtn.textContent = "Listening locally...";
+      voiceStatus.textContent = "Listening - review before saving";
+      TIQ.localEngine.startVoice(function(text) {
+        var parsed = TIQ.localEngine.parseText(text);
+        if (extractionPreview) extractionPreview.textContent = Object.keys(parsed.fields).length ? "Detected: " + Object.keys(parsed.fields).join(", ") : "Listening for email, phone, GPA, location, and skills";
+        if (notes) notes.value = text;
+      }).then(function(result) {
+        var parsed = TIQ.localEngine.parseText(result.text);
+        TIQ.localEngine.applyFields(candidate, parsed);
+        TIQ.localEngine.queue({ type: "candidate-update", candidateId: candidate.id, payload: parsed.fields });
+        voiceStatus.textContent = "Saved locally - fields are reviewable";
+        TIQ.showToast("Voice note parsed locally. Review the fields before export.");
+      }).catch(function(err) {
+        voiceStatus.textContent = (err && err.message) || "Voice unavailable - type the note";
+      }).then(function() {
+        voiceActive = false;
+        voiceBtn.disabled = false;
+        voiceBtn.textContent = "Start local voice note";
+      });
     });
   }
 
