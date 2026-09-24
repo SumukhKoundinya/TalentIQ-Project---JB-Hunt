@@ -4,7 +4,11 @@ All notable changes to TalentIQ will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- `parseAndStoreResume` backfills name/email/phone/grad/university/major/gpa/skills from the parsed resume and only overwrites empty fields (`TIQ.ai.applyParsedData`) (`data.js`, `tests/apply-resume.test.js`)
+
 ### Changed
+- `parseAndStoreResume` now sets `candidate.resumeUpload` with `parsedAt` (clears the Resume missing flag) and logs a `resume-parsed` metric with skills/experience/gpa/contact summary (`data.js`)
 - **View Renames**: "Candidate Kiosk" → "Event Info" and "Live Recruiter Capture" → "Candidate Cards" in sidebar, view titles, and wirefile (`index.html`, `config.js`, `views.js`, `wireframe-kiosk.html`)
 - **Capture Card JD Alignment**: Meta strip now prefers `Projects` count (JDs value academic/personal projects over prior employment; `Experience: N roles` is fallback only) and soft-skill chips are hidden on the card — qualities stay covered by grounded AI highlights (`views.js`)
 - **Capture Card Profile Structure**: Flat GPA+skills chip row replaced with a labeled meta strip (GPA / certifications / prior roles — only when present) plus skills grouped under category labels (Languages, Frameworks & Web, Data & Analytics, Ops, etc.); capped at 3 groups × 4 chips with `+N` overflow (`views.js`, `styles.css`)

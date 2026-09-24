@@ -989,6 +989,21 @@ TIQ.ai.generateSummary = function(c) {
   };
 };
 
+/* ---- Backfill candidate fields from parsed resume (only-if-empty) ---- */
+TIQ.ai.applyParsedData = function(candidate, parsed) {
+  var contact = parsed.contact || {};
+  if (!candidate.firstName && contact.firstName) candidate.firstName = contact.firstName;
+  if (!candidate.lastName && contact.lastName) candidate.lastName = contact.lastName;
+  if (!candidate.email && contact.email) candidate.email = contact.email;
+  if (!candidate.phone && contact.phone) candidate.phone = contact.phone;
+  if (!candidate.graduationDate && contact.graduationDate) candidate.graduationDate = contact.graduationDate;
+  var edu = (parsed.education && parsed.education.length) ? parsed.education[0] : null;
+  if (!candidate.university && edu && edu.school) candidate.university = edu.school;
+  if (!candidate.major && edu && edu.major) candidate.major = edu.major;
+  if (!candidate.gpa && parsed.gpa) candidate.gpa = parsed.gpa;
+  if ((!candidate.skills || !candidate.skills.length) && parsed.skills && parsed.skills.length) candidate.skills = parsed.skills.slice();
+};
+
 /* ---- PDF Parsing Orchestrator ---- */
 TIQ.ai.parseAndStoreResume = function(candidate, file) {
   if (!window.pdfjsLib) {
@@ -1017,11 +1032,8 @@ TIQ.ai.parseAndStoreResume = function(candidate, file) {
           console.log("[TalentIQ] Resume text extracted, length:", fullText.length);
           var parsed = TIQ.ai.extractResumeData(fullText);
           candidate.parsedResume = parsed;
-
-          if (parsed && parsed.gpa && !candidate.gpa) candidate.gpa = parsed.gpa;
-          if (parsed && parsed.skills && parsed.skills.length && (!candidate.skills || !candidate.skills.length)) {
-            candidate.skills = parsed.skills;
-          }
+          TIQ.ai.applyParsedData(candidate, parsed);
+          candidate.resumeUpload = { name: file.name, type: file.type, parsedAt: TIQ.nowISO() };
 
           var result = TIQ.ai.generateSummary(candidate);
           candidate.summary = result.summary;
@@ -1042,6 +1054,16 @@ TIQ.ai.parseAndStoreResume = function(candidate, file) {
           });
 
           TIQ.addAuditEntry(candidate, "RESUME_PARSED", "Extracted data from uploaded resume");
+          TIQ.logMetric({
+            type: "resume-parsed",
+            candidateId: candidate.id,
+            recruiterId: TIQ.state.activeRecruiterId,
+            fileName: file.name,
+            skills: parsed.skills.length,
+            experience: parsed.experience.length,
+            gpa: Boolean(parsed.gpa),
+            contactFound: Boolean(parsed.contact && (parsed.contact.email || parsed.contact.phone))
+          });
           TIQ.saveState();
           resolve(parsed);
         }).catch(function(err) {
