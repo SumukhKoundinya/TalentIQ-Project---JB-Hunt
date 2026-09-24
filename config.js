@@ -20,7 +20,7 @@ TIQ.CONFIG = {
 
   // --- Default Values ---
   defaultDegreeProgram: "Bachelor of Science",
-  defaultPriority: "Normal",
+  defaultPriority: "Medium",
 
   // --- Storage Keys ---
   storageKey: "talentiq_state_v1",

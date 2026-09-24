@@ -387,12 +387,13 @@
       <div class="field">
         <label class="field-label">Resume</label>
         <div class="file-upload" id="fileUpload">
-          <input type="file" name="resume" accept=".pdf,.doc,.docx" id="resumeInput" />
+          <input type="file" name="resume" accept=".pdf,application/pdf" id="resumeInput" />
           <div class="file-upload-icon">&#128196;</div>
           <div class="file-upload-text">Tap to upload resume</div>
-          <div class="file-upload-hint">PDF, DOC, or DOCX (max 5MB)</div>
+          <div class="file-upload-hint">PDF only (max 5MB)</div>
           <div class="file-upload-name" id="fileName"></div>
         </div>
+        <span class="field-error" data-for="resume" id="fileError"></span>
       </div>
 
       <button type="submit" class="submit-btn" id="submitBtn">Submit Profile</button>
@@ -410,6 +411,14 @@
     <div class="success-id">Your ID: <strong id="submittedId"></strong></div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
+  <script src="config.js?v=4"></script>
+  <script src="data.js?v=4"></script>
   <script>
     (function() {
       var form = document.getElementById("candidateForm");
@@ -436,19 +445,27 @@
         localStorage.setItem("talentiq_state_v1", JSON.stringify(state));
       }
 
-      function getNextId(state) {
-        var count = state.candidates.length;
-        return "TQ-" + (2400 + count + 1);
-      }
-
       /* ---- File handling ---- */
       var selectedFile = null;
+      var fileError = document.getElementById("fileError");
+
+      function acceptFile(file) {
+        if (file && TIQ.intake && TIQ.intake.isParsableResume(file)) {
+          selectedFile = file;
+          fileName.textContent = file.name;
+          fileUpload.classList.add("has-file");
+          if (fileError) fileError.textContent = "";
+        } else {
+          selectedFile = null;
+          fileName.textContent = "";
+          fileUpload.classList.remove("has-file");
+          if (fileError) fileError.textContent = "Only PDF resumes can be scanned. Please attach a .pdf or submit without a resume.";
+        }
+      }
 
       fileInput.addEventListener("change", function() {
         if (fileInput.files && fileInput.files[0]) {
-          selectedFile = fileInput.files[0];
-          fileName.textContent = selectedFile.name;
-          fileUpload.classList.add("has-file");
+          acceptFile(fileInput.files[0]);
         }
       });
 
@@ -463,9 +480,7 @@
         e.preventDefault();
         fileUpload.classList.remove("dragging");
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-          selectedFile = e.dataTransfer.files[0];
-          fileName.textContent = selectedFile.name;
-          fileUpload.classList.add("has-file");
+          acceptFile(e.dataTransfer.files[0]);
         }
       });
 
@@ -544,63 +559,84 @@
 
         var resumeName = selectedFile ? selectedFile.name : "";
 
-        var state = loadState() || { candidates: [], activeRecruiterId: "", lastSelectedId: "" };
-        if (!Array.isArray(state.candidates)) state.candidates = [];
+        var appTIQ = (typeof window !== "undefined" && window.TIQ) ? window.TIQ : null;
+        var state = (appTIQ && appTIQ.state) ? appTIQ.state : loadState();
+        if (!state || !Array.isArray(state.candidates)) {
+          state = { candidates: [], activeRecruiterId: "", lastSelectedId: "" };
+        }
+        if (!state.activeRecruiterId) state.activeRecruiterId = "";
 
-        var id = getNextId(state);
-
-        var newCandidate = {
-          id: id,
-          firstName: firstName,
-          lastName: lastName,
-          email: email,
-          phone: phone,
-          university: university,
-          degreeProgram: "Bachelor of Science",
-          major: major,
-          graduationDate: gradDate,
-          gpa: "",
-          resumeUpload: resumeName,
-          function: "General",
-          workLocations: [],
-          workAuthorization: "",
-          skills: [],
-          keySkills: [],
-          areasDiscussed: [],
-          notes: "",
-          summary: "",
-          traceability: [],
-          recordStatus: "New",
-          approvalStatus: "Pending",
-          approverId: "",
-          approvalTimestamp: "",
-          followUpRequestedBy: "",
-          followUpTimestamp: "",
-          lastUpdated: todayISO(),
-          created_at: nowISO(),
-          priority: "Normal",
-          attributes: [],
-          audioNotes: [],
-          auditLog: [
+        var newCandidate;
+        if (appTIQ && appTIQ.intake) {
+          newCandidate = appTIQ.intake.buildCandidate(
             {
-              action: "CREATED",
-              recruiter_id: "",
-              timestamp: nowISO(),
-              time_to_complete: 0,
-              detail: "Candidate intake form submitted via QR scan"
-            }
-          ],
-          reviewTimeMs: 0,
-          noteEdits: 0
-        };
+              firstName: firstName,
+              lastName: lastName,
+              email: email,
+              phone: phone,
+              university: university,
+              major: major,
+              graduationDate: gradDate,
+              resumeName: resumeName
+            },
+            { state: state }
+          );
+        } else {
+          newCandidate = {
+            id: "TQ-" + (2500 + state.candidates.length),
+            firstName: firstName,
+            lastName: lastName,
+            email: email,
+            phone: phone,
+            university: university,
+            degreeProgram: "Bachelor of Science",
+            major: major,
+            graduationDate: gradDate,
+            gpa: "",
+            resumeUpload: resumeName,
+            function: "General",
+            workLocations: [],
+            workAuthorization: "",
+            skills: [],
+            keySkills: [],
+            areasDiscussed: [],
+            notes: "",
+            summary: "",
+            traceability: [],
+            accomplishments: [],
+            recordStatus: "New",
+            approvalStatus: "Pending",
+            approverId: "",
+            approvalTimestamp: "",
+            followUpRequestedBy: "",
+            followUpTimestamp: "",
+            lastUpdated: todayISO(),
+            created_at: nowISO(),
+            priority: "Medium",
+            attributes: [],
+            audioNotes: [],
+            auditLog: [
+              {
+                action: "CREATED",
+                recruiter_id: "",
+                timestamp: nowISO(),
+                time_to_complete: 0,
+                detail: "Candidate intake form submitted via QR scan"
+              }
+            ],
+            reviewTimeMs: 0,
+            noteEdits: 0
+          };
+        }
 
+        var id = newCandidate.id;
         state.candidates.push(newCandidate);
-        saveState(state);
 
-        if (selectedFile && selectedFile.type === "application/pdf" && window.TIQ && window.TIQ.ai && window.TIQ.ai.parseAndStoreResume) {
-          TIQ.ai.parseAndStoreResume(newCandidate, selectedFile).then(function() {
-            saveState(state);
-          });
+        if (appTIQ && appTIQ.saveState) appTIQ.saveState();
+        else saveState(state);
+
+        if (selectedFile && appTIQ && appTIQ.intake && appTIQ.intake.isParsableResume(selectedFile) && appTIQ.ai && appTIQ.ai.parseAndStoreResume) {
+          appTIQ.ai.parseAndStoreResume(newCandidate, selectedFile);
         }
 
         submittedId.textContent = id;

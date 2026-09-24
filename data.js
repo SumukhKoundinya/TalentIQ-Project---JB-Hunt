@@ -1151,3 +1151,61 @@ TIQ.getMissingFlags = function(c) {
   if (!c.areasDiscussed || c.areasDiscussed.length === 0) flags.push({ key: "Areas Discussed", label: "Areas Not Logged" });
   return flags;
 };
+
+/* ---- Public QR Intake helpers (used by candidate-form.html) ---- */
+TIQ.intake = {};
+
+/* IDs continue from 2500 + count to avoid colliding with manually created TQ-2500+ candidates. */
+TIQ.intake.nextId = function(state) {
+  var count = (state && Array.isArray(state.candidates)) ? state.candidates.length : 0;
+  return TIQ.CONFIG.idPrefix + (2500 + count);
+};
+
+/* Only PDFs can be parsed by pdf.js — DOC/DOCX are rejected at selection time. */
+TIQ.intake.isParsableResume = function(file) {
+  if (!file) return false;
+  var name = file.name || "";
+  return file.type === "application/pdf" || /\.pdf$/i.test(name);
+};
+
+/* Builds a full candidate object from the QR intake form fields. */
+TIQ.intake.buildCandidate = function(fields, opts) {
+  opts = opts || {};
+  fields = fields || {};
+  var auditDetail = opts.auditDetail || "Candidate intake form submitted via QR scan";
+  return {
+    id: TIQ.intake.nextId(opts.state),
+    firstName: fields.firstName || "",
+    lastName: fields.lastName || "",
+    email: fields.email || "",
+    phone: fields.phone || "",
+    university: fields.university || "",
+    major: fields.major || "",
+    graduationDate: fields.graduationDate || "",
+    gpa: fields.gpa || "",
+    degreeProgram: fields.degreeProgram || TIQ.CONFIG.defaultDegreeProgram,
+    resumeUpload: fields.resumeName || "",
+    function: "General",
+    priority: "Medium",
+    skills: [],
+    keySkills: [],
+    areasDiscussed: [],
+    notes: "",
+    summary: "",
+    traceability: [],
+    accomplishments: [],
+    recordStatus: "New",
+    approvalStatus: "Pending",
+    approverId: "",
+    approvalTimestamp: "",
+    followUpRequestedBy: "",
+    followUpTimestamp: "",
+    lastUpdated: TIQ.todayISO(),
+    created_at: TIQ.nowISO(),
+    attributes: [],
+    audioNotes: [],
+    auditLog: [{ action: "CREATED", recruiter_id: "", timestamp: TIQ.nowISO(), pdetail: auditDetail }],
+    reviewTimeMs: 0,
+    noteEdits: 0
+  };
+};

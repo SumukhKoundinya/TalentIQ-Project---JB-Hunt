@@ -5,6 +5,8 @@ All notable changes to TalentIQ will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- `TIQ.intake` helpers for the QR form: `nextId` (TQ-2500+count), `isParsableResume` (PDF-only), `buildCandidate` (Medium priority, CREATED audit entry) (`data.js`, `tests/intake.test.js`)
+- PDF intake pipeline test: QR form fields → `parseAndStoreResume` → skills/GPA/summary backfilled and persisted under `talentiq_state_v1` with fake pdf.js (`tests/qr-pipeline.test.js`)
 - `parseAndStoreResume` backfills name/email/phone/grad/university/major/gpa/skills from the parsed resume and only overwrites empty fields (`TIQ.ai.applyParsedData`) (`data.js`, `tests/apply-resume.test.js`)
 - Capture view: bulk resume import panel (resumes → candidate cards) (`views.js`)
 - Analytics module computing overview metrics from live candidate state — statusCounts/avgReviewSeconds/formatDuration/dataCompleteness/majorBreakdown/topUniversities/activityFeed/perRecruiter (`analytics.js`, `tests/analytics.test.js`)
@@ -14,6 +16,9 @@ All notable changes to TalentIQ will be documented in this file.
 - Candidate card fallbacks (N/A), transcript hydration, tabbed Resume/Voice/Notes drawer (views.js, data.js)
 
 ### Changed
+- **QR intake form now scans resumes**: `candidate-form.html` loads pdf.js + `config.js` + `data.js`; submit builds the candidate via `TIQ.intake`, saves through `TIQ.state`, and calls `TIQ.ai.parseAndStoreResume` so the created card is fully parsed (skills/GPA/contact/AI highlights) in the main app (`candidate-form.html`)
+- QR intake candidates default to `Medium` priority (matches app High/Medium/Low) and get ids `TQ-2500+count` aligned with the main app's scheme instead of `TQ-2400+count` (`candidate-form.html`, `config.js`)
+- QR intake resume input is **PDF-only**: DOC/DOCX are rejected at selection with an inline message (resume optional — submission still proceeds without one) (`candidate-form.html`)
 - `parseAndStoreResume` now sets `candidate.resumeUpload` with `parsedAt` (clears the Resume missing flag) and logs a `resume-parsed` metric with skills/experience/gpa/contact summary (`data.js`)
 - Overview no longer reads `cfg.overviewStats`/`cfg.majorBreakdown`/`cfg.topUniversities`/`cfg.activityFeed` — the dormant auto-compute fallbacks were removed (`views.js`)
 - Telemetry: `logMetric` call sites added for `notes-updated`, `candidate-approved`, `follow-up-requested`, `summary-regen`, `candidate-created`, `export` (csv/json), and `compare` (count) (`views.js`)
