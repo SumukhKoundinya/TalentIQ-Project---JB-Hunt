@@ -52,6 +52,11 @@ TIQ.router = {
           TIQ.views.initReviewEvents();
         });
         break;
+      case "metrics":
+        if (searchWrap) searchWrap.style.display = "none";
+        container.innerHTML = TIQ.views.renderMetrics();
+        TIQ.views.initMetricsEvents();
+        break;
     }
 
     TIQ.saveState();

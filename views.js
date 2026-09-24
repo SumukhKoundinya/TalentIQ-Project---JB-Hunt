@@ -1807,3 +1807,57 @@ TIQ.views.generateDemoCandidates = function() {
   TIQ.saveState();
   return created;
 };
+
+/* ---- Research Metrics View ---- */
+TIQ.views.renderMetrics = function() {
+  var cands = TIQ.state.candidates || [];
+  var A = TIQ.analytics;
+  var counts = A.statusCounts(cands);
+  var reviewed = cands.length ? Math.round(((counts.Reviewed + counts["Follow-Up"] + counts["Interview Requested"]) / cands.length) * 100) : 0;
+  var imports = (TIQ.state.metrics || []).filter(function(m) { return m.type === "resume-import"; });
+  var totalImports = imports.reduce(function(s, m) { return s + (m.count || 0); }, 0);
+  var totalFail = imports.reduce(function(s, m) { return s + (m.failed || 0); }, 0);
+  var parseRate = (totalImports + totalFail) > 0 ? Math.round((totalImports / (totalImports + totalFail)) * 100) : -1;
+
+  var html = '<div class="view" id="view-metrics">' +
+    '<div class="view-header"><span class="section-kicker">Research Console</span></div>' +
+    TIQ.renderMetricsCards([
+      { label: "Funnel Reviewed", value: reviewed + "%", sub: "Candidates past the New stage", modifier: "blue" },
+      { label: "Avg Review Time", value: A.formatDuration(A.avgReviewSeconds(cands)), sub: "Per candidate review", modifier: "amber" },
+      { label: "Data Completeness", value: A.dataCompleteness(cands) + "%", sub: "Across all records", modifier: "green" },
+      { label: "Resume Parse Success", value: parseRate >= 0 ? parseRate + "%" : "\u2014", sub: "Imported vs failed resumes", modifier: "purple" }
+    ]) +
+    '<div class="overview-grid">' +
+      '<div class="overview-card">' +
+        '<div class="overview-card__head"><span class="chart-title">Candidate Funnel</span></div>' +
+        '<div class="overview-bars">' +
+          ["New", "Reviewed", "Follow-Up", "Interview Requested"].map(function(s, i) {
+            var pct = cands.length ? Math.round(((counts[s] || 0) / cands.length) * 100) : 0;
+            return '<div class="hbar-row"><span class="hbar-label">' + TIQ.escapeHtml(s) + '</span><div class="hbar-track"><div class="hbar-fill" style="width:' + pct + '%;animation-delay:' + (i * 80) + 'ms"></div></div><span class="hbar-val">' + (counts[s] || 0) + '</span></div>';
+          }).join("") +
+        '</div>' +
+      '</div>' +
+      '<div class="overview-card">' +
+        '<div class="overview-card__head"><span class="chart-title">Per Recruiter Activity</span></div>' +
+        '<table class="data-table">' +
+          '<thead><tr><th>Recruiter</th><th>Actions</th><th>Approvals</th></tr></thead>' +
+          '<tbody>' +
+            A.perRecruiter(cands).map(function(r) {
+              return '<tr><td>' + TIQ.escapeHtml(r.recruiterName) + '</td><td>' + r.actions + '</td><td>' + r.approvals + '</td></tr>';
+            }).join("") +
+          '</tbody>' +
+        '</table>' +
+      '</div>' +
+    '</div>' +
+    '<button type="button" class="primary-button" id="metricsExportCsv" style="margin-top:16px">Export Metrics CSV</button>' +
+  '</div>';
+  return html;
+};
+
+TIQ.views.initMetricsEvents = function() {
+  var btn = document.getElementById("metricsExportCsv");
+  if (btn) btn.addEventListener("click", function() {
+    TIQ.logMetric({ type: "export", format: "metrics-csv", recruiterId: TIQ.state.activeRecruiterId });
+    TIQ.exportCsvLoading("talentiq-metrics-" + new Date().toISOString().slice(0, 10), TIQ.state.metrics);
+  });
+};

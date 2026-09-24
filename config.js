@@ -149,9 +149,10 @@ TIQ.CONFIG = {
   // --- View Titles ---
   viewTitles: {
     "analytics": "Executive Analytics",
-    "kiosk": "Candidate Kiosk",
-    "capture": "Live Recruiter Capture",
-    "review": "AI Review & Decision Hub"
+    "kiosk": "Event Info",
+    "capture": "Candidate Cards",
+    "review": "AI Review & Decision Hub",
+    "metrics": "Research Metrics"
   },
 
   // --- Default View ---
@@ -175,6 +176,11 @@ TIQ.CONFIG = {
         "Python and React experience — resume",
         "Capstone project — application notes",
         "AI and logistics data interest — recruiter notes"
+      ],
+      accomplishments: [
+        { text: "Built cloud-native data pipeline processing 10K+ records/day", source: "resume" },
+        { text: "Led capstone team of 4 students on logistics AI project", source: "conversation" },
+        { text: "AWS Certified Cloud Practitioner", source: "resume" }
       ],
       recordStatus: "Interview Requested", approvalStatus: "Approved",
       approverId: "R1", approvalTimestamp: "2026-09-14T09:16:00Z",
@@ -205,6 +211,10 @@ TIQ.CONFIG = {
         "Forecasting dashboard — project experience",
         "Supply chain analytics interest — recruiter notes"
       ],
+      accomplishments: [
+        { text: "Built forecasting dashboard for supply chain optimization", source: "resume" },
+        { text: "Dean's List 4 consecutive semesters", source: "resume" }
+      ],
       recordStatus: "Follow-Up", approvalStatus: "Pending",
       approverId: "", approvalTimestamp: "",
       followUpRequestedBy: "R2", followUpTimestamp: "2026-09-14T10:00:00Z",
@@ -233,6 +243,10 @@ TIQ.CONFIG = {
         "ERP process experience — resume",
         "Logistics workflow redesign — project experience",
         "Enterprise systems interest — recruiter notes"
+      ],
+      accomplishments: [
+        { text: "Redesigned ERP workflow reducing manual steps by 30%", source: "resume" },
+        { text: "Process mapping certification from university", source: "resume" }
       ],
       recordStatus: "Reviewed", approvalStatus: "Approved",
       approverId: "R3", approvalTimestamp: "2026-09-14T10:05:00Z",
@@ -263,6 +277,10 @@ TIQ.CONFIG = {
         "Vulnerability assessment — project experience",
         "Network security interest — recruiter notes"
       ],
+      accomplishments: [
+        { text: "Completed vulnerability assessment project identifying 15+ risks", source: "resume" },
+        { text: "CompTIA Security+ Certified", source: "resume" }
+      ],
       recordStatus: "Interview Requested", approvalStatus: "Approved",
       approverId: "R4", approvalTimestamp: "2026-09-14T11:08:00Z",
       followUpRequestedBy: "", followUpTimestamp: "",
@@ -292,6 +310,10 @@ TIQ.CONFIG = {
         "Warehouse capacity project — project experience",
         "Operations and logistics interest — recruiter notes"
       ],
+      accomplishments: [
+        { text: "Warehouse capacity optimization project improving layout by 20%", source: "resume" },
+        { text: "Improved logistics planning accuracy through data analysis", source: "conversation" }
+      ],
       recordStatus: "New", approvalStatus: "Pending",
       approverId: "", approvalTimestamp: "",
       followUpRequestedBy: "", followUpTimestamp: "",
@@ -319,6 +341,11 @@ TIQ.CONFIG = {
         "JavaScript, React and Node.js — resume",
         "React dashboard — project experience",
         "Frontend and API interest — recruiter notes"
+      ],
+      accomplishments: [
+        { text: "Built React dashboard serving 500+ daily users", source: "resume" },
+        { text: "Teaching assistant for web development course", source: "resume" },
+        { text: "Hackathon winner — best logistics app", source: "conversation" }
       ],
       recordStatus: "Reviewed", approvalStatus: "Approved",
       approverId: "R4", approvalTimestamp: "2026-09-14T11:42:00Z",
@@ -348,6 +375,10 @@ TIQ.CONFIG = {
         "Lean and logistics operations — resume",
         "Optimization model — project experience",
         "Safety and process modeling interest — recruiter notes"
+      ],
+      accomplishments: [
+        { text: "Lean Six Sigma Green Belt certified", source: "resume" },
+        { text: "Process simulation model reducing waste by 15%", source: "resume" }
       ],
       recordStatus: "New", approvalStatus: "Pending",
       approverId: "", approvalTimestamp: "",

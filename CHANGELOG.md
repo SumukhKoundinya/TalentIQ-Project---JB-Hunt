@@ -10,6 +10,7 @@ All notable changes to TalentIQ will be documented in this file.
 - Analytics module computing overview metrics from live candidate state — statusCounts/avgReviewSeconds/formatDuration/dataCompleteness/majorBreakdown/topUniversities/activityFeed/perRecruiter (`analytics.js`, `tests/analytics.test.js`)
 - Overview dashboard now computes all metrics from live candidates (Total Scanned, Interview Requests, Avg Review Time, Data Completeness) with event badges, majors chart, top universities, and activity feed from real data instead of hardcoded config (`views.js`)
 - Event Details editor in the Event Info view (name/date/location persisted to state + sidebar) with `TIQ.eventInfo()` fallback to config (`views.js`, `data.js`, `app.js`)
+- Research Metrics dashboard: funnel, per-recruiter activity, parse-success %, metrics export (`views.js`, `app.js`, `index.html`)
 
 ### Changed
 - `parseAndStoreResume` now sets `candidate.resumeUpload` with `parsedAt` (clears the Resume missing flag) and logs a `resume-parsed` metric with skills/experience/gpa/contact summary (`data.js`)
