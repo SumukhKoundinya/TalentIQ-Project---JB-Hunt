@@ -7,6 +7,7 @@ All notable changes to TalentIQ will be documented in this file.
 ### Added
 - `parseAndStoreResume` backfills name/email/phone/grad/university/major/gpa/skills from the parsed resume and only overwrites empty fields (`TIQ.ai.applyParsedData`) (`data.js`, `tests/apply-resume.test.js`)
 - Capture view: bulk resume import panel (resumes → candidate cards) (`views.js`)
+- Analytics module computing overview metrics from live candidate state — statusCounts/avgReviewSeconds/formatDuration/dataCompleteness/majorBreakdown/topUniversities/activityFeed/perRecruiter (`analytics.js`, `tests/analytics.test.js`)
 
 ### Changed
 - `parseAndStoreResume` now sets `candidate.resumeUpload` with `parsedAt` (clears the Resume missing flag) and logs a `resume-parsed` metric with skills/experience/gpa/contact summary (`data.js`)

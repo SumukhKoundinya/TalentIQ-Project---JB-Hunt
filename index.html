@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" id="fontsLink" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=4" />
 </head>
 <body>
   <div class="app-shell">
@@ -29,11 +29,11 @@
         </a>
         <a class="nav-link" href="#" data-nav="kiosk">
           <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5h7l3 3h6v11H4z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-          <span>Candidate Kiosk</span>
+          <span>Event Info</span>
         </a>
         <a class="nav-link" href="#" data-nav="capture">
           <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 12h8M12 8v8" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-          <span>Live Capture</span>
+          <span>Candidate Cards</span>
         </a>
         <a class="nav-link" href="#" data-nav="review">
           <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 14s3-4 7-4 7 4 7 4-3 4-7 4-7-4-7-4z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="14" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
@@ -113,11 +113,12 @@
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
   </script>
-  <script src="config.js?v=2"></script>
+  <script src="config.js?v=3"></script>
   <script src="qrcode-generator.js"></script>
-  <script src="data.js?v=2"></script>
-  <script src="components.js?v=2"></script>
-  <script src="views.js?v=2"></script>
-  <script src="app.js?v=2"></script>
+  <script src="data.js?v=4"></script>
+  <script src="analytics.js?v=1"></script>
+  <script src="components.js?v=3"></script>
+  <script src="views.js?v=10"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>
