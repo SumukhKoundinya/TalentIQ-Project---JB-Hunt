@@ -11,6 +11,7 @@ All notable changes to TalentIQ will be documented in this file.
 - Overview dashboard now computes all metrics from live candidates (Total Scanned, Interview Requests, Avg Review Time, Data Completeness) with event badges, majors chart, top universities, and activity feed from real data instead of hardcoded config (`views.js`)
 - Event Details editor in the Event Info view (name/date/location persisted to state + sidebar) with `TIQ.eventInfo()` fallback to config (`views.js`, `data.js`, `app.js`)
 - Research Metrics dashboard: funnel, per-recruiter activity, parse-success %, metrics export (`views.js`, `app.js`, `index.html`)
+- Candidate card fallbacks (N/A), transcript hydration, tabbed Resume/Voice/Notes drawer (views.js, data.js)
 
 ### Changed
 - `parseAndStoreResume` now sets `candidate.resumeUpload` with `parsedAt` (clears the Resume missing flag) and logs a `resume-parsed` metric with skills/experience/gpa/contact summary (`data.js`)
@@ -21,6 +22,8 @@ All notable changes to TalentIQ will be documented in this file.
 - **Capture Card JD Alignment**: Meta strip now prefers `Projects` count (JDs value academic/personal projects over prior employment; `Experience: N roles` is fallback only) and soft-skill chips are hidden on the card — qualities stay covered by grounded AI highlights (`views.js`)
 - **Capture Card Profile Structure**: Flat GPA+skills chip row replaced with a labeled meta strip (GPA / certifications / prior roles — only when present) plus skills grouped under category labels (Languages, Frameworks & Web, Data & Analytics, Ops, etc.); capped at 3 groups × 4 chips with `+N` overflow (`views.js`, `styles.css`)
 - **Skill Taxonomy**: New `TIQ.SKILL_GROUPS` taxonomy and `TIQ.categorizeSkills()` helper — case-insensitive, dedupes across resume/recruiter sources, unknown skills fall back to Other Skills (`data.js`)
+- Swipe right = Interview Requested; left = Reviewed (no hard reject) (views.js)
+- Accessible capture drawers with focus-visible + aria-selected (styles.css, views.js)
 
 ### Fixed
 - **Swipe Animation Paint Order**: Exiting/dragged capture card no longer gets cut off at the left-column edge (looked like it slid *under* Recruiter Notes/sidebar) — `.capture-workspace` and `.capture-col-left` now use `overflow: visible` so the card paints over surrounding UI; `.app-shell` gains `overflow-x: clip` to prevent a horizontal scrollbar from the fly-out (`styles.css`)

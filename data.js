@@ -892,6 +892,22 @@ TIQ.ai._extractContact = function (rawText) {
   };
 };
 
+/* ---- Transcript Hydration ---- */
+TIQ.ai.hydrateTranscript = function (candidate, transcriptText) {
+  var changes = { skillsAdded: [], notesUpdated: false };
+  if (!candidate || !transcriptText) return changes;
+  candidate.skills = candidate.skills || [];
+  var find = function (s) { return candidate.skills.indexOf(s) !== -1; };
+  TIQ.ai._extractSkills(transcriptText).forEach(function (skill) {
+    if (!find(skill)) { candidate.skills.push(skill); changes.skillsAdded.push(skill); }
+  });
+  if (typeof TIQ.generateTldr === 'function') {
+    var tldr = TIQ.generateTldr(transcriptText);
+    if (tldr && !candidate.notes) { candidate.notes = tldr; changes.notesUpdated = true; }
+  }
+  return changes;
+};
+
 /* ---- Summary Generator ---- */
 TIQ.ai.generateSummary = function(c) {
   if (!c) return { summary: "", traceability: [], missingData: [] };
@@ -1114,6 +1130,11 @@ TIQ.ai.updateCandidateSummary = function(candidate) {
   candidate.lastUpdated = TIQ.todayISO();
   TIQ.saveState();
   return result;
+};
+
+/* ---- Display fallback helper ---- */
+TIQ.displayValue = function (val, fallback) {
+  return (val === undefined || val === null || val === '') ? fallback : val;
 };
 
 /* ---- Update getMissingFlags to handle parsedResume + summary gaps ---- */

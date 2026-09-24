@@ -264,9 +264,9 @@ TIQ.views._buildCardHtml = function(c, isFront) {
       '<div class="name-row">' +
         '<h3 class="candidate-name">' + TIQ.escapeHtml(c.firstName) + ' ' + TIQ.escapeHtml(c.lastName) + '</h3>' +
       '</div>' +
-      (c.university ? '<p class="university">' + TIQ.escapeHtml(c.university) + '</p>' : '') +
+      '<p class="university">' + TIQ.escapeHtml(TIQ.displayValue(c.university, 'University not listed')) + ' &middot; ' + TIQ.escapeHtml(TIQ.displayValue(c.major, 'Major not listed')) + '</p>' +
       '<p class="major-grad">' +
-        [c.major, gradDate].filter(Boolean).map(TIQ.escapeHtml).join(' &bull; ') +
+        TIQ.escapeHtml(TIQ.displayValue(gradDate, 'Grad date TBD')) +
       '</p>' +
     '</div>' +
   '</div>';
@@ -276,6 +276,8 @@ TIQ.views._buildCardHtml = function(c, isFront) {
   var gpaNum = parseFloat(c.gpa);
   if (!isNaN(gpaNum) && gpaNum > 0) {
     metaFacts.push({ label: "GPA", value: String(c.gpa), mod: "meta-fact--gpa" });
+  } else {
+    metaFacts.push({ label: "GPA", value: TIQ.displayValue(c.gpa, 'N/A'), mod: "meta-fact--gpa" });
   }
   var parsed = c.parsedResume || null;
   var certCount = (parsed && parsed.certifications && parsed.certifications.length) || 0;
@@ -396,6 +398,7 @@ TIQ.views.renderRecruiterCapture = function() {
   }
 
   var c = cands[idx];
+  var sel = c;
 
   var recruiterName = TIQ.recruiterName(TIQ.state.activeRecruiterId) || "Not selected";
   var attributeHtml = TIQ.renderAttributePills(c.attributes || [], { interactive: false, className: "attribute-picker attribute-picker--static" });
@@ -409,7 +412,7 @@ TIQ.views.renderRecruiterCapture = function() {
     stackHtml += '<div class="capture-card candidate-card capture-card--' + s + '" data-stack="' + s + '">' +
       TIQ.views._buildCardHtml(sc, s === 0) +
       (s === 0 ? '<div class="capture-overlay capture-overlay--left"><span class="capture-overlay__label">REVIEWED</span></div>' +
-       '<div class="capture-overlay capture-overlay--right"><span class="capture-overlay__label">CONTACT</span></div>' : '') +
+        '<div class="capture-overlay capture-overlay--right"><span class="capture-overlay__label">INTERVIEW REQUESTED</span></div>' : '') +
     '</div>';
   }
   stackHtml += '</div>';
@@ -417,11 +420,33 @@ TIQ.views.renderRecruiterCapture = function() {
   var atEnd = idx >= cands.length - 1;
 
   var recordingsHtml = "";
-  if (c.audioNotes && c.audioNotes.length) {
-    recordingsHtml = c.audioNotes.map(function(a, i) {
+  if (sel.audioNotes && sel.audioNotes.length) {
+    recordingsHtml = sel.audioNotes.map(function(a, i) {
       return '<div class="audio-player-row"><span class="audio-label">Recording ' + (i + 1) + ' (' + a.duration + 's)</span><audio controls class="audio-ctrl" data-audio-blob-id="' + TIQ.escapeAttr(a.blobId) + '"></audio><button class="audio-delete-btn" data-audio-index="' + i + '" aria-label="Delete recording">✕</button></div>';
     }).join("");
   }
+  recordingsHtml = recordingsHtml || '<p class="capture-intake-sub">No recordings yet.</p>';
+
+  var rawResume = (sel.parsedResume && sel.parsedResume.rawText) ? sel.parsedResume.rawText : 'No parsed resume yet.';
+
+  var drawerHtml = '<div class="capture-panel capture-panel--drawer">' +
+    '<div class="drawer-tabs" role="tablist" aria-label="Candidate details">' +
+      '<button type="button" class="drawer-tab is-active" role="tab" data-drawer-tab="resume" aria-selected="true">Resume</button>' +
+      '<button type="button" class="drawer-tab" role="tab" data-drawer-tab="voice" aria-selected="false">Voice</button>' +
+      '<button type="button" class="drawer-tab" role="tab" data-drawer-tab="notes" aria-selected="false">Notes</button>' +
+    '</div>' +
+    '<div class="drawer-panel is-active" data-drawer-panel="resume">' +
+      '<pre class="drawer-raw">' + TIQ.escapeHtml(rawResume) + '</pre>' +
+    '</div>' +
+    '<div class="drawer-panel" data-drawer-panel="voice">' +
+      '<div class="capture-section-title">Recordings</div>' +
+      '<div id="audioRecordings" class="audio-recordings">' + recordingsHtml + '</div>' +
+    '</div>' +
+    '<div class="drawer-panel" data-drawer-panel="notes">' +
+      '<div class="capture-section-title">Recruiter Notes</div>' +
+      '<textarea id="captureNotes" class="capture-textarea capture-textarea--inline" rows="6" placeholder="Add notes about this candidate...">' + TIQ.escapeHtml(sel.notes) + '</textarea>' +
+    '</div>' +
+  '</div>';
 
   return '<div class="view app-view-container" id="view-capture">' +
     '<div class="capture-layout">' +
@@ -438,26 +463,19 @@ TIQ.views.renderRecruiterCapture = function() {
                 '<svg class="capture-triage-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>' +
                 '<span class="capture-triage-label">Undo</span>' +
               '</button>' +
-              '<button class="capture-triage-btn capture-triage--follow" id="captureFollow" title="Mark as Follow-Up (swipe right / &rarr;)">' +
+              '<button class="capture-triage-btn capture-triage--follow" id="captureFollow" title="Interview Requested (swipe right / &rarr;)">' +
                 '<span class="capture-triage-label">Follow-Up</span><span class="capture-triage-arrow">&rarr;</span>' +
               '</button>' +
             '</div>' +
           '</div>' +
         '<aside class="capture-col-right">' +
-          (recordingsHtml ? '<div class="capture-panel capture-panel--recordings">' +
-            '<div class="capture-section-title">Recordings</div>' +
-            '<div id="audioRecordings" class="audio-recordings">' + recordingsHtml + '</div>' +
-          '</div>' : '') +
+          drawerHtml +
           '<div class="capture-panel capture-panel--intake">' +
             '<div class="capture-section-title">Resume Intake</div>' +
             '<p class="capture-intake-sub">Import PDFs and we build the candidate cards from them.</p>' +
             '<button type="button" class="primary-button" id="captureImportResumes">Import Resumes (PDF)</button>' +
             '<button type="button" class="secondary-button" id="captureNewCandidate">Add Manually</button>' +
             '<input type="file" id="captureImportInput" accept=".pdf,application/pdf" multiple style="display:none">' +
-          '</div>' +
-          '<div class="capture-panel capture-panel--notes">' +
-            '<div class="capture-section-title">Recruiter Notes</div>' +
-            '<textarea id="captureNotes" class="capture-textarea capture-textarea--inline" rows="4" placeholder="Add notes about this candidate...">' + TIQ.escapeHtml(c.notes) + '</textarea>' +
           '</div>' +
         '</aside>' +
       '</section>' +
@@ -710,6 +728,17 @@ TIQ.views.initCaptureEvents = function() {
     } else if (e.target.closest("#newCandidateClose") || e.target.closest("#newCandidateCancel")) {
       var modal2 = document.getElementById("newCandidateModal");
       if (modal2) modal2.hidden = true;
+    } else if (e.target.closest('[data-drawer-tab]')) {
+      var tabBtn = e.target.closest('[data-drawer-tab]');
+      var name = tabBtn.getAttribute('data-drawer-tab');
+      this.querySelectorAll('[data-drawer-tab]').forEach(function (b) {
+        b.classList.toggle('is-active', b === tabBtn);
+        b.setAttribute('aria-selected', b === tabBtn ? 'true' : 'false');
+      });
+      this.querySelectorAll('[data-drawer-panel]').forEach(function (p) {
+        p.classList.toggle('is-active', p.getAttribute('data-drawer-panel') === name);
+      });
+      return;
     }
   });
 
@@ -928,6 +957,11 @@ TIQ.views.initCaptureEvents = function() {
               } else {
                 TIQ.showToast("Voice note saved (" + result.duration + "s).");
               }
+              var txt = (text || '').trim();
+              if (txt) {
+                var hydrate = TIQ.ai.hydrateTranscript(c, txt);
+                if (hydrate.skillsAdded.length || hydrate.notesUpdated) TIQ.saveState();
+              }
               if (TIQ.ai && TIQ.ai.updateCandidateSummary) TIQ.ai.updateCandidateSummary(c);
               TIQ.saveState();
               saveInFlight = false;
@@ -1138,7 +1172,7 @@ TIQ.views._applySwipeAction = function(direction) {
   if (direction === "left") {
     TIQ.views._setCaptureStatus("Reviewed");
   } else if (direction === "right") {
-    TIQ.views._setCaptureStatus("Follow-Up");
+    TIQ.views._setCaptureStatus("Interview Requested");
   }
 };
 
