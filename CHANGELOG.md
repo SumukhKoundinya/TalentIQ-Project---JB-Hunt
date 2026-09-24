@@ -8,9 +8,14 @@ All notable changes to TalentIQ will be documented in this file.
 - `parseAndStoreResume` backfills name/email/phone/grad/university/major/gpa/skills from the parsed resume and only overwrites empty fields (`TIQ.ai.applyParsedData`) (`data.js`, `tests/apply-resume.test.js`)
 - Capture view: bulk resume import panel (resumes → candidate cards) (`views.js`)
 - Analytics module computing overview metrics from live candidate state — statusCounts/avgReviewSeconds/formatDuration/dataCompleteness/majorBreakdown/topUniversities/activityFeed/perRecruiter (`analytics.js`, `tests/analytics.test.js`)
+- Overview dashboard now computes all metrics from live candidates (Total Scanned, Interview Requests, Avg Review Time, Data Completeness) with event badges, majors chart, top universities, and activity feed from real data instead of hardcoded config (`views.js`)
+- Event Details editor in the Event Info view (name/date/location persisted to state + sidebar) with `TIQ.eventInfo()` fallback to config (`views.js`, `data.js`, `app.js`)
 
 ### Changed
 - `parseAndStoreResume` now sets `candidate.resumeUpload` with `parsedAt` (clears the Resume missing flag) and logs a `resume-parsed` metric with skills/experience/gpa/contact summary (`data.js`)
+- Overview no longer reads `cfg.overviewStats`/`cfg.majorBreakdown`/`cfg.topUniversities`/`cfg.activityFeed` — the dormant auto-compute fallbacks were removed (`views.js`)
+- Telemetry: `logMetric` call sites added for `notes-updated`, `candidate-approved`, `follow-up-requested`, `summary-regen`, `candidate-created`, `export` (csv/json), and `compare` (count) (`views.js`)
+- Sidebar event info and kiosk banner now source from `TIQ.eventInfo()` with config as fallback (`app.js`, `views.js`)
 - **View Renames**: "Candidate Kiosk" → "Event Info" and "Live Recruiter Capture" → "Candidate Cards" in sidebar, view titles, and wirefile (`index.html`, `config.js`, `views.js`, `wireframe-kiosk.html`)
 - **Capture Card JD Alignment**: Meta strip now prefers `Projects` count (JDs value academic/personal projects over prior employment; `Experience: N roles` is fallback only) and soft-skill chips are hidden on the card — qualities stay covered by grounded AI highlights (`views.js`)
 - **Capture Card Profile Structure**: Flat GPA+skills chip row replaced with a labeled meta strip (GPA / certifications / prior roles — only when present) plus skills grouped under category labels (Languages, Frameworks & Web, Data & Analytics, Ops, etc.); capped at 3 groups × 4 chips with `+N` overflow (`views.js`, `styles.css`)

@@ -60,13 +60,14 @@ TIQ.router = {
 
 TIQ.app = {
   init: function() {
-    // Update sidebar event info from config
+    // Update sidebar event info
     var sidebarEvent = document.getElementById("sidebarEventName");
     var sidebarDate = document.getElementById("sidebarEventDate");
     var sidebarLoc = document.getElementById("sidebarEventLocation");
-    if (sidebarEvent) sidebarEvent.textContent = TIQ.CONFIG.eventName;
-    if (sidebarDate) sidebarDate.textContent = TIQ.CONFIG.eventDate;
-    if (sidebarLoc) sidebarLoc.textContent = TIQ.CONFIG.eventLocation;
+    var ev = TIQ.eventInfo();
+    if (sidebarEvent) sidebarEvent.textContent = ev.name;
+    if (sidebarDate) sidebarDate.textContent = ev.date;
+    if (sidebarLoc) sidebarLoc.textContent = ev.location;
 
     // Update fonts link from config
     var fontsLink = document.getElementById("fontsLink");

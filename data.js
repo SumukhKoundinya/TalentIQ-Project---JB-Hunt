@@ -253,13 +253,26 @@ TIQ.downloadCsv = function(filename, csv) {
   document.body.removeChild(link); URL.revokeObjectURL(url);
 };
 
+/* ---- Event metadata: state first, config as fallback ---- */
+TIQ.eventInfo = function() {
+  var e = TIQ.state && TIQ.state.event ? TIQ.state.event : {};
+  return {
+    name: e.name || TIQ.CONFIG.eventName || '',
+    date: e.date || TIQ.CONFIG.eventDate || '',
+    location: e.location || TIQ.CONFIG.eventLocation || ''
+  };
+};
+
 /* ---- Persistence ---- */
 TIQ.loadPersistedState = function() {
   try {
     var raw = localStorage.getItem(TIQ.STORAGE_KEY);
     if (!raw) return null;
     var parsed = JSON.parse(raw);
-    if (Array.isArray(parsed.candidates) && parsed.candidates.length) return parsed;
+    if (Array.isArray(parsed.candidates) && parsed.candidates.length) {
+      parsed.event = parsed.event || {};
+      return parsed;
+    }
     return null;
   } catch (_) { return null; }
 };
@@ -339,6 +352,7 @@ TIQ.state = (function() {
     candidates: normalizedCandidates,
     activeRecruiterId: (persisted && persisted.activeRecruiterId) || "",
     selectedId: (persisted && persisted.lastSelectedId) || "",
+    event: (persisted && persisted.event) || {},
     metrics: TIQ.loadMetrics()
   };
 })();
@@ -348,7 +362,8 @@ TIQ.saveState = function() {
     localStorage.setItem(TIQ.STORAGE_KEY, JSON.stringify({
       candidates: TIQ.state.candidates,
       activeRecruiterId: TIQ.state.activeRecruiterId,
-      lastSelectedId: TIQ.state.selectedId
+      lastSelectedId: TIQ.state.selectedId,
+      event: TIQ.state.event || {}
     }));
   } catch (_) {}
 };

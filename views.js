@@ -6,86 +6,46 @@ window.TIQ = window.TIQ || {};
 /* ---- Overview View ---- */
 TIQ.views = TIQ.views || {};
 TIQ.views.renderOverview = function() {
-  var cfg = TIQ.CONFIG;
-  var stats = cfg.overviewStats || {};
-  var cands = TIQ.state.candidates;
-
-  // Auto-compute stats if config is null
-  var totalScanned = stats.totalScanned != null ? stats.totalScanned : cands.length;
-  var interviewRequests = stats.interviewRequests != null ? stats.interviewRequests : cands.filter(function(c) { return c.recordStatus === "Interview Requested"; }).length;
-
-  // Auto-compute major breakdown if config is null
-  var majorData = cfg.majorBreakdown;
-  if (!majorData) {
-    var majorCounts = {};
-    cands.forEach(function(c) { majorCounts[c.major] = (majorCounts[c.major] || 0) + 1; });
-    var total = cands.length || 1;
-    majorData = Object.keys(majorCounts).map(function(k) { return { label: k, percent: Math.round(majorCounts[k] / total * 100) }; });
-  }
-
-  // Auto-compute top universities if config is null
-  var uniData = cfg.topUniversities;
-  if (!uniData) {
-    var uniCounts = {};
-    cands.forEach(function(c) { uniCounts[c.university] = (uniCounts[c.university] || 0) + 1; });
-    uniData = Object.keys(uniCounts).map(function(k) { return { name: k, count: uniCounts[k] }; });
-    uniData.sort(function(a, b) { return b.count - a.count; });
-    uniData = uniData.slice(0, 5);
-  }
-
-  // Auto-compute activity feed if config is null
-  var feedData = cfg.activityFeed;
-  if (!feedData) {
-    feedData = [];
-    cands.forEach(function(c) {
-      if (c.auditLog && c.auditLog.length > 1) {
-        var last = c.auditLog[c.auditLog.length - 1];
-        var recruiterName = TIQ.recruiterName(last.recruiter_id) || "System";
-        feedData.push({ recruiter: recruiterName, action: last.action.toLowerCase().replace(/_/g, " "), target: c.id, time: "just now", dotColor: "blue" });
-      }
-    });
-    feedData = feedData.slice(0, 5);
-  }
-
-  var reviewTime = cands.reduce(function(sum, c) { return sum + (c.reviewTimeMs || 0); }, 0);
-  var avgReviewMs = cands.length ? Math.round(reviewTime / cands.length) : 0;
-  var followUps = cands.filter(function(c) { return c.recordStatus === "Follow-Up"; }).length;
+  var cands = TIQ.state.candidates || [];
+  var A = TIQ.analytics;
+  var counts = A.statusCounts(cands);
+  var ev = TIQ.eventInfo();
 
   return '<div class="view" id="view-overview">' +
     '<div class="view-header"><span class="section-kicker">Executive Console</span></div>' +
     '<div class="overview-event-bar">' +
-      '<div class="event-badge"><span class="event-badge__label">Event</span><span class="event-badge__value">' + TIQ.escapeHtml(cfg.eventName) + '</span></div>' +
-      '<div class="event-badge"><span class="event-badge__label">Date</span><span class="event-badge__value">' + TIQ.escapeHtml(cfg.eventDate) + '</span></div>' +
-      '<div class="event-badge"><span class="event-badge__label">Location</span><span class="event-badge__value">' + TIQ.escapeHtml(cfg.eventLocation) + '</span></div>' +
+      '<div class="event-badge"><span class="event-badge__label">Event</span><span class="event-badge__value">' + TIQ.escapeHtml(ev.name) + '</span></div>' +
+      '<div class="event-badge"><span class="event-badge__label">Date</span><span class="event-badge__value">' + TIQ.escapeHtml(ev.date) + '</span></div>' +
+      '<div class="event-badge"><span class="event-badge__label">Location</span><span class="event-badge__value">' + TIQ.escapeHtml(ev.location) + '</span></div>' +
     '</div>' +
     TIQ.renderMetricsCards([
-      { label: "Total Scanned", value: totalScanned, sub: "Candidate profiles collected", modifier: "blue" },
-      { label: "Interview Requests", value: interviewRequests, sub: "Next-day scheduling", modifier: "green" },
-      { label: "Avg Review Time", value: stats.avgReviewTime || (avgReviewMs ? avgReviewMs + " ms" : "—"), sub: "Per candidate review", modifier: "amber" },
-      { label: "Follow-Ups", value: followUps, sub: "Priority candidates", modifier: "purple" }
+      { label: "Total Scanned", value: cands.length, sub: "Candidate profiles collected", modifier: "blue" },
+      { label: "Interview Requests", value: counts["Interview Requested"] + counts["Follow-Up"], sub: "Next-day scheduling", modifier: "green" },
+      { label: "Avg Review Time", value: A.formatDuration(A.avgReviewSeconds(cands)), sub: "Per candidate review", modifier: "amber" },
+      { label: "Data Completeness", value: A.dataCompleteness(cands) + "%", sub: "Across all records", modifier: "purple" }
     ]) +
     '<div class="overview-grid">' +
       '<div class="overview-card">' +
         '<div class="overview-card__head"><span class="chart-title">Candidates by Major</span></div>' +
         '<div class="overview-bars">' +
-          majorData.map(function(m, i) {
-            return '<div class="hbar-row"><span class="hbar-label">' + TIQ.escapeHtml(m.label) + '</span><div class="hbar-track"><div class="hbar-fill" style="width:' + m.percent + '%;animation-delay:' + (i * 80) + 'ms"></div></div><span class="hbar-val">' + m.percent + '%</span></div>';
+          A.majorBreakdown(cands).map(function(m, i) {
+            return '<div class="hbar-row"><span class="hbar-label">' + TIQ.escapeHtml(m.label) + '</span><div class="hbar-track"><div class="hbar-fill" style="width:' + m.value + '%;animation-delay:' + (i * 80) + 'ms"></div></div><span class="hbar-val">' + m.value + '%</span></div>';
           }).join("") +
         '</div>' +
       '</div>' +
       '<div class="overview-card">' +
         '<div class="overview-card__head"><span class="chart-title">Top Universities</span></div>' +
         '<div class="overview-list">' +
-          uniData.map(function(u, i) {
-            return '<div class="overview-list__item" style="animation-delay:' + (i * 60) + 'ms"><span class="overview-list__rank">' + (i + 1) + '</span><span class="overview-list__name">' + TIQ.escapeHtml(u.name) + '</span><span class="overview-list__count">' + u.count + '</span></div>';
+          A.topUniversities(cands).map(function(u, i) {
+            return '<div class="overview-list__item" style="animation-delay:' + (i * 60) + 'ms"><span class="overview-list__rank">' + (i + 1) + '</span><span class="overview-list__name">' + TIQ.escapeHtml(u.university) + '</span><span class="overview-list__count">' + u.count + '</span></div>';
           }).join("") +
         '</div>' +
       '</div>' +
       '<div class="overview-card">' +
         '<div class="overview-card__head"><span class="chart-title">Today\'s Activity</span></div>' +
         '<div class="overview-activity">' +
-          feedData.map(function(f, i) {
-            return '<div class="activity-item" style="animation-delay:' + (i * 60) + 'ms"><span class="activity-dot activity-dot--' + f.dotColor + '"></span><div><strong>' + TIQ.escapeHtml(f.recruiter) + '</strong> ' + TIQ.escapeHtml(f.action) + ' ' + TIQ.escapeHtml(f.target) + '<span class="activity-time">' + TIQ.escapeHtml(f.time) + '</span></div></div>';
+          A.activityFeed(cands).map(function(f, i) {
+            return '<div class="activity-item" style="animation-delay:' + (i * 60) + 'ms"><span class="activity-dot" style="background:' + TIQ.escapeAttr(f.dotColor) + '"></span><div><strong>' + TIQ.escapeHtml(f.recruiter) + '</strong> ' + TIQ.escapeHtml(f.action) + ' ' + TIQ.escapeHtml(f.target) + '<span class="activity-time">' + TIQ.escapeHtml(f.time) + '</span></div></div>';
           }).join("") +
         '</div>' +
       '</div>' +
@@ -105,6 +65,7 @@ TIQ.views._kioskIntakeMethod = TIQ.views._kioskIntakeMethod || "google-form";
 
 TIQ.views.renderKiosk = function() {
   var cfg = TIQ.CONFIG;
+  var ev = TIQ.eventInfo();
   var formUrl = TIQ.views._kioskFormUrl;
   var method = TIQ.views._kioskIntakeMethod;
 
@@ -114,14 +75,21 @@ TIQ.views.renderKiosk = function() {
         '<div class="kiosk-event-card">' +
           '<div class="kiosk-event-card__eyebrow">Event Booth</div>' +
           '<div class="kiosk-event-card__title">' + TIQ.escapeHtml(cfg.company) + '</div>' +
-          '<div class="kiosk-event-card__meta">' + TIQ.escapeHtml(cfg.eventName) + '</div>' +
+          '<div class="kiosk-event-card__meta">' + TIQ.escapeHtml(ev.name) + '</div>' +
           '<div class="kiosk-event-card__line"></div>' +
           '<p class="kiosk-event-card__copy">Quick candidate capture for the career fair floor. Brand &amp; QR Check-in.</p>' +
         '</div>' +
         '<div class="kiosk-location-card">' +
-          '<div class="kiosk-location-row"><span class="kiosk-location-label">Location</span><span class="kiosk-location-value">' + TIQ.escapeHtml(cfg.eventLocation) + '</span></div>' +
-          '<div class="kiosk-location-row"><span class="kiosk-location-label">Date</span><span class="kiosk-location-value">' + TIQ.escapeHtml(cfg.eventDate) + '</span></div>' +
+          '<div class="kiosk-location-row"><span class="kiosk-location-label">Location</span><span class="kiosk-location-value">' + TIQ.escapeHtml(ev.location) + '</span></div>' +
+          '<div class="kiosk-location-row"><span class="kiosk-location-label">Date</span><span class="kiosk-location-value">' + TIQ.escapeHtml(ev.date) + '</span></div>' +
           '<div class="kiosk-location-row kiosk-location-row--last"><span class="kiosk-location-label">Mode</span><span class="kiosk-location-value">Mobile + Desktop</span></div>' +
+        '</div>' +
+        '<div class="kiosk-form-config-card">' +
+          '<div class="kiosk-config-title">Event Details</div>' +
+          '<label class="kiosk-config-field"><span class="kiosk-config-label">Event Name</span><input type="text" id="kioskEventName" value="' + TIQ.escapeAttr(ev.name) + '" placeholder="e.g. Logistics &amp; Technology Fair 2026" /></label>' +
+          '<label class="kiosk-config-field"><span class="kiosk-config-label">Event Date</span><input type="text" id="kioskEventDate" value="' + TIQ.escapeAttr(ev.date) + '" placeholder="e.g. Sep 14, 2026" /></label>' +
+          '<label class="kiosk-config-field"><span class="kiosk-config-label">Location</span><input type="text" id="kioskEventLocation" value="' + TIQ.escapeAttr(ev.location) + '" placeholder="e.g. Nashville, TN" /></label>' +
+          '<button type="button" class="primary-button" id="kioskSaveEvent">Save Event Details</button>' +
         '</div>' +
         '<div class="kiosk-form-config-card">' +
           '<div class="kiosk-config-title">Form Destination Configurator</div>' +
@@ -209,6 +177,28 @@ TIQ.views.initKioskForm = function() {
         document.body.removeChild(tmp);
         TIQ.showToast("QR link copied to clipboard.");
       }
+    });
+  }
+
+  var saveEventBtn = document.getElementById("kioskSaveEvent");
+  var evName = document.getElementById("kioskEventName");
+  var evDate = document.getElementById("kioskEventDate");
+  var evLocation = document.getElementById("kioskEventLocation");
+  if (saveEventBtn) {
+    saveEventBtn.addEventListener("click", function() {
+      TIQ.state.event = {
+        name: evName ? evName.value.trim() : "",
+        date: evDate ? evDate.value.trim() : "",
+        location: evLocation ? evLocation.value.trim() : ""
+      };
+      TIQ.saveState();
+      var sbName = document.getElementById("sidebarEventName");
+      var sbDate = document.getElementById("sidebarEventDate");
+      var sbLocation = document.getElementById("sidebarEventLocation");
+      if (sbName) sbName.textContent = TIQ.eventInfo().name;
+      if (sbDate) sbDate.textContent = TIQ.eventInfo().date;
+      if (sbLocation) sbLocation.textContent = TIQ.eventInfo().location;
+      TIQ.showToast("Event details saved.");
     });
   }
 };
@@ -727,7 +717,7 @@ TIQ.views.initCaptureEvents = function() {
   if (notes) {
     notes.addEventListener("change", function() {
       var c = TIQ.state.candidates[TIQ.views._captureIndex];
-      if (c) { c.notes = notes.value; TIQ.addAuditEntry(c, "NOTES_UPDATED", "Notes updated"); if (TIQ.ai && TIQ.ai.updateCandidateSummary) TIQ.ai.updateCandidateSummary(c); TIQ.saveState(); }
+      if (c) { c.notes = notes.value; TIQ.addAuditEntry(c, "NOTES_UPDATED", "Notes updated"); TIQ.logMetric({ type: 'notes-updated', candidateId: c.id, recruiterId: c.capturedBy }); if (TIQ.ai && TIQ.ai.updateCandidateSummary) TIQ.ai.updateCandidateSummary(c); TIQ.saveState(); }
     });
   }
 
@@ -810,6 +800,7 @@ TIQ.views.initCaptureEvents = function() {
       };
       TIQ.state.candidates.push(newC);
       TIQ.addAuditEntry(newC, "CREATED", "Manually created during capture");
+      TIQ.logMetric({ type: 'candidate-created', candidateId: newC.id, recruiterId: TIQ.state.activeRecruiterId, source: 'manual' });
       var resumeFile = document.getElementById("newCandidateResume");
       var file = resumeFile && resumeFile.files && resumeFile.files[0];
       if (file) {
@@ -1405,8 +1396,8 @@ TIQ.views.initAIReviewEvents = function() {
 
   var aiCsvBtn = document.getElementById("aiExportCsv");
   var aiJsonBtn = document.getElementById("aiExportJson");
-  if (aiCsvBtn) aiCsvBtn.addEventListener("click", function() { TIQ.exportCsvLoading(aiCsvBtn, TIQ.views._getFilteredCandidates(), TIQ.state.activeRecruiterId); });
-  if (aiJsonBtn) aiJsonBtn.addEventListener("click", function() { TIQ.exportJsonLoading(aiJsonBtn, TIQ.views._getFilteredCandidates()); });
+  if (aiCsvBtn) aiCsvBtn.addEventListener("click", function() { TIQ.exportCsvLoading(aiCsvBtn, TIQ.views._getFilteredCandidates(), TIQ.state.activeRecruiterId); TIQ.logMetric({ type: 'export', format: 'csv', recruiterId: TIQ.state.activeRecruiterId }); });
+  if (aiJsonBtn) aiJsonBtn.addEventListener("click", function() { TIQ.exportJsonLoading(aiJsonBtn, TIQ.views._getFilteredCandidates()); TIQ.logMetric({ type: 'export', format: 'json', recruiterId: TIQ.state.activeRecruiterId }); });
 
   document.getElementById("aiCandidateList").addEventListener("click", function(e) {
     var checkbox = e.target.closest(".compare-check input");
@@ -1436,15 +1427,18 @@ TIQ.views.initAIReviewEvents = function() {
           if (!TIQ.state.activeRecruiterId) { TIQ.showToast("Select a recruiter first."); return; }
           c.recordStatus = "Reviewed"; c.approvalStatus = "Approved"; c.approverId = TIQ.state.activeRecruiterId; c.approvalTimestamp = TIQ.nowISO();
           TIQ.addAuditEntry(c, "APPROVED", "Approved via AI Review");
+          TIQ.logMetric({ type: 'candidate-approved', candidateId: c.id, recruiterId: TIQ.state.activeRecruiterId });
           TIQ.saveState(); TIQ.showToast(c.firstName + " approved."); rerender();
         } else if (actionBtn.dataset.action === "follow") {
           if (!TIQ.state.activeRecruiterId) { TIQ.showToast("Select a recruiter first."); return; }
           c.recordStatus = "Follow-Up"; c.priority = "High"; c.followUpRequestedBy = TIQ.state.activeRecruiterId; c.followUpTimestamp = TIQ.nowISO();
           TIQ.addAuditEntry(c, "FOLLOW_UP", "Follow-up requested");
+          TIQ.logMetric({ type: 'follow-up-requested', candidateId: c.id, recruiterId: TIQ.state.activeRecruiterId });
           TIQ.saveState(); TIQ.showToast(c.firstName + " flagged for follow-up."); rerender();
         } else if (actionBtn.dataset.action === "regen") {
           TIQ.ai.updateCandidateSummary(c);
           TIQ.addAuditEntry(c, "SUMMARY_REGEN", "Summary regenerated from AI");
+          TIQ.logMetric({ type: 'summary-regen', candidateId: c.id, recruiterId: TIQ.state.activeRecruiterId });
           TIQ.saveState(); TIQ.showToast("Summary regenerated."); rerender();
         }
       }
@@ -1465,6 +1459,7 @@ TIQ.views.initAIReviewEvents = function() {
         if (c) {
           c.notes = notes.value;
           TIQ.addAuditEntry(c, "NOTES_UPDATED", "Notes updated");
+          TIQ.logMetric({ type: 'notes-updated', candidateId: c.id, recruiterId: c.capturedBy });
           if (TIQ.ai && TIQ.ai.updateCandidateSummary) TIQ.ai.updateCandidateSummary(c);
           TIQ.saveState();
         }
@@ -1513,6 +1508,7 @@ TIQ.views._openCompareModal = function(ids) {
 
   body.innerHTML = '<div class="compare-table"><div class="compare-row compare-row--head">' + headCells + '</div>' + rowHtml + '</div>';
   modal.hidden = false;
+  TIQ.logMetric({ type: 'compare', count: ids.length, recruiterId: TIQ.state.activeRecruiterId });
 };
 
 TIQ.views._focusMissingField = function(c, key) {
@@ -1651,7 +1647,7 @@ TIQ.views._bindReviewEvents = function() {
   }
 
   var exportBtn = document.getElementById("reviewExportCsv");
-  if (exportBtn) exportBtn.addEventListener("click", function() { TIQ.exportCsvLoading(exportBtn, TIQ.views._reviewView, TIQ.state.activeRecruiterId); });
+  if (exportBtn) exportBtn.addEventListener("click", function() { TIQ.exportCsvLoading(exportBtn, TIQ.views._reviewView, TIQ.state.activeRecruiterId); TIQ.logMetric({ type: 'export', format: 'csv', recruiterId: TIQ.state.activeRecruiterId }); });
 
   var listEl = document.getElementById("reviewCandidateList");
   if (listEl) {
@@ -1682,11 +1678,15 @@ TIQ.views._bindReviewEvents = function() {
         if (act.dataset.action === "approve") {
           if (!TIQ.state.activeRecruiterId) { TIQ.showToast("Select a recruiter first."); return; }
           c.recordStatus = "Reviewed"; c.approvalStatus = "Approved"; c.approverId = TIQ.state.activeRecruiterId; c.approvalTimestamp = TIQ.nowISO();
-          TIQ.addAuditEntry(c, "APPROVED", "Approved via Review"); TIQ.saveState(); TIQ.showToast(c.firstName + " approved."); rerender();
+          TIQ.addAuditEntry(c, "APPROVED", "Approved via Review");
+          TIQ.logMetric({ type: 'candidate-approved', candidateId: c.id, recruiterId: TIQ.state.activeRecruiterId });
+          TIQ.saveState(); TIQ.showToast(c.firstName + " approved."); rerender();
         } else if (act.dataset.action === "follow") {
           if (!TIQ.state.activeRecruiterId) { TIQ.showToast("Select a recruiter first."); return; }
           c.recordStatus = "Follow-Up"; c.priority = "High"; c.followUpRequestedBy = TIQ.state.activeRecruiterId; c.followUpTimestamp = TIQ.nowISO();
-          TIQ.addAuditEntry(c, "FOLLOW_UP", "Follow-up requested"); TIQ.saveState(); TIQ.showToast(c.firstName + " flagged for follow-up."); rerender();
+          TIQ.addAuditEntry(c, "FOLLOW_UP", "Follow-up requested");
+          TIQ.logMetric({ type: 'follow-up-requested', candidateId: c.id, recruiterId: TIQ.state.activeRecruiterId });
+          TIQ.saveState(); TIQ.showToast(c.firstName + " flagged for follow-up."); rerender();
         }
       }
       if (tr) TIQ.views._highlightTrace(tr.dataset.claim, tr);
@@ -1694,7 +1694,7 @@ TIQ.views._bindReviewEvents = function() {
     var notes = detailPanel.querySelector("#aiNotes");
     if (notes) notes.addEventListener("change", function() {
       var c = TIQ.state.candidates.find(function(x) { return x.id === TIQ.views._reviewSelected; });
-      if (c) { c.notes = notes.value; TIQ.addAuditEntry(c, "NOTES_UPDATED", "Notes updated"); TIQ.saveState(); }
+      if (c) { c.notes = notes.value; TIQ.addAuditEntry(c, "NOTES_UPDATED", "Notes updated"); TIQ.logMetric({ type: 'notes-updated', candidateId: c.id, recruiterId: c.capturedBy }); TIQ.saveState(); }
     });
   }
 
