@@ -297,6 +297,24 @@
     .success-id strong {
       color: var(--brand);
     }
+    .success-scan {
+      margin-top: 14px;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 700;
+      max-width: 320px;
+      line-height: 1.5;
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--green);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+    .success-scan:empty { display: none; }
+    .success-scan.warn {
+      background: #FFF6E0;
+      color: #8A6100;
+      border-color: #F0C36D;
+    }
 
     /* Loading */
     .form-card.hidden { display: none; }
@@ -408,6 +426,7 @@
     <div class="success-icon">&#10003;</div>
     <div class="success-title">You're all set!</div>
     <div class="success-msg">Your profile has been submitted. A recruiter will follow up with you soon.</div>
+    <div class="success-scan" id="scanStatus"></div>
     <div class="success-id">Your ID: <strong id="submittedId"></strong></div>
   </div>
 
@@ -428,6 +447,7 @@
       var submitBtn = document.getElementById("submitBtn");
       var successScreen = document.getElementById("successScreen");
       var submittedId = document.getElementById("submittedId");
+      var scanStatus = document.getElementById("scanStatus");
 
       /* ---- Helpers ---- */
       function nowISO() { return new Date().toISOString(); }
@@ -635,13 +655,46 @@
         if (appTIQ && appTIQ.saveState) appTIQ.saveState();
         else saveState(state);
 
-        if (selectedFile && appTIQ && appTIQ.intake && appTIQ.intake.isParsableResume(selectedFile) && appTIQ.ai && appTIQ.ai.parseAndStoreResume) {
-          appTIQ.ai.parseAndStoreResume(newCandidate, selectedFile);
+        var finish = function(scanLine, scanOk) {
+          submittedId.textContent = id;
+          scanStatus.textContent = scanLine || "";
+          scanStatus.className = scanOk ? "success-scan" : "success-scan warn";
+          form.parentElement.classList.add("hidden");
+          successScreen.classList.add("visible");
+        };
+
+        var canScan = selectedFile && appTIQ && appTIQ.intake &&
+          appTIQ.intake.isParsableResume(selectedFile) &&
+          appTIQ.ai && appTIQ.ai.parseAndStoreResume;
+
+        if (!canScan) {
+          finish("", true);
+          return;
         }
 
-        submittedId.textContent = id;
-        form.parentElement.classList.add("hidden");
-        successScreen.classList.add("visible");
+        /* The success screen only appears AFTER the scan finishes (or times out),
+           so closing the tab early no longer silently skips the resume parse. */
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Scanning resume…";
+
+        var parsePromise;
+        try {
+          parsePromise = appTIQ.ai.parseAndStoreResume(newCandidate, selectedFile);
+        } catch (err) {
+          parsePromise = Promise.resolve(null);
+        }
+        var timeout = new Promise(function(resolve) {
+          setTimeout(function() { resolve(null); }, 20000);
+        });
+
+        Promise.race([parsePromise, timeout]).then(function(parsed) {
+          if (parsed) {
+            var skillCount = Array.isArray(parsed.skills) ? parsed.skills.length : 0;
+            finish(skillCount ? "Resume scanned — " + skillCount + " skill" + (skillCount === 1 ? "" : "s") + " detected." : "Resume scanned.", true);
+          } else {
+            finish("Your profile was saved, but your resume couldn't be scanned. Please show your PDF to the recruiter.", false);
+          }
+        });
       });
     })();
   </script>

@@ -24,7 +24,9 @@ function main() {
   assert(c.id === 'TQ-2502', 'candidate id uses intake.nextId');
   assert(c.priority === 'Medium', 'QR intake candidates default to Medium priority');
   assert(c.recordStatus === 'New', 'new candidate starts as New');
-  assert(c.resumeUpload === 'maya_robinson.pdf', 'resume name stored when PDF provided');
+  assert(c.resumeUpload && c.resumeUpload.name === 'maya_robinson.pdf', 'resume name stored when PDF provided');
+  assert(c.resumeUpload.parsedAt === '', 'uploaded-but-not-scanned resume starts with parsedAt ""');
+  assert(TIQ.getMissingFlags(c).some(function(f) { return f.label === 'Resume Not Scanned'; }), 'unscanned upload is flagged "Resume Not Scanned"');
   assert(c.gpa === '' && c.skills.length === 0, 'unparsed fields start empty (backfilled by parse)');
 
   const noFile = TIQ.intake.buildCandidate({ firstName: 'Avery' }, { state: state });

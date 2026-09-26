@@ -22,3 +22,13 @@ JBHUNT_LOGO.png
 
 # Unrelated project files
 hydro_config.py
+
+# Next.js build cache
+talent-iq/.next/
+talent-iq/tsconfig.tsbuildinfo
+
+
+# Separate Next.js experiment + local speech model (not part of this app)
+talent-iq/
+vosk-model-small-en-us-0.15.tar.gz
+*.tar.gz

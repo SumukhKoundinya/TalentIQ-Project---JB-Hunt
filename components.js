@@ -93,10 +93,10 @@ TIQ.renderAttributePills = function(selected, opts) {
 
 TIQ.renderDropZone = function(fileName) {
   return '<label class="dropzone' + (fileName ? ' dropzone--filled' : '') + '" data-dropzone>' +
-    '<input class="dropzone__input" id="resumeUpload" name="resumeUpload" type="file" accept=".pdf,.doc,.docx" />' +
+    '<input class="dropzone__input" id="resumeUpload" name="resumeUpload" type="file" accept=".pdf,application/pdf" />' +
     '<span class="dropzone__icon" aria-hidden="true">⇪</span>' +
     '<span class="dropzone__title">Drag and drop resume here</span>' +
-    '<span class="dropzone__meta">or click to browse PDF, DOC, or DOCX</span>' +
+    '<span class="dropzone__meta">or click to browse &mdash; text-based PDF only</span>' +
     '<span class="dropzone__file" data-dropzone-file>' + TIQ.escapeHtml(fileName || 'No file selected') + '</span>' +
   '</label>';
 };
@@ -985,6 +985,7 @@ TIQ.AudioRecorder = (function() {
     this.pcmChunks = [];
     this.scriptNode = null;
     this.onAudioChunk = null;
+    this.analyser = null;
   }
 
   AudioRecorder.prototype.start = function() {
@@ -1010,8 +1011,16 @@ TIQ.AudioRecorder = (function() {
       self.mediaRecorder.start();
 
       var AudioCtx = window.AudioContext || window.webkitAudioContext;
-      self.audioContext = new AudioCtx({ sampleRate: 16000 });
+      try {
+        self.audioContext = new AudioCtx({ sampleRate: 16000 });
+      } catch (e) {
+        self.audioContext = new AudioCtx();
+      }
       var source = self.audioContext.createMediaStreamSource(stream);
+      self.analyser = self.audioContext.createAnalyser();
+      self.analyser.fftSize = 128;
+      self.analyser.smoothingTimeConstant = 0.75;
+      source.connect(self.analyser);
       self.scriptNode = self.audioContext.createScriptProcessor(4096, 1, 1);
       self.scriptNode.onaudioprocess = function(e) {
         var float32 = e.inputBuffer.getChannelData(0);
@@ -1030,7 +1039,10 @@ TIQ.AudioRecorder = (function() {
       self.startTime = Date.now();
       if (self.onStateChange) self.onStateChange("recording");
     }).catch(function(err) {
-      TIQ.showToast("Microphone access denied.");
+      var msg = err && err.name === "NotAllowedError"
+        ? "Microphone permission denied — allow mic access and try again."
+        : "Microphone access denied.";
+      TIQ.showToast(msg);
       return Promise.reject(err);
     });
   };
@@ -1047,6 +1059,7 @@ TIQ.AudioRecorder = (function() {
         var duration = Math.round((Date.now() - self.startTime) / 1000);
         self.state = "idle";
         if (self.scriptNode) { self.scriptNode.disconnect(); self.scriptNode = null; }
+        if (self.analyser) { try { self.analyser.disconnect(); } catch (e) {} self.analyser = null; }
         if (self.audioContext) { self.audioContext.close().catch(function(){}); self.audioContext = null; }
         if (self.stream) { self.stream.getTracks().forEach(function(t) { t.stop(); }); }
         if (self.onStateChange) self.onStateChange("idle");
@@ -1062,6 +1075,7 @@ TIQ.AudioRecorder = (function() {
       this.chunks = [];
     }
     if (this.scriptNode) { this.scriptNode.disconnect(); this.scriptNode = null; }
+    if (this.analyser) { try { this.analyser.disconnect(); } catch (e) {} this.analyser = null; }
     if (this.audioContext) { this.audioContext.close().catch(function(){}); this.audioContext = null; }
     if (this.stream) { this.stream.getTracks().forEach(function(t) { t.stop(); }); }
     this.pcmChunks = [];
@@ -1070,6 +1084,10 @@ TIQ.AudioRecorder = (function() {
   };
 
   AudioRecorder.prototype.getState = function() { return this.state; };
+  AudioRecorder.prototype.getAnalyser = function() { return this.analyser; };
+  AudioRecorder.prototype.getSampleRate = function() {
+    return this.audioContext ? this.audioContext.sampleRate : 16000;
+  };
 
   return AudioRecorder;
 })();
@@ -1166,6 +1184,7 @@ TIQ.VoskLiveTranscriber = (function() {
     this.state = "idle";
     this.finalText = "";
     this.lastPartial = "";
+    this.sampleRate = 16000;
     this.onInterim = null;
     this.onFinal = null;
     this.onError = null;
@@ -1187,7 +1206,8 @@ TIQ.VoskLiveTranscriber = (function() {
     }
 
     try {
-      this.recognizer = new model.KaldiRecognizer(sampleRate || 16000);
+      this.sampleRate = sampleRate || 16000;
+      this.recognizer = new model.KaldiRecognizer(this.sampleRate);
       this.state = "listening";
       this.finalText = "";
       this.lastPartial = "";
@@ -1217,24 +1237,44 @@ TIQ.VoskLiveTranscriber = (function() {
     }
   };
 
-  VoskLiveTranscriber.prototype.feedChunk = function(pcmInt16) {
+  VoskLiveTranscriber.prototype.feedChunk = function(pcmInt16, sampleRate) {
     if (this.state !== "listening" || !this.recognizer) return;
     try {
-      this.recognizer.acceptWaveform(pcmInt16, 16000);
+      this.recognizer.acceptWaveform(pcmInt16, sampleRate || this.sampleRate || 16000);
     } catch (err) {
       console.warn("[TalentIQ] VoskLive feedChunk error:", err);
     }
   };
 
   VoskLiveTranscriber.prototype.stop = function() {
-    if (this.recognizer && this.state === "listening") {
-      try { this.recognizer.finish(); } catch(e) {}
+    var self = this;
+    if (this.recognizer && (this.state === "listening" || this.state === "flushing")) {
+      if (this.state === "listening") {
+        this.state = "flushing";
+        try { this.recognizer.finish(); } catch (e) {}
+      }
+      return new Promise(function(resolve) {
+        var settled = false;
+        var finishNow = function() {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          try { self.recognizer && self.recognizer.remove(); } catch (e) {}
+          self.recognizer = null;
+          self.state = "idle";
+          var text = self.finalText || self.lastPartial || "";
+          if (self.onEnd) self.onEnd(text);
+          resolve(text);
+        };
+        var timer = setTimeout(finishNow, 800);
+        var onResult = function() { setTimeout(finishNow, 80); };
+        self.recognizer.on("result", onResult);
+      });
     }
-    var result = this.finalText || this.lastPartial || "";
     this.state = "idle";
-    console.log("[TalentIQ] VoskLiveTranscriber.stop() returning:", JSON.stringify(result));
-    if (this.onEnd) this.onEnd(result);
-    return result;
+    var syncText = this.finalText || this.lastPartial || "";
+    if (this.onEnd) this.onEnd(syncText);
+    return Promise.resolve(syncText);
   };
 
   VoskLiveTranscriber.prototype.getState = function() { return this.state; };
@@ -1266,14 +1306,21 @@ TIQ.OfflineTranscriber = (function() {
       _model = model;
       _ready = true;
       _loading = false;
+      _loadPromise = null;
       console.log("[TalentIQ] Vosk model loaded successfully");
 
-      model.on("load", function(msg) {
-        console.log("[TalentIQ] Vosk model load event:", msg);
-      });
-      model.on("error", function(msg) {
-        console.error("[TalentIQ] Vosk model error event:", msg);
-      });
+      try {
+        if (model && typeof model.on === "function") {
+          model.on("load", function(msg) {
+            console.log("[TalentIQ] Vosk model load event:", msg);
+          });
+          model.on("error", function(msg) {
+            console.error("[TalentIQ] Vosk model error event:", msg);
+          });
+        }
+      } catch (e) {
+        console.warn("[TalentIQ] Vosk model event binding skipped:", e);
+      }
 
       return model;
     }).catch(function(err) {

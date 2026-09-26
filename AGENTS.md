@@ -108,3 +108,13 @@ See `BRANDING.md` for full design system reference.
 - `REDESIGN-PLAN.md` — Full implementation plan with 8 tasks
 - `BRANDING.md` — Design system reference
 - `README.md` — Human-readable project documentation
+- `CHANGELOG.md` — Auto-updated record of all project changes
+
+## Changelog Policy
+
+**ALWAYS** update `CHANGELOG.md` after making any code change. Rules:
+1. Add entries under `[Unreleased]` at the top of the file
+2. Use categories: `Added`, `Changed`, `Fixed`, `Removed`, `Documentation`
+3. Keep entries concise — one line per change, file/area in parentheses
+4. When a version is tagged, rename `[Unreleased]` to `[version] - YYYY-MM-DD`
+5. This applies to code changes, config changes, and significant doc updates
