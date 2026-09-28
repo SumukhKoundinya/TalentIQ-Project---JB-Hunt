@@ -96,6 +96,46 @@ def main() -> int:
     fields = {p["field"] for p in props}
     assert "major" in fields or "university" in fields or "gpa" in fields
 
+    # Noisy / unknown attribution falls back to default candidate
+    noisy_props = extract_from_utterances(
+        [{"candidateId": "Unknown", "text": "My major is Supply Chain and I use Python and SQL."}],
+        default_candidate_id="TQ-2401",
+    )
+    assert any(p["candidateId"] == "TQ-2401" and p["field"] in ("major", "skills") for p in noisy_props)
+
+    # Conversational phrasing
+    casual = extract_from_utterances([{
+        "candidateId": "TQ-2402",
+        "text": "I go to Arkansas, graduating next May 2027, and I'm a US citizen.",
+    }])
+    casual_fields = {p["field"] for p in casual}
+    assert "university" in casual_fields or "graduationDate" in casual_fields or "workAuthorization" in casual_fields
+
+    # Named multi-speaker fusion keeps separate candidates separate and flags overlap.
+    from ml.pipeline.api import fuse_turns_segments
+    named = fuse_turns_segments(
+        [
+            {"t0": 0.0, "t1": 2.0, "speakerKey": "TQ-2401", "candidateId": "TQ-2401"},
+            {"t0": 2.0, "t1": 4.0, "speakerKey": "TQ-2402", "candidateId": "TQ-2402"},
+        ],
+        [
+            {"t0": 0.2, "t1": 1.8, "text": "I use Python."},
+            {"t0": 2.2, "t1": 3.8, "text": "My GPA is 3.7."},
+        ],
+        {"TQ-2401": "Avery", "TQ-2402": "Jordan"},
+    )
+    assert [row["speakerName"] for row in named] == ["Avery", "Jordan"]
+    overlap = fuse_turns_segments(
+        [
+            {"t0": 0.0, "t1": 2.0, "speakerKey": "TQ-2401", "candidateId": "TQ-2401"},
+            {"t0": 0.0, "t1": 2.0, "speakerKey": "TQ-2402", "candidateId": "TQ-2402"},
+        ],
+        [{"t0": 0.0, "t1": 2.0, "text": "Overlapping speech"}],
+        {"TQ-2401": "Avery", "TQ-2402": "Jordan"},
+    )
+    assert overlap[0]["overlappingSpeech"] is True
+    assert overlap[0]["candidateId"] == "Unknown"
+
     # Resume parse
     pdf = make_sample_pdf()
     if not pdf:

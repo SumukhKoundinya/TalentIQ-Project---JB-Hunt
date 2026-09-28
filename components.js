@@ -116,7 +116,13 @@ TIQ.AudioRecorder = (function() {
       TIQ.showToast("Audio recording not supported in this browser.");
       return Promise.reject(new Error("Not supported"));
     }
-    return navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+    return navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    }).then(function(stream) {
       self.stream = stream;
       self.chunks = [];
       self.mediaRecorder = new MediaRecorder(stream);
@@ -173,7 +179,11 @@ TIQ.VideoRecorder = (function() {
     this.stream = null;
     this.state = "idle";
     this.startTime = 0;
+    this.pausedAt = 0;
+    this.pausedDuration = 0;
     this.mimeType = "";
+    this.facingMode = "environment";
+    this._requestToken = 0;
     this.onStateChange = null;
   }
 
@@ -207,44 +217,67 @@ TIQ.VideoRecorder = (function() {
       TIQ.showToast("Camera not supported. Use localhost or HTTPS.");
       return Promise.reject(new Error("Camera API not available (use localhost or HTTPS)"));
     }
-    if (self.stream && self.stream.active) {
+    var requestedFacing = opts.facingMode || self.facingMode || "environment";
+    if (self.stream && self.stream.active && requestedFacing === self.facingMode) {
       if (self.onStateChange) self.onStateChange("stream", self.stream);
       return Promise.resolve(self.stream);
     }
     stopTracks(self.stream);
     self.stream = null;
+    var requestToken = ++self._requestToken;
 
     var wantAudio = opts.audio !== false;
     var videoConstraints = opts.video === false ? false : {
-      facingMode: { ideal: "user" },
+      facingMode: { ideal: requestedFacing },
       width: { ideal: 1280 },
       height: { ideal: 720 }
     };
+    var audioConstraints = wantAudio ? {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    } : false;
 
     function request(constraints) {
       return navigator.mediaDevices.getUserMedia(constraints);
     }
 
-    // Prefer camera+mic, then camera-only (mic denial should not block video)
-    return request({ video: videoConstraints || true, audio: wantAudio }).catch(function() {
-      return request({ video: true, audio: wantAudio });
-    }).catch(function(err) {
-      if (!wantAudio) throw err;
-      return request({ video: videoConstraints || true, audio: false }).catch(function() {
-        return request({ video: true, audio: false });
-      });
-    }).then(function(stream) {
+    // A conversation recording is only valid when both camera and microphone are available.
+    return request({ video: videoConstraints || true, audio: audioConstraints }).then(function(stream) {
+      if (requestToken !== self._requestToken) {
+        stopTracks(stream);
+        var aborted = new Error("Camera request cancelled");
+        aborted.name = "AbortError";
+        throw aborted;
+      }
+      if (!stream.getVideoTracks().length || (wantAudio && !stream.getAudioTracks().length)) {
+        stopTracks(stream);
+        throw new Error("Camera and microphone are both required to record.");
+      }
       self.stream = stream;
+      self.facingMode = requestedFacing;
       self.state = "preview";
       if (self.onStateChange) self.onStateChange("stream", stream);
       return stream;
     }).catch(function(err) {
+      if (err && err.name === "AbortError") return Promise.reject(err);
       var msg = (err && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError"))
         ? "Camera permission denied — allow camera in the browser address bar."
         : (err && err.message) || "Camera failed";
       TIQ.showToast(msg);
       return Promise.reject(err);
     });
+  };
+
+  VideoRecorder.prototype.switchCamera = function() {
+    if (this.state === "recording" || this.state === "paused") {
+      return Promise.reject(new Error("Stop recording before switching cameras."));
+    }
+    this.facingMode = this.facingMode === "environment" ? "user" : "environment";
+    stopTracks(this.stream);
+    this.stream = null;
+    this.state = "idle";
+    return this.openCamera({ facingMode: this.facingMode });
   };
 
   VideoRecorder.prototype.start = function(opts) {
@@ -286,6 +319,8 @@ TIQ.VideoRecorder = (function() {
       self.mediaRecorder.start(1000);
       self.state = "recording";
       self.startTime = Date.now();
+      self.pausedAt = 0;
+      self.pausedDuration = 0;
       if (self.onStateChange) self.onStateChange("recording", stream);
       return stream;
     }).catch(function(err) {
@@ -293,6 +328,35 @@ TIQ.VideoRecorder = (function() {
       TIQ.showToast(msg);
       return Promise.reject(err);
     });
+  };
+
+  VideoRecorder.prototype.pause = function() {
+    if (!this.mediaRecorder || this.mediaRecorder.state !== "recording") return false;
+    this.mediaRecorder.pause();
+    this.pausedAt = Date.now();
+    this.state = "paused";
+    if (this.onStateChange) this.onStateChange("paused", this.stream);
+    return true;
+  };
+
+  VideoRecorder.prototype.resume = function() {
+    if (!this.mediaRecorder || this.mediaRecorder.state !== "paused") return false;
+    this.mediaRecorder.resume();
+    if (this.pausedAt) this.pausedDuration += Date.now() - this.pausedAt;
+    this.pausedAt = 0;
+    this.state = "recording";
+    if (this.onStateChange) this.onStateChange("recording", this.stream);
+    return true;
+  };
+
+  VideoRecorder.prototype.getElapsedTime = function() {
+    if (!this.startTime) return 0;
+    var pausedNow = this.pausedAt ? Date.now() - this.pausedAt : 0;
+    return Math.max(0, (Date.now() - this.startTime - this.pausedDuration - pausedNow) / 1000);
+  };
+
+  VideoRecorder.prototype.getElapsedSeconds = function() {
+    return Math.floor(this.getElapsedTime());
   };
 
   VideoRecorder.prototype.stop = function() {
@@ -308,7 +372,7 @@ TIQ.VideoRecorder = (function() {
       self.mediaRecorder.onstop = function() {
         var type = self.mimeType || (self.chunks[0] && self.chunks[0].type) || "video/webm";
         var blob = new Blob(self.chunks, { type: type });
-        var duration = Math.round((Date.now() - self.startTime) / 1000);
+        var duration = self.getElapsedSeconds();
         self.state = "idle";
         stopTracks(self.stream);
         self.stream = null;
@@ -328,6 +392,7 @@ TIQ.VideoRecorder = (function() {
   };
 
   VideoRecorder.prototype.cancel = function() {
+    this._requestToken++;
     if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
       try { this.mediaRecorder.stop(); } catch (_) {}
       this.chunks = [];
@@ -346,7 +411,7 @@ TIQ.VideoRecorder = (function() {
   return VideoRecorder;
 })();
 
-/* ---- Reusable Swipe Deck ---- */
+/* ---- Reusable Swipe Deck (from GitHub — stack swipe for Info Cards) ---- */
 TIQ.SwipeDeck = function(opts) {
   opts = opts || {};
   this.rootSelector = opts.rootSelector || "#swipeDeckRoot";
@@ -354,20 +419,50 @@ TIQ.SwipeDeck = function(opts) {
   this.onRight = opts.onRight || function() {};
   this.leftLabel = opts.leftLabel || "REJECT";
   this.rightLabel = opts.rightLabel || "ACCEPT";
+  this.renderCard = opts.renderCard || function(item) { return String(item || ""); };
+  this._items = [];
   this._front = null;
+  this._busy = false;
+};
+
+TIQ.SwipeDeck.prototype.setItems = function(items) {
+  this._items = Array.isArray(items) ? items.slice() : [];
+  this.mount();
 };
 
 TIQ.SwipeDeck.prototype.mount = function(cardHtml) {
   var root = document.querySelector(this.rootSelector);
   if (!root) return;
-  root.innerHTML =
-    '<div class="swipe-deck">' +
-      '<div class="swipe-deck__card swipe-deck__card--0" id="swipeDeckFront">' +
-        '<div class="swipe-deck__overlay swipe-deck__overlay--left">' + TIQ.escapeHtml(this.leftLabel) + '</div>' +
-        '<div class="swipe-deck__overlay swipe-deck__overlay--right">' + TIQ.escapeHtml(this.rightLabel) + '</div>' +
-        '<div class="swipe-deck__body">' + cardHtml + '</div>' +
-      '</div>' +
-    '</div>';
+
+  // Legacy single-card mount (string HTML) still supported
+  if (typeof cardHtml === "string") {
+    this._items = [{ __html: cardHtml }];
+  }
+
+  var items = this._items || [];
+  if (!items.length) {
+    root.innerHTML = "";
+    this._front = null;
+    return;
+  }
+
+  var stackSize = Math.min(3, items.length);
+  var stack = "";
+  for (var s = stackSize - 1; s >= 0; s--) {
+    var item = items[s];
+    var body = item && item.__html != null ? item.__html : this.renderCard(item, s);
+    stack +=
+      '<div class="swipe-deck__card swipe-deck__card--' + s + '"' + (s === 0 ? ' id="swipeDeckFront"' : "") + ">" +
+        (s === 0
+          ? '<div class="swipe-deck__overlay swipe-deck__overlay--left"><span>' + TIQ.escapeHtml(this.leftLabel) + "</span></div>" +
+            '<div class="swipe-deck__overlay swipe-deck__overlay--right"><span>' + TIQ.escapeHtml(this.rightLabel) + "</span></div>"
+          : "") +
+        '<div class="swipe-deck__body">' + body + "</div>" +
+      "</div>";
+  }
+
+  root.innerHTML = '<div class="swipe-deck" aria-live="polite">' + stack + "</div>";
+  this._busy = false;
   this._bind();
 };
 
@@ -379,18 +474,27 @@ TIQ.SwipeDeck.prototype._bind = function() {
   var startX = 0, startY = 0, dx = 0, dragging = false, axis = null;
 
   function down(e) {
+    if (self._busy) return;
     if (e.button && e.button !== 0) return;
-    dragging = true; startX = e.clientX; startY = e.clientY; dx = 0; axis = null;
+    if (e.target && e.target.closest && e.target.closest("button, a, input, textarea, select")) return;
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    dx = 0;
+    axis = null;
     front.classList.add("swipe-deck__card--dragging");
     front.classList.remove("swipe-deck__card--spring");
     try { front.setPointerCapture(e.pointerId); } catch (_) {}
   }
   function move(e) {
-    if (!dragging) return;
+    if (!dragging || self._busy) return;
     dx = e.clientX - startX;
     var dy = e.clientY - startY;
-    if (!axis && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) axis = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+    if (!axis && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      axis = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+    }
     if (axis !== "h") return;
+    if (e.cancelable) e.preventDefault();
     front.style.transform = "translateX(" + dx + "px) rotate(" + (dx * 0.08) + "deg)";
     var progress = Math.min(Math.abs(dx) / 120, 1);
     var left = front.querySelector(".swipe-deck__overlay--left");
@@ -420,9 +524,12 @@ TIQ.SwipeDeck.prototype._bind = function() {
 
 TIQ.SwipeDeck.prototype._exit = function(direction) {
   var self = this;
+  if (self._busy) return;
+  self._busy = true;
   var front = this._front;
   if (!front) {
-    if (direction === "left") self.onLeft(); else self.onRight();
+    self._busy = false;
+    if (direction === "left") self.onLeft(self._items[0]); else self.onRight(self._items[0]);
     return;
   }
   front.classList.add("swipe-deck__card--exit");
@@ -430,11 +537,16 @@ TIQ.SwipeDeck.prototype._exit = function(direction) {
     ? "translateX(-150%) rotate(-30deg)"
     : "translateX(150%) rotate(30deg)";
   front.style.opacity = "0";
+  var current = self._items[0];
   setTimeout(function() {
-    if (direction === "left") self.onLeft(); else self.onRight();
+    if (direction === "left") self.onLeft(current); else self.onRight(current);
   }, 280);
 };
 
 TIQ.SwipeDeck.prototype.trigger = function(direction) {
   this._exit(direction === "left" ? "left" : "right");
+};
+
+TIQ.SwipeDeck.prototype.current = function() {
+  return (this._items && this._items[0]) || null;
 };

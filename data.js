@@ -509,8 +509,16 @@ TIQ.createProposal = function(opts) {
   return proposal;
 };
 
-TIQ.getPendingProposals = function() {
-  return (TIQ.state.proposals || []).filter(function(p) { return p.status === "pending"; });
+TIQ.getPendingProposals = function(candidateId) {
+  var list = (TIQ.state.proposals || []).filter(function(p) { return p.status === "pending"; });
+  if (candidateId) {
+    list = list.filter(function(p) { return p.candidateId === candidateId; });
+  }
+  return list;
+};
+
+TIQ.getPendingProposalsFor = function(candidateId) {
+  return TIQ.getPendingProposals(candidateId);
 };
 
 TIQ.acceptProposal = function(proposalId) {
@@ -620,4 +628,214 @@ TIQ.getAllFaceEmbeddings = function() {
     });
   });
 };
+
+/** Quick candidate card from a live camera name (booth walk-up). */
+TIQ.createQuickCandidate = function(opts) {
+  opts = opts || {};
+  var first = String(opts.firstName || "").trim();
+  var last = String(opts.lastName || "").trim();
+  if (!first && opts.name) {
+    var parts = String(opts.name).trim().split(/\s+/).filter(Boolean);
+    first = parts[0] || "Guest";
+    last = parts.slice(1).join(" ");
+  }
+  if (!first) first = "Guest";
+
+  var n = (TIQ.state.candidates || []).length + 1;
+  var id = TIQ.CONFIG.idPrefix + (TIQ.CONFIG.idBaseOffset + n);
+  while ((TIQ.state.candidates || []).some(function(c) { return c.id === id; })) {
+    n += 1;
+    id = TIQ.CONFIG.idPrefix + (TIQ.CONFIG.idBaseOffset + n);
+  }
+
+  var candidate = {
+    id: id,
+    firstName: first,
+    lastName: last,
+    email: opts.email || "",
+    phone: opts.phone || "",
+    university: opts.university || "",
+    degreeProgram: TIQ.CONFIG.defaultDegreeProgram,
+    major: opts.major || "",
+    graduationDate: opts.graduationDate || "",
+    gpa: "",
+    resumeUpload: "",
+    function: "General",
+    workLocations: [],
+    workAuthorization: "",
+    skills: [],
+    keySkills: [],
+    areasDiscussed: [],
+    notes: opts.notes || "",
+    summary: "",
+    traceability: ["Named from live camera capture"],
+    recordStatus: "New",
+    approvalStatus: "Pending",
+    approverId: "",
+    approvalTimestamp: "",
+    followUpRequestedBy: "",
+    followUpTimestamp: "",
+    lastUpdated: TIQ.todayISO(),
+    created_at: TIQ.nowISO(),
+    priority: TIQ.CONFIG.defaultPriority || "Normal",
+    audioNotes: [],
+    faceEnrollment: TIQ.defaultFaceEnrollment(),
+    cameraSession: { namedAt: TIQ.nowISO(), source: "live-camera" },
+    auditLog: [{
+      action: "CREATED",
+      recruiter_id: TIQ.state.activeRecruiterId,
+      timestamp: TIQ.nowISO(),
+      time_to_complete: 0,
+      detail: "Named from live camera at booth"
+    }],
+    reviewTimeMs: 0,
+    noteEdits: 0
+  };
+
+  if (!TIQ.state.candidates) TIQ.state.candidates = [];
+  var insertAt = typeof opts.insertAt === "number" ? opts.insertAt : TIQ.state.candidates.length;
+  insertAt = Math.max(0, Math.min(insertAt, TIQ.state.candidates.length));
+  TIQ.state.candidates.splice(insertAt, 0, candidate);
+  TIQ.saveState();
+  return candidate;
+};
+
+TIQ.candidateDisplayName = function(c) {
+  if (!c) return "";
+  return ((c.firstName || "") + " " + (c.lastName || "")).trim();
+};
+
+TIQ.pendingProposalCountFor = function(candidateId) {
+  return (TIQ.state.proposals || []).filter(function(p) {
+    return p.status === "pending" && p.candidateId === candidateId;
+  }).length;
+};
+
+/* ---- Auth (login gate) ---- */
+TIQ.auth = {
+  _session: null,
+
+  load: function() {
+    try {
+      var raw = localStorage.getItem(TIQ.CONFIG.authStorageKey);
+      this._session = raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      this._session = null;
+    }
+    return this._session;
+  },
+
+  save: function(session, remember) {
+    this._session = session || null;
+    try {
+      if (session && remember) {
+        localStorage.setItem(TIQ.CONFIG.authStorageKey, JSON.stringify(session));
+      } else {
+        localStorage.removeItem(TIQ.CONFIG.authStorageKey);
+      }
+    } catch (e) {}
+    return this._session;
+  },
+
+  clear: function() {
+    this._session = null;
+    try { localStorage.removeItem(TIQ.CONFIG.authStorageKey); } catch (e) {}
+  },
+
+  isLoggedIn: function() {
+    if (TIQ.CONFIG && TIQ.CONFIG.skipLogin) return true;
+    if (this._session && this._session.recruiterId) return true;
+    var loaded = this.load();
+    return !!(loaded && loaded.recruiterId);
+  },
+
+  current: function() {
+    return this._session || this.load();
+  },
+
+  normalizeUsername: function(value) {
+    return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+  },
+
+  findRecruiterByUsername: function(username) {
+    var q = this.normalizeUsername(username);
+    if (!q) return null;
+    var list = TIQ.RECRUITERS || TIQ.CONFIG.recruiters || [];
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i];
+      var name = this.normalizeUsername(r.name);
+      var firstLast = name.replace(/\s+/g, ".");
+      var compact = name.replace(/\s+/g, "");
+      var id = String(r.id || "").toLowerCase();
+      if (q === name || q === firstLast || q === compact || q === id) return r;
+    }
+    // Also allow registered local accounts
+    var extras = [];
+    try {
+      extras = JSON.parse(localStorage.getItem("talentiq_registered_v1") || "[]");
+    } catch (e) { extras = []; }
+    for (var j = 0; j < extras.length; j++) {
+      var acc = extras[j];
+      if (this.normalizeUsername(acc.username) === q || this.normalizeUsername(acc.name) === q) {
+        return { id: acc.id, name: acc.name, username: acc.username, password: acc.password, local: true };
+      }
+    }
+    return null;
+  },
+
+  login: function(username, password, remember) {
+    var recruiter = this.findRecruiterByUsername(username);
+    if (!recruiter) {
+      return { ok: false, error: "Account not found. Try a recruiter name or register." };
+    }
+    var expected = recruiter.password || TIQ.CONFIG.demoPassword || "talentiq";
+    if (String(password || "") !== String(expected)) {
+      return { ok: false, error: "Incorrect password." };
+    }
+    var session = {
+      recruiterId: recruiter.id,
+      name: recruiter.name,
+      username: username,
+      loggedInAt: TIQ.nowISO()
+    };
+    this.save(session, !!remember);
+    TIQ.state.activeRecruiterId = recruiter.id;
+    TIQ.saveState();
+    return { ok: true, session: session };
+  },
+
+  register: function(name, username, password) {
+    name = String(name || "").trim();
+    username = String(username || "").trim();
+    password = String(password || "");
+    if (name.length < 2) return { ok: false, error: "Enter your full name." };
+    if (username.length < 2) return { ok: false, error: "Choose a username." };
+    if (password.length < 4) return { ok: false, error: "Password must be at least 4 characters." };
+    if (this.findRecruiterByUsername(username) || this.findRecruiterByUsername(name)) {
+      return { ok: false, error: "That account already exists. Try logging in." };
+    }
+    var extras = [];
+    try {
+      extras = JSON.parse(localStorage.getItem("talentiq_registered_v1") || "[]");
+    } catch (e) { extras = []; }
+    var id = "R" + (100 + extras.length + 1);
+    var account = { id: id, name: name, username: username, password: password };
+    extras.push(account);
+    try {
+      localStorage.setItem("talentiq_registered_v1", JSON.stringify(extras));
+    } catch (e) {}
+    if (!TIQ.RECRUITERS) TIQ.RECRUITERS = (TIQ.CONFIG.recruiters || []).slice();
+    TIQ.RECRUITERS.push({ id: id, name: name });
+    return { ok: true, account: account };
+  },
+
+  logout: function() {
+    this.clear();
+    TIQ.state.activeRecruiterId = "";
+    TIQ.saveState();
+  }
+};
+
+TIQ.auth.load();
+
 

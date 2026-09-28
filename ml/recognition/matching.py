@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 
 FACE_MODEL = "Facenet512"
-MATCH_THRESHOLD = 0.40
+MATCH_THRESHOLD = 0.36
 
 
 def cosine(a: np.ndarray, b: np.ndarray) -> float:

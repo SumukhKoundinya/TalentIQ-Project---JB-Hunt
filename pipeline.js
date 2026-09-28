@@ -30,19 +30,54 @@ TIQ.pipeline._galleryPayload = function() {
   });
 };
 
+/** Live frame naming against enrolled face gallery. */
+TIQ.pipeline.recognizeFrame = function(blob) {
+  return TIQ.pipeline._galleryPayload().then(function(gallery) {
+    var fd = new FormData();
+    fd.append("image", blob, "frame.jpg");
+    fd.append("gallery_json", JSON.stringify(gallery || []));
+    return fetch("/api/face/recognize-frame", { method: "POST", body: fd })
+      .then(function(res) {
+        return res.json().then(function(body) {
+          if (!res.ok) {
+            var detail = (body && body.detail) || "Frame recognition failed";
+            if (Array.isArray(detail)) detail = detail.map(function(d) { return d.msg || d; }).join("; ");
+            throw new Error(detail);
+          }
+          body.emptyGallery = !(gallery && gallery.length);
+          return body;
+        });
+      });
+  });
+};
+
 /**
  * Process a conversation video blob for a candidate.
  * Creates pending proposals for Info Cards review.
  */
-TIQ.pipeline.processConversationVideo = function(blob, candidateId, onProgress) {
+TIQ.pipeline.processConversationVideo = function(blob, candidateId, onProgress, options) {
   var progress = onProgress || function() {};
+  options = options || {};
   progress("Building face gallery...");
   return TIQ.pipeline._galleryPayload().then(function(gallery) {
     progress("Uploading & analyzing (face + speech)...");
     var fd = new FormData();
-    fd.append("video", blob, "conversation.webm");
+    var recordingFilename = (blob.type || "").indexOf("mp4") >= 0 ? "conversation.mp4" : "conversation.webm";
+    fd.append("video", blob, recordingFilename);
     fd.append("gallery_json", JSON.stringify(gallery));
     fd.append("default_candidate_id", candidateId || "");
+    var speakerRoster = (options.speakerRoster || []).slice();
+    (TIQ.state.candidates || []).forEach(function(candidate) {
+      if (speakerRoster.some(function(person) { return person.candidateId === candidate.id; })) return;
+      speakerRoster.push({
+        speakerKey: candidate.id,
+        candidateId: candidate.id,
+        name: candidate.firstName + " " + candidate.lastName,
+        expected: false
+      });
+    });
+    fd.append("speaker_roster_json", JSON.stringify(speakerRoster));
+    fd.append("manual_turns_json", JSON.stringify(options.manualTurns || []));
     return fetch("/api/conversation/process", { method: "POST", body: fd })
       .then(function(res) {
         return res.json().then(function(body) {
@@ -56,18 +91,23 @@ TIQ.pipeline.processConversationVideo = function(blob, candidateId, onProgress) 
       });
   }).then(function(body) {
     progress("Creating info cards...");
-    var recordingId = "REC-" + Date.now();
-    TIQ.recordingDB.put(recordingId, blob, {
-      candidateId: candidateId,
-      utterances: body.utterances || [],
-      turns: body.turns || []
-    }).catch(function() {});
-    TIQ.addRecordingMeta({
-      id: recordingId,
-      candidateId: candidateId,
-      createdAt: TIQ.nowISO(),
-      utteranceCount: (body.utterances || []).length
-    });
+    var recordingId = options.recordingId || ("REC-" + Date.now());
+    if (options.persist !== false) {
+      TIQ.recordingDB.put(recordingId, blob, {
+        candidateId: candidateId,
+        utterances: body.utterances || [],
+        turns: body.turns || [],
+        speakers: body.speakers || []
+      }).catch(function() {});
+      TIQ.addRecordingMeta({
+        id: recordingId,
+        candidateId: candidateId,
+        createdAt: TIQ.nowISO(),
+        utteranceCount: (body.utterances || []).length,
+        utterances: body.utterances || [],
+        speakers: body.speakers || []
+      });
+    }
 
     var created = 0;
     (body.proposals || []).forEach(function(p) {
@@ -80,7 +120,13 @@ TIQ.pipeline.processConversationVideo = function(blob, candidateId, onProgress) 
         label: p.label,
         value: p.value,
         source: "conversation",
-        sourceRef: { recordingId: recordingId, quote: p.quote || "" }
+        sourceRef: {
+          recordingId: recordingId,
+          quote: p.quote || "",
+          speakerName: p.speakerName || "",
+          t0: p.t0,
+          t1: p.t1
+        }
       });
       if (prop) created++;
     });
@@ -96,9 +142,71 @@ TIQ.pipeline.processConversationVideo = function(blob, candidateId, onProgress) 
       proposalsCreated: created,
       faceTimeline: body.face_timeline || body.faceTimeline || [],
       matchedCandidates: Object.keys(matched),
+      speakers: body.speakers || [],
+      utterances: body.utterances || [],
+      turns: body.turns || [],
+      recordingId: recordingId,
       raw: body
     };
   });
+};
+
+/**
+ * Process a short voice note for one candidate → Info Card proposals.
+ * Uses noise-hardened transcription (no face/ASD required).
+ */
+TIQ.pipeline.processAudioNote = function(blob, candidateId, onProgress, options) {
+  var progress = onProgress || function() {};
+  options = options || {};
+  if (!blob || !candidateId) {
+    return Promise.reject(new Error("Audio and candidate are required"));
+  }
+  progress("Transcribing voice note…");
+  var fd = new FormData();
+  var filename = (blob.type || "").indexOf("mp4") >= 0 ? "note.mp4" : "note.webm";
+  fd.append("audio", blob, filename);
+  fd.append("candidate_id", candidateId);
+  fd.append("speaker_name", options.speakerName || "");
+  return fetch("/api/conversation/process-audio", { method: "POST", body: fd })
+    .then(function(res) {
+      return res.json().then(function(body) {
+        if (!res.ok) {
+          var detail = (body && body.detail) || "Voice note processing failed";
+          if (Array.isArray(detail)) detail = detail.map(function(d) { return d.msg || d; }).join("; ");
+          throw new Error(detail);
+        }
+        return body;
+      });
+    })
+    .then(function(body) {
+      progress("Creating info cards…");
+      var created = 0;
+      (body.proposals || []).forEach(function(p) {
+        var field = TIQ.pipeline.FIELD_MAP[p.field] || p.field;
+        var prop = TIQ.createProposal({
+          candidateId: p.candidateId || candidateId,
+          field: field,
+          label: p.label,
+          value: p.value,
+          source: "conversation",
+          sourceRef: {
+            quote: p.quote || "",
+            speakerName: p.speakerName || options.speakerName || "",
+            t0: p.t0,
+            t1: p.t1,
+            audioNote: true
+          }
+        });
+        if (prop) created++;
+      });
+      return {
+        proposalsCreated: created,
+        utterances: body.utterances || [],
+        transcript: body.transcript || "",
+        proposals: body.proposals || [],
+        raw: body
+      };
+    });
 };
 
 /** Parse resume file → fields + confidence */

@@ -8,10 +8,69 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" id="fontsLink" />
-  <link rel="stylesheet" href="styles.css" />
+  <script>
+    /* TEMP: hide login before paint — keep in sync with TIQ.CONFIG.skipLogin */
+    document.documentElement.classList.add("tiq-skip-login");
+  </script>
+  <link rel="stylesheet" href="styles.css?v=names10" />
 </head>
 <body>
-  <div class="app-shell">
+  <div id="loginScreen" class="login-screen" aria-label="TalentIQ login" hidden style="display:none !important">
+    <div class="login-screen__bg" aria-hidden="true"></div>
+    <div class="login-card">
+      <div class="login-card__brand">
+        <span class="login-card__kicker">J.B. Hunt</span>
+        <div class="login-card__logo">TalentIQ</div>
+      </div>
+      <h1 class="login-card__title" id="loginTitle">Login</h1>
+      <form id="loginForm" class="login-form" novalidate>
+        <label class="login-field">
+          <span class="visually-hidden">Username</span>
+          <input id="loginUsername" name="username" type="text" placeholder="Username" autocomplete="username" required />
+          <svg class="login-field__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 19c1.5-3.2 4-4.8 7-4.8s5.5 1.6 7 4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </label>
+        <label class="login-field">
+          <span class="visually-hidden">Password</span>
+          <input id="loginPassword" name="password" type="password" placeholder="Password" autocomplete="current-password" required />
+          <svg class="login-field__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+        </label>
+        <div class="login-row">
+          <label class="login-remember">
+            <input id="loginRemember" type="checkbox" />
+            <span>Remember me</span>
+          </label>
+          <button type="button" class="login-link" id="loginForgotBtn">Forgot password?</button>
+        </div>
+        <button type="submit" class="login-submit" id="loginSubmitBtn">Login</button>
+        <p class="login-error" id="loginError" role="alert"></p>
+      </form>
+      <form id="registerForm" class="login-form" hidden novalidate>
+        <label class="login-field">
+          <span class="visually-hidden">Full name</span>
+          <input id="registerName" name="name" type="text" placeholder="Full name" autocomplete="name" required />
+          <svg class="login-field__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 19c1.5-3.2 4-4.8 7-4.8s5.5 1.6 7 4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </label>
+        <label class="login-field">
+          <span class="visually-hidden">Username</span>
+          <input id="registerUsername" name="username" type="text" placeholder="Username" autocomplete="username" required />
+          <svg class="login-field__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 12h16M4 16h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </label>
+        <label class="login-field">
+          <span class="visually-hidden">Password</span>
+          <input id="registerPassword" name="password" type="password" placeholder="Password" autocomplete="new-password" required />
+          <svg class="login-field__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+        </label>
+        <button type="submit" class="login-submit" id="registerSubmitBtn">Create account</button>
+        <p class="login-error" id="registerError" role="alert"></p>
+      </form>
+      <p class="login-footer" id="loginFooter">
+        Don't have an account? <button type="button" class="login-link login-link--strong" id="loginRegisterToggle">Register</button>
+      </p>
+      <p class="login-hint">Demo: Taylor Morgan / talentiq</p>
+    </div>
+  </div>
+
+  <div class="app-shell" id="appShell">
     <aside class="sidebar" id="sidebar">
       <div class="brand">
         <a class="brand-link" href="#" data-nav="overview" aria-label="TalentIQ home">
@@ -114,12 +173,12 @@
     </div>
   </div>
 
-  <script src="config.js"></script>
-  <script src="data.js"></script>
-  <script src="components.js"></script>
-  <script src="face-enrollment.js"></script>
-  <script src="pipeline.js"></script>
-  <script src="views.js"></script>
-  <script src="app.js"></script>
+  <script src="config.js?v=names10"></script>
+  <script src="data.js?v=names10"></script>
+  <script src="components.js?v=names10"></script>
+  <script src="face-enrollment.js?v=names10"></script>
+  <script src="pipeline.js?v=names10"></script>
+  <script src="views.js?v=unique-names12"></script>
+  <script src="app.js?v=names10"></script>
 </body>
 </html>

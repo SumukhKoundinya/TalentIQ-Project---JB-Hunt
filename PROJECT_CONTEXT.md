@@ -30,10 +30,11 @@
 
 ### Recording track
 - Capture UI: conversation video record → `/api/conversation/process`
+- Voice notes: audio record → `/api/conversation/process-audio` (same extract → Info Cards)
 - Face match: Facenet512 vs enrolled gallery (Unknown below threshold)
-- Active speaker: mouth-motion + face timeline (TalkNet-swappable)
-- Transcription: `faster-whisper` `tiny.en`
-- Heuristic field extraction → Info Cards
+- Active speaker: mouth-motion + face timeline (TalkNet-swappable), adaptive for booth noise
+- Transcription: `faster-whisper` `tiny.en` with VAD + audio normalize (noise-hardened)
+- Heuristic field extraction → Info Cards (recruiter swipe to verify)
 
 ### Resume track
 - Intake resume upload → `/api/resume/parse` (PDF via pdfplumber, DOCX via python-docx)
