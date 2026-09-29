@@ -5,6 +5,11 @@ All notable changes to TalentIQ will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- Capture-card skills render as single-line grouped rows with right-to-left badge flow and `+N` overflow chips, grounded highlights carry explicit source icons, and missing-data alerts collapse into a footer summary (`views.js`, `styles.css`, `tests/resume-card.test.js`)
+- Candidate card skills now render as grouped, menu-style categories with per-group overflow chips instead of a flat tag cloud (`views.js`, `styles.css`, `tests/resume-card.test.js`)
+- J.B. Hunt recruiting vocabulary in `SKILLS_DICT` (~150 terms across freight/transportation, business systems & ERP, analytics methods, industrial-engineering methods, business functions, and credentials — Intermodal, Drayage, Load Planning, TMS/WMS, OTIF, 3PL, SAP, Salesforce, Snowflake, Six Sigma, PMP, CDL, …), placed ahead of the generic catch-all row so domain terms win the 20-skill cap when a resume matches both (`data.js`)
+- Three new skill groups so those terms bucket instead of falling into "Other Skills": `freight` (Freight & Transportation), `business` (Business, Finance & ERP), `credentials` (Certifications & Licenses), plus extended `ops`/`data`/`methods` match lists (`data.js`)
+- Vocabulary regression coverage: extracts a freight-ops resume fixture, asserts group bucketing, and asserts the new terms do not leak into ordinary prose ("regression testing", "parcel of land") (`tests/resume-parser.test.js`)
 - Stale-parse detection (`TIQ.ai.isStaleParse`): recognises a stored parse written by an older build that collapsed the whole PDF into one line, so the drawer Resume tab shows a "Stale scan — re-scan required" label with an explanation and the resume band carries an inline warning that its values are unreliable (`data.js`, `views.js`, `styles.css`, `tests/resume-card.test.js`)
 - Provenance-aware re-scan refresh: `applyParsedData(candidate, parsed, {refresh:true})` corrects fields the machine itself wrote on a previous scan while never touching a value a recruiter typed; a field the new parse cannot fill is left alone rather than blanked (`data.js`, `tests/apply-resume.test.js`)
 - Work-authorization extraction with a sponsorship/negative-statement disqualifier that wins outright, so "requires sponsorship" and "no longer authorized" can never resolve to a positive match; returns empty rather than guessing when uncertain (`TIQ.ai._extractWorkAuthorization` in `data.js`)
@@ -59,6 +64,7 @@ All notable changes to TalentIQ will be documented in this file.
 - Capture card no longer silently discards skills: anything hidden by the 3-group cap or the `methods` filter now appears on a trailing "ADDITIONAL SKILLS" row as a `+N` chip whose hover tooltip lists every leftover skill, while overflow inside a visible group still shows as that row's own `+N` (`views.js`)
 
 ### Changed
+- Script/Style cache busters: `styles.css` bumped to `?v=13`, `views.js` to `?v=17` (`index.html`)
 - The FROM THE RESUME band moved out of the capture card and into the capture right column, above the Resume/Voice/Notes drawer. The left column card keeps the resume bar, header, skills, grounded AI highlights, voice memo and attention flags; the drawer is unchanged and the band stays supplemental. Band CSS re-scoped from `.capture-stack .candidate-card` to `.capture-col-right` (`views.js`, `styles.css`)
 - The resume band renders the normalized degree as `Bachelor of Science in Data Science` instead of the raw `Bachelor Data Science` substring, and prefers `edu.degreeProgram` when present (`views.js`)
 - Capture card: the count-only meta strip (GPA / CERTS / PROJECTS / POSITIONS) is gone — counts were never a representation of the resume, so the card now renders the actual extracted values in the resume band and a real tally (`N skills · N roles · …`) on the resume bar (`views.js`)
@@ -103,6 +109,11 @@ All notable changes to TalentIQ will be documented in this file.
 - AI integrity meter counts a resume as captured only when it has actually been scanned (`views.js`)
 - Swipe right = Follow Up; left = Reviewed (no hard reject) (views.js)
 - Accessible capture drawers with focus-visible + aria-selected (styles.css, views.js)
+
+### Removed
+- **Capture-card header actions**: the scan-status pill (`NO RESUME` / `SCANNED` / `ON FILE` / `SCAN FAILED`) and the 📄 jump-to-resume button are gone — the header is now avatar + name/school/grad only, and `TIQ.views._resumeStateBadgeHtml` was deleted with them (`views.js`, `styles.css`)
+- **"No Resume Attached" card block**: the dashed `NO RESUME ATTACHED · Scan ▸` / "Form entries only — nothing verified" bar no longer renders — a candidate without a resume simply has no resume bar, so the header leads the card (`views.js`, `styles.css`)
+- **Resume Intake panel**: the right-column "Resume Intake" card (`Import Resumes (PDF)` / `Add Manually` + hidden file input) is gone along with its handlers; bulk import remains on the empty-state button and per-candidate scanning on the drawer dropzone (`views.js`, `styles.css`)
 
 ### Fixed
 - **Silent resume scan failures on QR intake**: a card could be created with a resume attached but never scanned (skills/GPA/highlights empty, no flag) because the success screen appeared while the parse ran async — closing the tab or a blocked pdf.js CDN aborted it with no feedback. The form now waits for the scan, tells the student the outcome, and unscanned resumes are flagged "Resume Not Scanned" (repro'd headless: interrupted scan and blocked CDN both reproduce the original card) (`candidate-form.html`, `data.js`, `views.js`)

@@ -108,6 +108,11 @@ function main() {
   assert(rebuilt.accomplishments.length > 0, 'a stale highlight set is rebuilt, not left empty');
   assert(rebuilt.accomplishments.every(function(a) { return a.text.indexOf('Handled ') !== 0; }),
     'normalize drops the invented fragment when it rebuilds');
+
+  const formatted = TIQ.views._formatHighlightText('Built a pipeline with **75%** coverage and <strong>14</strong> team members.');
+  assert(formatted.indexOf('<strong>Built</strong>') === 0, 'highlight renderer bolds the leading action verb');
+  assert(formatted.indexOf('<strong>75%</strong>') >= 0, 'highlight renderer bolds markdown metrics');
+  assert(formatted.indexOf('<strong>14</strong>') >= 0, 'highlight renderer preserves strong tags in metrics');
 }
 
 main();

@@ -548,6 +548,8 @@ TIQ.saveState = function() {
       activeRecruiterId: TIQ.state.activeRecruiterId,
       lastSelectedId: TIQ.state.selectedId,
       event: TIQ.state.event || {}
+    }, function(key, value) {
+      return key === "sourceUrl" ? undefined : value;
     }));
   } catch (_) {}
 };
@@ -727,6 +729,13 @@ TIQ.ai.SKILLS_DICT = [
   "Agile", "Scrum", "Kanban", "Sprint", "CI/CD", "DevOps", "Microservices",
   "Linux", "Unix", "Bash", "Shell Scripting", "PowerShell", "Windows Server",
   "Tableau", "Power BI", "PowerPoint", "Looker", "Excel", "Google Sheets", "Jupyter", "R Markdown",
+  /* J.B. Hunt domain vocabulary. Sits ahead of the generic catch-all below so
+     freight/supply-chain terms win the 20-skill cap when a resume matches both. */
+  "Intermodal", "Drayage", "Freight Brokerage", "Freight Forwarding", "Truckload", "LTL", "FTL", "Final Mile", "Last Mile", "Dedicated Fleet", "Yard Management", "Cross-Dock", "Transload", "Load Planning", "Capacity Planning", "Carrier Procurement", "Freight Rates", "Rate Negotiation", "Lane Analysis", "Spot Market", "Contract Freight", "Hours of Service", "ELD", "DOT Compliance", "Freight Audit", "Demurrage", "Freight Claims", "3PL", "Cold Chain", "On-Time Delivery", "OTIF", "Transportation Management System", "TMS", "Warehouse Management System", "WMS", "Order Fulfillment", "Inventory Control", "Demand Planning", "S&OP", "Sales and Operations Planning", "HOS", "Reverse Logistics", "Route Optimization", "Route Planning", "Fleet Safety", "Supply Chain Management", "Supply Chain Analytics", "Distribution Center", "Customs Clearance",
+  "SAP", "Oracle", "Salesforce", "NetSuite", "Workday", "ServiceNow", "QuickBooks", "HubSpot", "Microsoft SQL Server", "SQL Server", "Samsara", "Trimble", "SharePoint", "Power Automate", "Smartsheet", "Airtable", "Visio", "VBA",
+  "Snowflake", "Databricks", "BigQuery", "Redshift", "Alteryx", "Power Query", "SSIS", "SAS", "SPSS", "Data Science", "Statistics", "Regression Analysis", "Time Series", "A/B Testing", "Statistical Modeling", "Data Mining", "ETL", "Data Warehousing", "Predictive Analytics", "KPI", "KPIs", "Root Cause Analysis",
+  "Lean", "Six Sigma", "Lean Six Sigma", "Kaizen", "5S", "Value Stream Mapping", "Standard Work", "Time Study", "Simulation", "Linear Programming", "Monte Carlo Simulation", "Inventory Management", "Procurement", "Vendor Management", "Stakeholder Management", "Negotiation", "Contract Management", "Financial Modeling", "Variance Analysis", "Budgeting", "Accounts Payable", "Accounts Receivable", "Cost Analysis", "Business Development", "Customer Relationship Management", "CRM",
+  "PMP", "APICS", "CSCP", "CLTD", "Green Belt", "OSHA", "CDL",
   "API", "APIs", "Data Visualization", "Forecasting", "Optimization", "Process Improvement", "Process Mapping", "Operations", "Logistics", "Transportation", "Fleet Management", "Warehouse", "Freight", "ERP", "Project Management", "Collaboration", "Leadership", "Teamwork", "Problem Solving", "Critical Thinking", "Analytics", "Reporting", "Dashboard", "Dashboards", "Presentation",
   "Figma", "Sketch", "Adobe XD", "Photoshop", "Illustrator", "InDesign",
   "Communication", "Leadership", "Teamwork", "Problem Solving", "Critical Thinking",
@@ -751,7 +760,7 @@ TIQ.SKILL_GROUPS = [
   },
   {
     key: "data", label: "Data & Analytics",
-    match: ["sql", "mysql", "postgresql", "sqlite", "mongodb", "redis", "cassandra", "dynamodb", "firebase", "supabase", "neo4j", "tableau", "power bi", "looker", "excel", "google sheets", "jupyter", "r markdown", "pandas", "numpy", "scipy", "matplotlib", "seaborn", "spark", "hadoop", "hive", "kafka", "airflow", "dbt", "statistics", "visualization", "data visualization", "etl", "analytics"]
+    match: ["sql", "mysql", "postgresql", "sqlite", "mongodb", "redis", "cassandra", "dynamodb", "firebase", "supabase", "neo4j", "tableau", "power bi", "looker", "excel", "google sheets", "jupyter", "r markdown", "pandas", "numpy", "scipy", "matplotlib", "seaborn", "spark", "hadoop", "hive", "kafka", "airflow", "dbt", "snowflake", "databricks", "bigquery", "redshift", "alteryx", "power query", "ssis", "sas", "spss", "microsoft sql server", "sql server", "data science", "statistics", "regression analysis", "time series", "a/b testing", "statistical modeling", "data mining", "etl", "data warehousing", "predictive analytics", "kpi", "kpis", "visualization", "data visualization", "analytics"]
   },
   {
     key: "ai", label: "AI / ML",
@@ -766,12 +775,24 @@ TIQ.SKILL_GROUPS = [
     match: ["linux", "unix", "bash", "shell scripting", "powershell", "windows server", "networking", "incident response", "oauth", "jwt", "ssl", "tls", "cors", "cybersecurity", "vulnerability assessment", "penetration testing", "wireshark"]
   },
   {
+    key: "freight", label: "Freight & Transportation",
+    match: ["intermodal", "drayage", "freight brokerage", "freight forwarding", "truckload", "ltl", "ftl", "final mile", "last mile", "dedicated fleet", "yard management", "cross-dock", "transload", "load planning", "capacity planning", "carrier procurement", "freight rates", "rate negotiation", "lane analysis", "spot market", "contract freight", "hours of service", "eld", "dot compliance", "freight audit", "demurrage", "freight claims", "3pl", "cold chain", "on-time delivery", "otif", "transportation management system", "tms", "warehouse management system", "wms", "order fulfillment", "inventory control", "demand planning", "s&op", "sales and operations planning", "hos", "reverse logistics", "route optimization", "route planning", "fleet safety", "supply chain management", "supply chain analytics", "distribution center", "customs clearance"]
+  },
+  {
     key: "ops", label: "Operations & Supply Chain",
-    match: ["supply chain", "logistics", "transportation", "fleet management", "warehouse", "freight", "operations", "forecasting", "process improvement", "process mapping", "lean", "simulation", "erp", "six sigma", "inventory", "procurement", "optimization", "scheduling", "quality improvement", "safety"]
+    match: ["supply chain", "logistics", "transportation", "fleet management", "warehouse", "freight", "operations", "forecasting", "process improvement", "process mapping", "lean", "six sigma", "lean six sigma", "kaizen", "5s", "value stream mapping", "standard work", "time study", "simulation", "linear programming", "monte carlo simulation", "inventory", "inventory management", "procurement", "optimization", "scheduling", "quality improvement", "safety", "root cause analysis", "vendor management", "erp"]
+  },
+  {
+    key: "business", label: "Business, Finance & ERP",
+    match: ["sap", "oracle", "salesforce", "netsuite", "workday", "servicenow", "quickbooks", "hubspot", "samsara", "trimble", "sharepoint", "power automate", "smartsheet", "airtable", "visio", "vba", "financial modeling", "variance analysis", "budgeting", "accounts payable", "accounts receivable", "cost analysis", "business development", "customer relationship management", "crm", "negotiation", "contract management"]
+  },
+  {
+    key: "credentials", label: "Certifications & Licenses",
+    match: ["pmp", "apics", "cscp", "cltd", "green belt", "osha", "cdl"]
   },
   {
     key: "methods", label: "Methods & Soft Skills",
-    match: ["agile", "scrum", "kanban", "sprint", "communication", "leadership", "teamwork", "problem solving", "critical thinking", "decision making", "collaboration", "project management", "jira", "confluence", "trello", "notion", "linear", "figma", "sketch", "adobe xd", "photoshop", "illustrator", "indesign"]
+    match: ["agile", "scrum", "kanban", "sprint", "communication", "leadership", "teamwork", "problem solving", "critical thinking", "decision making", "collaboration", "project management", "stakeholder management", "jira", "confluence", "trello", "notion", "linear", "figma", "sketch", "adobe xd", "photoshop", "illustrator", "indesign"]
   },
   {
     key: "other", label: "Other Skills",
@@ -1643,8 +1664,14 @@ TIQ.citeSource = function(c, field) {
    interrupted or failed scan is never mistaken for a scanned resume: parsedAt stays ""
    until extraction succeeds (getMissingFlags then reports "Resume Not Scanned"). */
 TIQ.ai.parseAndStoreResume = function(candidate, file) {
-  var resumeRef = { name: file && file.name ? file.name : "resume.pdf", type: file && file.type ? file.type : "", parsedAt: "" };
+  var resumeRef = { name: file && file.name ? file.name : "resume.pdf", type: file && file.type ? file.type : "", parsedAt: "", sourceUrl: "" };
+  if (candidate && candidate.resumeUpload && typeof candidate.resumeUpload === "object" && candidate.resumeUpload.sourceUrl && typeof URL !== "undefined" && URL.revokeObjectURL) {
+    try { URL.revokeObjectURL(candidate.resumeUpload.sourceUrl); } catch (_) {}
+  }
   candidate.resumeUpload = resumeRef;
+  if (file && typeof URL !== "undefined" && URL.createObjectURL) {
+    try { resumeRef.sourceUrl = URL.createObjectURL(file); } catch (_) { resumeRef.sourceUrl = ""; }
+  }
 
   var failScan = function(reason, resolve) {
     resumeRef.parsedAt = "";
@@ -1812,17 +1839,18 @@ TIQ.formatMonthYear = function(val) {
 TIQ.resumeInfo = function(c) {
   var r = c ? c.resumeUpload : null;
   if (typeof r === "string" && r) {
-    return { name: r, state: "legacy", parsedAt: "", error: "" };
+    return { name: r, state: "legacy", parsedAt: "", error: "", sourceUrl: "" };
   }
   if (r && typeof r === "object") {
     return {
       name: r.name || "resume.pdf",
       state: r.parsedAt ? "scanned" : (r.parseError ? "failed" : "pending"),
       parsedAt: r.parsedAt || "",
-      error: r.parseError || ""
+      error: r.parseError || "",
+      sourceUrl: r.sourceUrl || ""
     };
   }
-  return { name: "", state: "missing", parsedAt: "", error: "" };
+  return { name: "", state: "missing", parsedAt: "", error: "", sourceUrl: "" };
 };
 
 /* ---- Update getMissingFlags to handle parsedResume + summary gaps ---- */

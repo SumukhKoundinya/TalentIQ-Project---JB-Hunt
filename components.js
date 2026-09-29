@@ -91,9 +91,11 @@ TIQ.renderAttributePills = function(selected, opts) {
   }).join('') + '</div>';
 };
 
-TIQ.renderDropZone = function(fileName) {
+TIQ.renderDropZone = function(fileName, opts) {
+  opts = opts || {};
+  var inputId = opts.inputId || "resumeUpload";
   return '<label class="dropzone' + (fileName ? ' dropzone--filled' : '') + '" data-dropzone>' +
-    '<input class="dropzone__input" id="resumeUpload" name="resumeUpload" type="file" accept=".pdf,application/pdf" />' +
+    '<input class="dropzone__input" id="' + TIQ.escapeAttr(inputId) + '" name="resumeUpload" type="file" accept=".pdf,application/pdf" />' +
     '<span class="dropzone__icon" aria-hidden="true">⇪</span>' +
     '<span class="dropzone__title">Drag and drop resume here</span>' +
     '<span class="dropzone__meta">or click to browse &mdash; text-based PDF only</span>' +

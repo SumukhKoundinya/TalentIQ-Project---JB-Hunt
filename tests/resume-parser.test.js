@@ -193,6 +193,41 @@ function main() {
   const fx = TIQ.ai.extractResumeData(fixture);
   assert(fx.certifications.length === 2, 'fixture: both certifications come back from the real line breaks');
   assert(fx.skills.indexOf('Java') !== -1, 'fixture: ligatured skills still reach the dictionary');
+
+  /* ---- J.B. Hunt recruiting vocabulary ---- */
+  const JB = [
+    'Jordan Ellis',
+    'jordan.ellis@uark.edu | 479-555-0101',
+    'EXPERIENCE',
+    'Freight Operations Intern - J.B. Hunt Transport, May 2025 - Aug 2025',
+    'Coordinated intermodal and drayage load planning across 6 lanes.',
+    'SKILLS',
+    'Intermodal, Drayage, Load Planning, TMS, SAP, Tableau, Six Sigma, Demand Planning, OTIF, Route Optimization, Stakeholder Management, Snowflake'
+  ].join('\n');
+  const jb = TIQ.ai.extractResumeData(JB);
+  ['Intermodal', 'Drayage', 'Load Planning', 'TMS', 'SAP', 'Tableau', 'Six Sigma', 'Demand Planning', 'OTIF', 'Route Optimization'].forEach(function (s) {
+    assert(jb.skills.indexOf(s) !== -1, 'jbh vocabulary: extracts ' + s);
+  });
+  assert(jb.skills.length <= 20, 'jbh vocabulary: the 20-skill cap still holds');
+
+  const jbGroups = TIQ.categorizeSkills(jb.skills);
+  const itemsOf = function (key) {
+    const hit = jbGroups.filter(function (g) { return g.key === key; })[0];
+    return hit ? hit.items : [];
+  };
+  assert(itemsOf('freight').indexOf('Intermodal') !== -1, 'jbh vocabulary: freight terms bucket under Freight & Transportation');
+  assert(itemsOf('business').indexOf('SAP') !== -1, 'jbh vocabulary: SAP buckets under Business, Finance & ERP');
+  assert(itemsOf('data').indexOf('Tableau') !== -1, 'jbh vocabulary: Tableau buckets under Data & Analytics');
+  assert(itemsOf('ops').indexOf('Six Sigma') !== -1, 'jbh vocabulary: Six Sigma buckets under Operations & Supply Chain');
+  const credGroups = TIQ.categorizeSkills(['PMP', 'CDL', 'CSCP']);
+  const credItems = credGroups.filter(function (g) { return g.key === 'credentials'; })[0];
+  assert(credItems && credItems.items.length === 3, 'jbh vocabulary: PMP/CDL/CSCP bucket under Certifications & Licenses');
+
+  /* New terms must not leak into ordinary prose. */
+  const prose = TIQ.ai.extractResumeData('Worked on regression testing and sprint planning; bought a parcel of land near campus.');
+  assert(prose.skills.indexOf('Regression Analysis') === -1, 'jbh vocabulary: "regression testing" is not Regression Analysis');
+  assert(prose.skills.indexOf('Parcel') === -1, 'jbh vocabulary: "parcel of land" is not the freight mode');
+  assert(prose.skills.indexOf('Intermodal') === -1, 'jbh vocabulary: no freight term is invented from unrelated prose');
 }
 
 main();

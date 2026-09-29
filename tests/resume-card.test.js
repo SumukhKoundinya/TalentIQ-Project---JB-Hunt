@@ -25,7 +25,12 @@ function baseCandidate(over) {
 
 function scannedCandidate(over) {
   const c = baseCandidate(over);
-  c.resumeUpload = { name: 'mia_williams_resume.pdf', type: 'application/pdf', parsedAt: '2026-09-25T14:14:00Z' };
+  c.resumeUpload = {
+    name: 'mia_williams_resume.pdf',
+    type: 'application/pdf',
+    parsedAt: '2026-09-25T14:14:00Z',
+    sourceUrl: 'blob:resume-pdf'
+  };
   c.parsedResume = {
     skills: ['Python', 'SQL', 'React', 'Docker', 'Tableau'],
     experience: [
@@ -55,6 +60,7 @@ function main() {
   assert(TIQ.resumeInfo({ resumeUpload: { name: 'a.pdf', parsedAt: '' } }).state === 'pending', 'object without parsedAt reports pending');
   assert(TIQ.resumeInfo({ resumeUpload: { name: 'a.pdf', parsedAt: '', parseError: 'bad pdf' } }).state === 'failed', 'object with parseError reports failed');
   assert(TIQ.resumeInfo({ resumeUpload: { parsedAt: 'x' } }).name === 'resume.pdf', 'missing filename falls back to resume.pdf');
+  assert(TIQ.resumeInfo({ resumeUpload: { name: 'a.pdf', parsedAt: 'x', sourceUrl: 'blob:resume' } }).sourceUrl === 'blob:resume', 'resumeInfo preserves the PDF source URL');
 
   /* ---- provenance stamping + fieldSource ---- */
   const formCand = baseCandidate();
@@ -102,8 +108,7 @@ function main() {
   assert(legacyBar.indexOf('resume-bar__action') >= 0, 'legacy (never scanned) candidate still offers the scan CTA');
 
   const missingBar = TIQ.views._resumeBarHtml(baseCandidate({ resumeUpload: null }));
-  assert(missingBar.indexOf('NO RESUME ATTACHED') >= 0, 'candidate without a resume renders the missing bar');
-  assert(missingBar.indexOf('Form entries only') >= 0, 'missing bar explains that nothing was verified');
+  assert(missingBar === '', 'candidate without a resume renders no resume bar');
 
   const failedBar = TIQ.views._resumeBarHtml(baseCandidate({ resumeUpload: { name: 'x.pdf', parsedAt: '', parseError: 'Encrypted PDF' } }));
   assert(failedBar.indexOf('SCAN FAILED') >= 0 && failedBar.indexOf('Encrypted PDF') >= 0, 'failed bar surfaces the parse error');
@@ -129,12 +134,23 @@ function main() {
 
   const emptyBand = TIQ.views._resumeBandHtml(baseCandidate({ resumeUpload: null, parsedResume: null }));
   assert(emptyBand.indexOf('resume-band--empty') >= 0, 'candidate with no parse renders the empty band');
-  assert(emptyBand.indexOf('Nothing extracted yet') >= 0, 'empty band explains what scanning would add');
+  assert(emptyBand.indexOf('Not extracted yet') >= 0, 'empty band keeps the extraction prompt in the right panel');
+  assert(emptyBand.indexOf('dropzone') >= 0, 'empty band swaps in the intake upload component');
 
   /* ---- skills block provenance ---- */
-  const skillsBlock = TIQ.views._skillsBlockHtml(scanned);
+  const groupedSkills = scannedCandidate();
+  groupedSkills.skills = ['Python', 'Java', 'JavaScript', 'C', 'Rust', 'Go', 'HTML', 'CSS', 'React', 'SQL', 'Tableau'];
+  groupedSkills.parsedResume.skills = groupedSkills.skills.slice();
+  const skillsBlock = TIQ.views._skillsBlockHtml(groupedSkills);
   assert(skillsBlock.indexOf('SKILLS') >= 0, 'skills block renders');
   assert(skillsBlock.indexOf('prov-dot--') >= 0, 'skills block carries its own provenance dot');
+  assert(skillsBlock.indexOf('Languages') >= 0, 'skills block groups skills by category');
+  assert(skillsBlock.indexOf('Frameworks &amp; Web') >= 0, 'skills block shows category labels');
+  assert(skillsBlock.indexOf('skill-group__more') >= 0, 'skills block shows a category overflow control');
+  assert(skillsBlock.indexOf('skill-group-row') >= 0, 'skills block uses a single-row menu layout');
+  assert(skillsBlock.indexOf('skill-group__leader') >= 0, 'skills block keeps the horizontal leader line');
+  assert(skillsBlock.indexOf('skill-group__icons') >= 0, 'skills block renders badges in a horizontal flow');
+  assert(skillsBlock.indexOf('skill-menu') >= 0, 'skills block uses a menu-style layout');
   assert(TIQ.views._skillsBlockHtml(baseCandidate({ skills: [], parsedResume: null })) === '', 'no skills means no skills block');
 
   /* ---- full card assembly ---- */
@@ -153,11 +169,19 @@ function main() {
     lastIdx = Math.max(lastIdx, i);
   });
   assert(ordered, 'card is ordered: resume bar, header, skills, conversation');
+
+  const noResumeCard = TIQ.views._buildCardHtml(baseCandidate({ resumeUpload: null }), true);
+  assert(noResumeCard.indexOf('resume-bar') === -1, 'a card with no resume renders no resume bar');
+  assert(noResumeCard.indexOf('card-header') >= 0, 'the header still leads the card when there is no resume');
   assert(cardHtml.indexOf('resume-band') === -1, 'the resume band no longer lives inside the card');
   assert(cardHtml.indexOf('meta-strip') === -1 && cardHtml.indexOf('POSITIONS') === -1, 'old count-only meta strip is gone');
-  assert(cardHtml.indexOf('header-resume-btn') >= 0, 'header offers a jump into the resume drawer');
+  assert(cardHtml.indexOf('header-resume-btn') === -1, 'header no longer carries a jump-to-resume button');
+  assert(cardHtml.indexOf('candidate-status') === -1, 'card header no longer carries a scan status badge');
   assert(cardHtml.indexOf('Grounded AI Highlights') >= 0, 'conversation band keeps the grounded highlights');
-  assert(cardHtml.indexOf('FROM THE CONVERSATION') >= 0, 'conversation band is labelled by source');
+  assert(cardHtml.indexOf('FROM THE CONVERSATION') === -1, 'conversation band drops the outer source label');
+  assert(cardHtml.indexOf('highlights-box') === -1, 'conversation highlights no longer sit inside the extra wrapper');
+  assert(cardHtml.indexOf('source-tag__icon') >= 0, 'highlight source tags carry a source icon anchor');
+  assert(cardHtml.indexOf('alert-banner__summary') >= 0, 'alert banner collapses into a footer summary');
 
   /* ---- the band renders in the capture right column, above the drawer ---- */
   const captureHtml = TIQ.views.renderRecruiterCapture();
@@ -167,6 +191,7 @@ function main() {
   assert(colRightIdx >= 0 && bandIdx > colRightIdx, 'resume band renders inside the capture right column');
   assert(bandIdx < drawerIdx, 'resume band sits above the drawer panel');
   assert(captureHtml.indexOf('capture-stack') < colRightIdx, 'card stack stays in the left column');
+  assert(captureHtml.indexOf('capture-panel--intake') === -1, 'the Resume Intake panel is gone from the right column');
 
   /* ---- detail panel Resume section ---- */
   const detail = TIQ.views._renderResumeSection(scanned);
@@ -183,20 +208,13 @@ function main() {
 
   /* ---- drawer Structured / Raw toggle ---- */
   const drawerStructured = TIQ.views._renderDrawerResume(scanned);
-  assert(drawerStructured.indexOf('data-resume-view="structured"') >= 0, 'drawer exposes the structured toggle');
-  assert(drawerStructured.indexOf('data-resume-view="raw"') >= 0, 'drawer exposes the raw toggle');
-  assert(drawerStructured.indexOf('mark-extracted') >= 0, 'structured drawer highlights extracted values');
-  assert(drawerStructured.indexOf('drawer-resume-section') >= 0, 'structured drawer groups fields into sections');
-  assert(drawerStructured.indexOf('<pre class="drawer-raw">') === -1, 'structured view does not dump raw text');
-
-  TIQ.views._drawerResumeView = 'raw';
-  const drawerRaw = TIQ.views._renderDrawerResume(scanned);
-  assert(drawerRaw.indexOf('<pre class="drawer-raw">') >= 0, 'raw view dumps the parsed text');
-  assert(drawerRaw.indexOf('Mia Williams') >= 0, 'raw view contains the resume text');
-  TIQ.views._drawerResumeView = 'structured';
+   assert(drawerStructured.indexOf('resume-pdf-frame') >= 0, 'drawer embeds the PDF viewer');
+   assert(drawerStructured.indexOf('resume-pdf-toolbar') >= 0, 'drawer shows PDF viewer controls');
+   assert(drawerStructured.indexOf('drawer-resume-section') >= 0, 'drawer still groups structured fields into sections');
+   assert(drawerStructured.indexOf('<pre class="drawer-raw">') === -1, 'drawer no longer dumps raw text by default');
 
   const drawerUnparsed = TIQ.views._renderDrawerResume(baseCandidate({ resumeUpload: null, parsedResume: null }));
-  assert(drawerUnparsed.indexOf('drawerResumeScan') >= 0, 'unparsed candidate keeps the scan input');
+  assert(drawerUnparsed.indexOf('resume-empty') >= 0, 'unparsed candidate shows a guidance state instead of raw text');
   assert(drawerUnparsed.indexOf('data-resume-view') === -1, 'no toggle when there is nothing to toggle');
 
   /* ---- stale (pre line-break-fix) stored parse ---- */
@@ -215,10 +233,10 @@ function main() {
   assert(TIQ.ai.isStaleParse(null) === false && TIQ.ai.isStaleParse(undefined) === false, 'isStaleParse: missing parse is not stale');
 
   const staleDrawer = TIQ.views._renderDrawerResume(stale);
-  assert(staleDrawer.indexOf('drawerResumeScan') >= 0, 'a stale scan still offers the rescan input');
+  assert(staleDrawer.indexOf('resume-pdf-frame') >= 0, 'a stale scan still renders the PDF viewer');
   assert(staleDrawer.indexOf('drawer-rescan__warn') >= 0, 'a stale scan is labelled as needing a re-scan');
   assert(staleDrawer.indexOf('line-break fix') >= 0, 'the stale scan explains why nothing was extracted');
-  assert(staleDrawer.indexOf('data-resume-view') >= 0, 'the structured toggle still renders for a stale parse');
+  assert(staleDrawer.indexOf('data-resume-view') === -1, 'the drawer no longer exposes the raw/structured toggle');
 
   const freshDrawer = TIQ.views._renderDrawerResume(scanned);
   assert(freshDrawer.indexOf('drawerResumeScan') === -1, 'a healthy scan does not clutter the drawer with a rescan input');

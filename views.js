@@ -367,24 +367,19 @@ TIQ.views._resumeBarHtml = function(c) {
   var state = parsed ? "scanned" : info.state;
   var scanBtn = '<button type="button" class="resume-bar__action" data-open-resume>Scan &#9656;</button>';
 
-  if (state === "missing") {
-    return '<div class="resume-bar resume-bar--missing">' +
-      '<div class="resume-bar__top">' +
-        '<span class="resume-bar__state">NO RESUME ATTACHED</span>' + scanBtn +
-      '</div>' +
-      '<div class="resume-bar__detail">Form entries only &mdash; nothing verified</div>' +
-    '</div>';
-  }
+  /* No resume on file: the card renders no bar at all rather than a nagging
+     empty-state block — the header carries the card from here. */
+  if (state === "missing") return "";
 
   var dotMod = state === "scanned" ? " is-ok" : (state === "failed" ? " is-bad" : " is-warn");
   var stateLabel = state === "scanned" ? "SCANNED"
     : state === "failed" ? "SCAN FAILED"
-    : state === "legacy" ? "ON FILE" : "NOT SCANNED";
+    : state === "legacy" ? "ON FILE" : (state === "pending" ? "PARSING..." : "NOT SCANNED");
   var detail = state === "failed"
     ? (info.error || "The PDF could not be read.")
     : state === "scanned"
       ? TIQ.views._resumeTally(c, parsed || {})
-      : "Not extracted yet \u2014 scan to pull skills, GPA and roles.";
+      : "";
 
   return '<div class="resume-bar resume-bar--' + state + '">' +
     '<div class="resume-bar__top">' +
@@ -428,7 +423,52 @@ function resumeLinkHtml(url) {
     TIQ.escapeHtml(url.replace(/^https?:\/\//i, "").replace(/^www\./i, "")) + '</a>';
 }
 
+TIQ.views._highlightSourceIcon = function(source) {
+  return source === "resume" ? "📄" : (source === "conversation" ? "🎙" : "💬");
+};
+
+TIQ.views._highlightActionVerbs = {
+  built: 1, led: 1, managed: 1, developed: 1, designed: 1, improved: 1,
+  won: 1, presented: 1, delivered: 1, reduced: 1, increased: 1, coordinated: 1,
+  organized: 1, created: 1, shipped: 1, launched: 1, implemented: 1, optimized: 1,
+  authored: 1, maintained: 1, automated: 1, engineered: 1, mentored: 1, supported: 1,
+  redesigned: 1, achieved: 1, earned: 1, secured: 1, produced: 1, deployed: 1,
+  analyzed: 1, executed: 1, solved: 1, gathered: 1, spearheaded: 1, owned: 1,
+  revived: 1, streamlined: 1, accelerated: 1, piloted: 1, delivered: 1
+};
+
+TIQ.views._formatHighlightText = function(text) {
+  var raw = String(text == null ? "" : text);
+  raw = raw.replace(/<\s*strong\s*>/gi, "**").replace(/<\s*\/\s*strong\s*>/gi, "**");
+  raw = raw.replace(/^(\s*)([A-Za-z][A-Za-z'’-]*)(\b)/, function(_, lead, word, boundary) {
+    return lead + (TIQ.views._highlightActionVerbs[String(word).toLowerCase()] ? "**" + word + "**" : word) + boundary;
+  });
+
+  var html = TIQ.escapeHtml(raw).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  return html.split(/(<\/?strong>)/g).map(function(part) {
+    if (part === "<strong>" || part === "</strong>") return part;
+    return part.replace(/\b(\d+(?:,\d{3})*(?:\.\d+)?(?:%|\+)?|\d+\s*-\s*\d+)(?!\w)/g, '<strong>$1</strong>');
+  }).join("");
+};
+
+TIQ.views._resumePdfViewerHtml = function(info) {
+  var src = info && info.sourceUrl ? info.sourceUrl : "";
+  if (!src) {
+    return '<div class="resume-pdf-empty"><p class="resume-empty">Upload a PDF in the band above to preview the file here.</p></div>';
+  }
+  var title = info && info.name ? info.name : "resume.pdf";
+  return '<div class="resume-pdf-shell">' +
+    '<div class="resume-pdf-toolbar">' +
+      '<span class="resume-pdf-toolbar__label">PDF viewer</span>' +
+      '<span class="resume-pdf-toolbar__hint">Zoom, scroll, print, and download with the browser controls.</span>' +
+      '<a class="resume-pdf-toolbar__link" href="' + TIQ.escapeAttr(src) + '" target="_blank" rel="noopener noreferrer">Open PDF</a>' +
+    '</div>' +
+    '<iframe class="resume-pdf-frame" title="' + TIQ.escapeAttr(title) + '" src="' + TIQ.escapeAttr(src) + '#toolbar=1&navpanes=1&view=FitH"></iframe>' +
+  '</div>';
+};
+
 TIQ.views._resumeBandHtml = function(c) {
+  var info = TIQ.resumeInfo(c);
   var parsed = c.parsedResume || null;
   var edu = (parsed && parsed.education && parsed.education.length) ? parsed.education[0] : null;
   var exp = (parsed && parsed.experience) || [];
@@ -452,11 +492,17 @@ TIQ.views._resumeBandHtml = function(c) {
     ? '<p class="resume-band__stale">This scan predates the line-break fix — the whole PDF collapsed into one line, so what you see below is unreliable. Re-scan the PDF from the Resume tab to rebuild it.</p>'
     : "";
 
-  /* Always render, even with nothing extracted. An empty band that says what
-     scanning would add is more useful than a silently absent section. */
+  /* Always render, even with nothing extracted. The upload affordance now
+     lives here, so an empty band still gives the recruiter a path forward. */
   if (!edu && !exp.length && !certs.length && !projects.length && !workAuth && !address && !linkKeys.length) {
+    var emptyNote = parsed
+      ? 'Not extracted yet — scan to pull skills, GPA and roles.'
+      : (info.state === "failed"
+        ? (info.error || "This PDF could not be read. Try another text-based PDF.")
+        : 'Not extracted yet — scan to pull skills, GPA and roles.');
     return '<section class="resume-band resume-band--empty">' + bandLabel + staleHtml +
-      '<p class="resume-empty">Nothing extracted yet. Import a text-based PDF resume and education, roles, certifications, work authorization and links all fill in here automatically.</p>' +
+      '<p class="resume-band__callout">' + TIQ.escapeHtml(emptyNote) + '</p>' +
+      TIQ.renderDropZone(info.name, { inputId: "drawerResumeScan" }) +
     '</section>';
   }
 
@@ -562,11 +608,8 @@ TIQ.views._skillsBlockHtml = function(c) {
     if (!seen[k]) { seen[k] = 1; uniq.push(s); }
   });
 
-  /* Single wrapped pill cloud instead of one dashed-leader row per group —
-     the group rows were the card's biggest space consumer after the bar. */
-  var VISIBLE = 10;
-  var shown = uniq.slice(0, VISIBLE);
-  var hidden = uniq.slice(VISIBLE);
+  var grouped = TIQ.categorizeSkills(uniq);
+  if (!grouped.length) grouped = [{ key: 'other', label: 'Other Skills', items: uniq.slice(0) }];
 
   function skillMoreChip(list, contextLabel) {
     var n = list.length;
@@ -576,18 +619,28 @@ TIQ.views._skillsBlockHtml = function(c) {
     if (list.length > 6) {
       tipItems += '<span class="skill-more-tip__item">+' + (list.length - 6) + ' more</span>';
     }
-    return '<span class="skill-pill skill-pill--more" tabindex="0" aria-label="' + TIQ.escapeAttr(n + ' more ' + contextLabel + ' skills: ' + list.join(', ')) + '">+' + n +
+    return '<button type="button" class="skill-pill skill-pill--more skill-group__more" aria-label="' + TIQ.escapeAttr(n + ' more ' + contextLabel + ' skills: ' + list.join(', ')) + '">+' + n +
       '<span class="skill-more-tip" aria-hidden="true">' +
         '<span class="skill-more-tip__head">More skills</span>' +
         tipItems +
       '</span>' +
-    '</span>';
+    '</button>';
   }
 
-  var pills = shown.map(function(s) {
-    return '<span class="skill-pill">' + TIQ.escapeHtml(s) + '</span>';
+  var rows = grouped.map(function(group) {
+    var items = group.items || [];
+    var shown = items.slice(0, 4);
+    var hidden = items.slice(4);
+    var pills = shown.map(function(s) {
+      return '<span class="skill-pill">' + TIQ.escapeHtml(s) + '</span>';
+    }).join("");
+    if (hidden.length) pills += skillMoreChip(hidden, group.label.toLowerCase());
+    return '<div class="skill-group-row">' +
+      '<div class="skill-group__icons">' + pills + '</div>' +
+      '<div class="skill-group__leader" aria-hidden="true"></div>' +
+      '<div class="skill-group__label">' + TIQ.escapeHtml(group.label) + ':</div>' +
+    '</div>';
   }).join("");
-  if (hidden.length) pills += skillMoreChip(hidden, 'additional');
 
   /* Skills are the one block that can come from either source (resume scan or
      transcript hydration), so the block carries its own provenance dot rather
@@ -598,7 +651,7 @@ TIQ.views._skillsBlockHtml = function(c) {
     : '<span class="prov-dot prov-dot--form" title="Captured in conversation"></span>';
   return '<section class="skills-block">' +
     '<div class="band-label band-label--plain">SKILLS' + srcDot + '</div>' +
-    '<div class="skill-cloud">' + pills + '</div>' +
+    '<div class="skill-menu">' + rows + '</div>' +
   '</section>';
 };
 
@@ -626,9 +679,7 @@ TIQ.views._buildCardHtml = function(c, isFront) {
   var headerHtml = '<div class="card-header">' +
     '<div class="avatar-box">' + TIQ.initialsFor(c) + '</div>' +
     '<div class="header-details">' +
-      '<div class="name-row">' + nameHtml +
-        '<button type="button" class="header-resume-btn" data-open-resume aria-label="Open resume" title="Open resume">&#128196;</button>' +
-      '</div>' +
+      '<div class="name-row">' + nameHtml + '</div>' +
       (schoolBits.length
         ? '<p class="university">' + schoolBits.map(function(v) { return TIQ.escapeHtml(v); }).join(' &middot; ') + '</p>'
         : '') +
@@ -656,16 +707,14 @@ TIQ.views._buildCardHtml = function(c, isFront) {
   });
   var highlightHtml = bullets.map(function(b, i) {
     var txt = b.text.length > 140 ? b.text.slice(0, 137) + '...' : b.text;
-    return '<div class="highlight-item">' +
+    return '<div class="highlight-item highlight-item--' + TIQ.escapeAttr(b.source) + '">' +
       (i > 0 ? '<hr class="highlight-divider" />' : '') +
-      '<p>' + TIQ.escapeHtml(txt) + '</p>' +
-      '<span class="source-tag">source: ' + TIQ.escapeAttr(b.source) + '</span>' +
+      '<p>' + TIQ.views._formatHighlightText(txt) + '</p>' +
+      '<span class="source-tag source-tag--' + TIQ.escapeAttr(b.source) + '"><span class="source-tag__icon" aria-hidden="true">' + TIQ.views._highlightSourceIcon(b.source) + '</span><span class="source-tag__text">source: ' + TIQ.escapeHtml(b.source) + '</span></span>' +
     '</div>';
   }).join("");
-  var convInner = '<div class="highlights-box">' +
-    '<div class="highlights-title">&#9733; Grounded AI Highlights</div>' +
-    (bullets.length ? highlightHtml : '<div class="highlight-item"><p>No grounded highlights yet &mdash; add a conversation note or resume note.</p></div>') +
-  '</div>';
+  var convInner = '<div class="highlights-title">&#9733; Grounded AI Highlights</div>' +
+    (bullets.length ? highlightHtml : '<div class="highlight-item"><p>No grounded highlights yet &mdash; add a conversation note or resume note.</p></div>');
 
   /* Apple-style voice memo widget — front card only */
   if (isFront) {
@@ -681,7 +730,6 @@ TIQ.views._buildCardHtml = function(c, isFront) {
     '<div id="liveTranscriptPreview" class="live-transcript-preview" style="display:none"><span class="live-transcript-dot"></span><span class="live-transcript-text"></span></div>';
   }
   var convBandHtml = '<section class="conversation-band">' +
-    '<div class="band-label band-label--plain">FROM THE CONVERSATION</div>' +
     convInner +
   '</section>';
 
@@ -690,10 +738,12 @@ TIQ.views._buildCardHtml = function(c, isFront) {
   if (flags.length) {
     var shownFlags = flags.slice(0, 3);
     var moreFlags = flags.length - shownFlags.length;
-    alertHtml = '<div class="alert-banner" data-flag-key="' + TIQ.escapeAttr(shownFlags[0].key) + '">' +
-      '&#9888;&#65039; ' + shownFlags.map(function(f) { return TIQ.escapeHtml(f.label); }).join(' &bull; ') +
-      (moreFlags > 0 ? ' &bull; +' + moreFlags + ' more' : '') +
-    '</div>';
+    alertHtml = '<details class="alert-banner" data-flag-key="' + TIQ.escapeAttr(shownFlags[0].key) + '">' +
+      '<summary class="alert-banner__summary">&#9888;&#65039; ' + shownFlags.map(function(f) { return TIQ.escapeHtml(f.label); }).join(' &bull; ') +
+        (moreFlags > 0 ? ' &bull; +' + moreFlags + ' more' : '') +
+      '</summary>' +
+      '<div class="alert-banner__body">' + flags.map(function(f) { return '<div class="alert-banner__item">' + TIQ.escapeHtml(f.label) + '</div>'; }).join("") + '</div>' +
+    '</details>';
   }
 
   return '<div class="card-scroll">' +
@@ -701,39 +751,14 @@ TIQ.views._buildCardHtml = function(c, isFront) {
   '</div>';
 };
 
-TIQ.views._drawerResumeView = "structured";
-
 TIQ.views._renderDrawerResume = function(sel) {
   var info = TIQ.resumeInfo(sel);
   var parsed = sel.parsedResume || null;
-  var view = TIQ.views._drawerResumeView;
+  var parsedData = parsed || {};
   var stale = TIQ.ai.isStaleParse(parsed);
 
-  /* The rescan input used to be rendered only when there was no parse at all,
-     so a candidate scanned by a buggy build had no way to repair itself from
-     this view. Render it for a missing parse and for a stale one. */
-  var rescanHtml = "";
-  if (!parsed || stale) {
-    var pendingNote = !parsed
-      ? (info.state === "failed"
-        ? "Scan failed: " + (info.error || "unknown error") + ". Select the PDF to try again."
-        : "This resume has not been scanned yet. Select the PDF to extract skills, GPA and highlights.")
-      : "This scan predates the line-break fix, so the whole PDF collapsed into one line — which is why there are no sections and no grounded highlights. Select the PDF again to re-scan it.";
-    rescanHtml = '<div class="drawer-rescan">' +
-      (stale ? '<p class="drawer-rescan__warn">Stale scan — re-scan required</p>' : "") +
-      '<p class="capture-intake-sub">' + TIQ.escapeHtml(pendingNote) + '</p>' +
-      '<input type="file" id="drawerResumeScan" accept=".pdf,application/pdf"></div>';
-  }
-
-  if (!parsed) return rescanHtml;
-
-  var toggleHtml = '<div class="resume-toggle" role="group" aria-label="Resume view">' +
-    '<button type="button" class="resume-toggle__btn' + (view === "structured" ? " is-active" : "") + '" data-resume-view="structured" aria-pressed="' + (view === "structured") + '">Structured</button>' +
-    '<button type="button" class="resume-toggle__btn' + (view === "raw" ? " is-active" : "") + '" data-resume-view="raw" aria-pressed="' + (view === "raw") + '">Raw text</button>' +
-  '</div>';
-
-  if (view === "raw") {
-    return rescanHtml + toggleHtml + '<pre class="drawer-raw">' + TIQ.escapeHtml(parsed.rawText || "No parsed resume yet.") + '</pre>';
+  if (!parsed && !info.sourceUrl) {
+    return '<p class="resume-empty">Use the upload zone above to scan a PDF and preview it here.</p>';
   }
 
   function mark(v) { return '<span class="mark-extracted">' + TIQ.escapeHtml(v) + '</span>'; }
@@ -743,7 +768,7 @@ TIQ.views._renderDrawerResume = function(sel) {
 
   var html = "";
 
-  var edu = parsed.education || [];
+  var edu = parsedData.education || [];
   if (edu.length) {
     html += section("EDUCATION", edu.map(function(e) {
       var line1 = [e.degree, e.major].filter(Boolean).join(" ");
@@ -755,7 +780,7 @@ TIQ.views._renderDrawerResume = function(sel) {
     }).join(""));
   }
 
-  var exp = parsed.experience || [];
+  var exp = parsedData.experience || [];
   if (exp.length) {
     html += section("EXPERIENCE", exp.map(function(x) {
       var head = [x.title, x.company].filter(Boolean).join(" — ");
@@ -768,7 +793,7 @@ TIQ.views._renderDrawerResume = function(sel) {
     }).join(""));
   }
 
-  var projects = parsed.projects || [];
+  var projects = parsedData.projects || [];
   if (projects.length) {
     html += section("PROJECTS", projects.map(function(p) {
       return '<div class="drawer-fact">' +
@@ -778,14 +803,14 @@ TIQ.views._renderDrawerResume = function(sel) {
     }).join(""));
   }
 
-  var certs = parsed.certifications || [];
+  var certs = parsedData.certifications || [];
   if (certs.length) {
     html += section("CERTIFICATIONS", certs.map(function(ct) {
       return '<div class="drawer-fact"><div class="drawer-fact__strong">' + mark(ct) + '</div></div>';
     }).join(""));
   }
 
-  var skills = parsed.skills || [];
+  var skills = parsedData.skills || [];
   if (skills.length) {
     html += section("SKILLS (" + skills.length + ")", '<div class="drawer-skill-row">' +
       skills.map(function(s) { return '<span class="skill-pill mark-extracted">' + TIQ.escapeHtml(s) + '</span>'; }).join("") +
@@ -794,8 +819,10 @@ TIQ.views._renderDrawerResume = function(sel) {
 
   if (!html) html = '<p class="resume-empty">Nothing extracted from this resume yet.</p>';
 
-  return rescanHtml + toggleHtml + html +
-    '<p class="provenance-legend"><span class="prov-dot prov-dot--resume"></span> extracted from the resume PDF</p>';
+  return TIQ.views._resumePdfViewerHtml(info) +
+    (stale ? '<p class="drawer-rescan__warn">Stale scan — re-scan required</p><p class="resume-band__stale">This scan predates the line-break fix, so the PDF text was collapsed into one line. Re-scan the file to rebuild the sections.</p>' : '') +
+    html +
+    '<p class="provenance-legend"><span class="prov-dot prov-dot--resume"></span> extracted from the scanned PDF</p>';
 };
 
 TIQ.views.renderRecruiterCapture = function() {
@@ -881,13 +908,6 @@ TIQ.views.renderRecruiterCapture = function() {
         '<aside class="capture-col-right">' +
           resumeBandHtml +
           drawerHtml +
-          '<div class="capture-panel capture-panel--intake">' +
-            '<div class="capture-section-title">Resume Intake</div>' +
-            '<p class="capture-intake-sub">Import PDFs and we build the candidate cards from them.</p>' +
-            '<button type="button" class="primary-button" id="captureImportResumes">Import Resumes (PDF)</button>' +
-            '<button type="button" class="secondary-button" id="captureNewCandidate">Add Manually</button>' +
-            '<input type="file" id="captureImportInput" accept=".pdf,application/pdf" multiple style="display:none">' +
-          '</div>' +
         '</aside>' +
       '</section>' +
 
@@ -1114,12 +1134,9 @@ TIQ.views.initCaptureEvents = function() {
       var status = categoryBtn.dataset.viewStatus;
       TIQ.views._aiReviewStatus = status;
       TIQ.router.navigateTo("review");
-    } else if (e.target.closest("#captureImportResumes") || e.target.closest("#captureImportEmpty")) {
-      var impInput = e.target.closest("#captureImportResumes") ? document.getElementById("captureImportInput") : document.getElementById("captureImportEmptyInput");
+    } else if (e.target.closest("#captureImportEmpty")) {
+      var impInput = document.getElementById("captureImportEmptyInput");
       if (impInput) impInput.click();
-    } else if (e.target.closest("#captureNewCandidate")) {
-      var modal = document.getElementById("newCandidateModal");
-      if (modal) modal.hidden = false;
     } else if (previewBtn) {
       var pc = TIQ.state.candidates[TIQ.views._captureIndex];
       if (pc && pc.resumeUpload) {
@@ -1151,11 +1168,6 @@ TIQ.views.initCaptureEvents = function() {
       TIQ.views._resumeExpanded[expId] = !TIQ.views._resumeExpanded[expId];
       TIQ.views._rerenderCapture();
       return;
-    } else if (e.target.closest('[data-resume-view]')) {
-      var rvBtn = e.target.closest('[data-resume-view]');
-      TIQ.views._drawerResumeView = rvBtn.getAttribute('data-resume-view') || 'structured';
-      TIQ.views._rerenderCapture();
-      return;
     } else if (e.target.closest('[data-drawer-tab]')) {
       var tabBtn = e.target.closest('[data-drawer-tab]');
       var name = tabBtn.getAttribute('data-drawer-tab');
@@ -1175,14 +1187,6 @@ TIQ.views.initCaptureEvents = function() {
     notes.addEventListener("change", function() {
       var c = TIQ.state.candidates[TIQ.views._captureIndex];
       if (c) { c.notes = notes.value; TIQ.addAuditEntry(c, "NOTES_UPDATED", "Notes updated"); TIQ.logMetric({ type: 'notes-updated', candidateId: c.id, recruiterId: c.capturedBy }); if (TIQ.ai && TIQ.ai.updateCandidateSummary) TIQ.ai.updateCandidateSummary(c); TIQ.saveState(); }
-    });
-  }
-
-  var captureImportInput = document.getElementById("captureImportInput");
-  if (captureImportInput) {
-    captureImportInput.addEventListener("change", function() {
-      TIQ.views.importResumeFiles(this.files);
-      this.value = "";
     });
   }
 
@@ -1813,7 +1817,9 @@ TIQ.views._renderResumeSection = function(c) {
   var stateLabel = state === "scanned" ? "SCANNED"
     : state === "failed" ? "SCAN FAILED"
     : state === "legacy" ? "ON FILE, NOT SCANNED"
-    : state === "missing" ? "NO RESUME ATTACHED" : "NOT SCANNED";
+    : state === "missing" ? "NO RESUME ATTACHED"
+    : state === "pending" ? "PARSING..."
+    : "NOT SCANNED";
   var when = info.parsedAt ? TIQ.views._formatScanTime(info.parsedAt) : "";
   var rawText = (parsed && parsed.rawText) ? parsed.rawText : "";
   var rawOpen = !!TIQ.views._rawOpen[c.id];
