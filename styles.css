@@ -144,11 +144,18 @@
   --radius-lg: 12px;
   --radius-md: 8px;
   --radius-sm: 6px;
-  --sidebar-w: 260px;
+  /* Phase 2: spec §Spacing asks for ~200-220px, "readable labels win over hitting
+     an exact number". 216px keeps the widest row — step 4 "Event Results", which
+     carries a 26px number badge plus a 12px gap — on one line with room to spare,
+     and still fits "Research Metrics". */
+  --sidebar-w: 216px;
   --sidebar-bg: var(--jbh-dark-sidebar);
   --sidebar-text: #CBD5E0;
   --sidebar-hover: rgba(255,255,255,0.08);
-  --sidebar-active: var(--jbh-blue-primary);
+  /* Active is now a subtle raised surface, not a saturated fill. The blue
+     (#005DBA) + yellow-text pairing read as a hard brand block on a dark rail. */
+  --sidebar-active: rgba(255,255,255,0.12);
+  --sidebar-hairline: rgba(255,255,255,0.08);
   --font-sans: var(--font-family-base);
   --font-mono: 'IBM Plex Mono', 'Fira Code', monospace;
   --header-height: 104px;
@@ -204,7 +211,9 @@ a { color: inherit; text-decoration: none; }
   flex-direction: column;
   padding: 24px 16px;
   flex-shrink: 0;
-  border-right: 3px solid var(--jbh-yellow-accent);
+  /* Phase 2 step 5: the 3px yellow right border is gone (§12 Navigation). A 1px
+     warm hairline keeps the rail separated from the page without a brand bar. */
+  border-right: 1px solid var(--sidebar-hairline);
 }
 
 .brand { padding-bottom: 28px; }
@@ -227,36 +236,38 @@ a { color: inherit; text-decoration: none; }
 .brand-title { font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -0.04em; }
 .brand-subtitle { font-size: 10px; font-weight: 800; color: var(--accent); }
 
-.sidebar-nav { display: flex; flex-direction: column; gap: 4px; }
+.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .nav-label {
-  font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.4); margin-bottom: 12px;
+  font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.55); margin-bottom: 8px;
 }
 .nav-link {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 12px; border-radius: var(--radius-sm);
-  font-size: 13px; font-weight: 600; color: var(--sidebar-text);
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500; color: var(--sidebar-text);
   transition: background 150ms, color 150ms;
 }
 .nav-link:hover { background: var(--sidebar-hover); color: #fff; }
+/* Phase 2 step 5: active is a subtle raised surface plus weight and text colour.
+   The coloured left border is gone — no brand bar on the rail. */
 .nav-link.active {
   background: var(--sidebar-active);
-  color: var(--jbh-yellow-accent);
-  font-weight: 700;
-  border-left: 3px solid var(--jbh-yellow-accent);
-  margin-left: -3px;
+  color: #fff;
+  font-weight: 600;
 }
 .nav-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; flex-shrink: 0; }
 
+/* Phase 2 step 8: restyled in place, no new component. The bordered box becomes a
+   hairline rule that matches the wireframe's divider above "Event" and gives the
+   sidebar a nav / event / footer rhythm. Contrast on the two 10-11px labels is
+   lifted from 3.87:1 (rgba .4) to 5.9:1 (rgba .55) so they clear AA as text. */
 .sidebar-card {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: var(--radius-md);
-  padding: 14px;
+  border-top: 1px solid var(--sidebar-hairline);
+  padding-top: 16px;
   margin: auto 0 16px 0;
 }
-.sidebar-card__label { font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.4); }
-.sidebar-card__event { font-size: 15px; font-weight: 800; color: #fff; margin-top: 6px; line-height: 1.4; }
-.sidebar-card__meta { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); margin-top: 10px; }
+.sidebar-card__label { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.55); }
+.sidebar-card__event { font-size: 15px; font-weight: 600; color: #fff; margin-top: 6px; line-height: 1.4; }
+.sidebar-card__meta { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.6); margin-top: 10px; }
 .meta-divider { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
 
 .sidebar-footer {
@@ -285,15 +296,21 @@ a { color: inherit; text-decoration: none; }
 #viewContainer { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: visible; }
 
 /* ---- Topbar ---- */
+/* Phase 2 step 6: the 3px yellow rule under every page title is the same
+   device as the sidebar's yellow border, and §Design Direction reserves the
+   accent for sparing use, "not as borders". Replaced with a warm hairline.
+   h1 is the Display role per §Typography: 28-34px at weight 600, not 900. */
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding-bottom: 10px; border-bottom: 3px solid var(--accent); margin-bottom: 10px;
+  padding-bottom: 16px; border-bottom: 1px solid var(--line); margin-bottom: 20px;
 }
-.topbar-left { display: flex; flex-direction: column; gap: 6px; }
-.breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: #334155; }
+.topbar-left { display: flex; flex-direction: column; gap: 8px; }
+/* Breadcrumb colours are left alone — Sep 28-29 raised these to #334155 for
+   contrast as part of the WCAG audit; only size/weight are aligned here. */
+.breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #334155; }
 .breadcrumb-link { color: #334155; }
 .breadcrumb-sep { color: var(--brand); }
-.topbar h1 { font-size: clamp(26px, 2.4vw, 36px); font-weight: 900; color: var(--text); margin: 0; letter-spacing: -0.035em; line-height: 1.15; }
+.topbar h1 { font-size: clamp(28px, 2.4vw, 34px); font-weight: 600; color: var(--text); margin: 0; letter-spacing: -0.035em; line-height: 1.15; }
 .topbar-actions { display: flex; align-items: center; gap: 12px; }
 
 /* ---- Recruiter Picker ---- */

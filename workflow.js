@@ -113,7 +113,7 @@ TIQ.renderWorkflowNav = function() {
   var h = TIQ.escapeHtml;
   function item(s) { return '<a href="#' + s.key + '" class="nav-link" data-nav="' + s.key + '">' +
     (s.step ? '<span class="workflow-number">' + s.step + '</span>' : '') + '<span>' + h(s.label) + '<small>' + h(s.when) + '</small><small data-count="' + s.key + '"></small></span></a>'; }
-  return '<div class="nav-label">Recruiter workflow</div>' + TIQ.CONFIG.workflow.map(item).join('') + '<div class="nav-label">Study</div>' + TIQ.CONFIG.study.map(item).join('');
+  return '<div class="nav-label">Workflow</div>' + TIQ.CONFIG.workflow.map(item).join('') + '<div class="nav-label">Study</div>' + TIQ.CONFIG.study.map(item).join('');
 };
 TIQ.refreshWorkflow = function() {
   if (typeof document === 'undefined') return;
