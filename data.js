@@ -380,14 +380,7 @@ function buildAccomplishments(c) {
         merged.push(ch.text);
       }
     });
-    var out = [];
-    merged.forEach(function(m) {
-      m.replace(/([.!?;])\s+/g, '$1\n').split('\n').forEach(function(s) {
-        s = cleanText(s);
-        if (s) out.push(s);
-      });
-    });
-    return out;
+    return merged;
   }
 
   var LADDER = [
@@ -409,26 +402,22 @@ function buildAccomplishments(c) {
   var pool = [];
   var seen = {};
 
-  function offer(text, source, forcedTier) {
+  function offer(text, source, forcedTier, context) {
+    context = context || {};
     var t = stripLabel(text)
       .replace(/^[\s\-–—•●*]+/, '')
-      .replace(/[\s,;.\u2022]+$/, '')
       .trim();
     if (isNoise(t)) return;
-    /* Longest sensible statement: trim at a word boundary rather than letting
-       one run-on bullet swallow the card. */
-    if (t.length > 200) {
-      var cut = t.slice(0, 197);
-      var sp = cut.lastIndexOf(' ');
-      t = (sp > 120 ? cut.slice(0, sp) : cut).replace(/[\s,;.]+$/, '') + '\u2026';
-    }
+    // A structured parser is not evidence: only offer spans in the original source.
+    var evidence = cleanText(source === 'resume' ? rawText : context.transcript || c.notes);
+    if (evidence && evidence.indexOf(t) === -1) return;
     var key = t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/^\s+|\s+$/g, '');
     if (!key) return;
-    for (var k in seen) {
-      if (!Object.prototype.hasOwnProperty.call(seen, k)) continue;
-      /* Same claim, or a clause of one already offered. */
-      if (k === key || k.indexOf(key) === 0 || key.indexOf(k) === 0) return;
-    }
+    // Keep identical statements under different parents; raw harvesting must not
+    // displace a structured entry or detach a claim from its role.
+    if (pool.some(function(x) { return x.source === source && x.text === t &&
+      (!context.contextLabel || x.contextLabel === context.contextLabel) &&
+      (!context.noteId || x.noteId === context.noteId); })) return;
     var tier = forcedTier || RUNGS;
     if (!forcedTier) {
       for (var i = 0; i < LADDER.length; i++) {
@@ -436,28 +425,40 @@ function buildAccomplishments(c) {
       }
     }
     seen[key] = true;
-    pool.push({ text: t, source: source, tier: tier, order: pool.length });
+    pool.push({ text: t, evidenceText: t, source: source, tier: tier, order: pool.length,
+      facet: ['Recognition', 'Built something', 'Leadership role', 'Owned the work', 'Quantified impact', 'Credential', 'Experience statement'][tier - 1],
+      contextLabel: context.contextLabel || '', contextDetail: context.contextDetail || '',
+      noteId: context.noteId || '', createdAt: context.createdAt || '',
+      verification: source === 'conversation' ? (context.reviewed ? 'Recruiter-reviewed transcript' : 'Unverified transcript') : 'Resume quote' });
   }
 
   /* Document order first so that, within a rung, the candidate's own
      ordering decides what is shown. Structured fields follow to catch
      anything the raw text did not preserve. */
-  splitProse(rawText).forEach(function(line) { offer(line, 'resume'); });
   experience.forEach(function(exp) {
     var head = cleanText(exp && exp.title);
-    if (exp && exp.company) head += (head ? ' — ' : '') + cleanText(exp.company);
-    if (head) offer(head, 'resume', RUNGS);
-    splitProse((exp && exp.description) || '').forEach(function(s) { offer(s, 'resume'); });
+    if (exp && exp.company) head += (head ? ' · ' : '') + cleanText(exp.company);
+    splitProse((exp && exp.description) || '').forEach(function(s) {
+      offer(s, 'resume', null, {contextLabel: head, contextDetail: exp.dates || ''});
+    });
   });
   projects.forEach(function(proj) {
     var name = cleanText(proj && proj.name);
     var desc = cleanText(proj && proj.description);
-    if (name) offer(name, 'resume', RUNGS);
-    if (desc) splitProse(desc).forEach(function(s) { offer(name ? name + ' — ' + s : s, 'resume'); });
+    if (name && !desc) offer(name, 'resume', RUNGS, {contextLabel: name, contextDetail: proj.dates || ''});
+    if (desc) splitProse(desc).forEach(function(s) { offer(s, 'resume', null, {contextLabel: name, contextDetail: proj.dates || ''}); });
   });
+  splitProse(rawText).forEach(function(line) { offer(line, 'resume'); });
   certs.forEach(function(cert) {
     var t = stripLabel(cert);
-    if (t) offer('Earned ' + t.charAt(0).toLowerCase() + t.slice(1), 'resume', LADDER.length);
+    if (t) offer(t, 'resume', LADDER.length);
+  });
+  (c.audioNotes || []).forEach(function(note) {
+    splitProse(note.transcript).forEach(function(line) {
+      if (!LADDER.some(function(rule) { return rule.test(line); })) return;
+      offer(line, 'conversation', null, {transcript: note.transcript, noteId: note.id || note.blobId,
+        createdAt: note.createdAt, reviewed: !!note.reviewedAt});
+    });
   });
 
   /* One highlight per rung first — so the three cover three different facets
@@ -465,7 +466,7 @@ function buildAccomplishments(c) {
      of the same claim — then fill any remaining slots in ladder order. */
   var chosen = [];
   function takeOne(tier) {
-    for (var i = 0; i < pool.length && chosen.length < 3; i++) {
+    for (var i = 0; i < pool.length; i++) {
       if (pool[i].tier === tier && !pool[i].taken) {
         pool[i].taken = true;
         chosen.push(pool[i]);
@@ -473,23 +474,23 @@ function buildAccomplishments(c) {
       }
     }
   }
-  for (var pass = 0; pass < 3 && chosen.length < 3; pass++) {
-    for (var tier = 1; tier <= RUNGS && chosen.length < 3; tier++) takeOne(tier);
+  for (var pass = 0; pass < pool.length; pass++) {
+    for (var tier = 1; tier <= RUNGS; tier++) takeOne(tier);
   }
 
   chosen.sort(function(a, b) { return a.tier - b.tier || a.order - b.order; });
 
-  var accs = chosen.map(function(x) { return { text: x.text, source: x.source }; });
+  var accs = chosen.map(function(x) { delete x.tier; delete x.order; delete x.taken; return x; });
 
   if (!accs.length && c.notes) {
     var sentences = c.notes.split(/[.!?]+/).filter(function(s) { return s.trim().length > 10; });
     if (sentences.length) {
       var note = cleanText(sentences[0]);
-      if (!isNoise(note)) accs.push({ text: note, source: "conversation" });
+      if (!isNoise(note)) accs.push({ text: note, evidenceText: note, source: "conversation", facet: 'Recruiter note', contextLabel: '', contextDetail: '', verification: 'Recruiter note; speaker not established' });
     }
   }
 
-  return accs.slice(0, 3);
+  return accs;
 }
 
 /* Highlights are meant to be quotes from the candidate's own document. A set
@@ -524,7 +525,7 @@ TIQ.normalizeCandidate = function(candidate, seedCandidate) {
 TIQ.state = (function() {
   var persisted = TIQ.loadPersistedState();
   var persistedCandidates = (persisted && persisted.candidates) || [];
-  var normalizedCandidates = persistedCandidates.length
+  var normalizedCandidates = persisted && Array.isArray(persisted.candidates)
     ? persistedCandidates.map(function(c) {
         var seed = TIQ.seedCandidates.find(function(s) { return s.id === c.id; });
         var normalized = TIQ.normalizeCandidate(c, seed);
@@ -663,7 +664,7 @@ window.addEventListener("online", function() {
   });
   if (changed) {
     TIQ.saveState();
-    console.log("[TalentIQ] Back online — synced pending audio notes.");
+    console.log("[TalentIQ] Back online — local audio connection flags updated; no data transmitted.");
   }
 });
 
@@ -711,7 +712,7 @@ TIQ.qr = (function() {
 })();
 
 /* ============================================
-   TalentIQ — AI Resume Parser & Summarizer
+   TalentIQ — Resume Extraction & Template Summaries
    ============================================ */
 TIQ.ai = {};
 
@@ -736,7 +737,7 @@ TIQ.ai.SKILLS_DICT = [
   "Snowflake", "Databricks", "BigQuery", "Redshift", "Alteryx", "Power Query", "SSIS", "SAS", "SPSS", "Data Science", "Statistics", "Regression Analysis", "Time Series", "A/B Testing", "Statistical Modeling", "Data Mining", "ETL", "Data Warehousing", "Predictive Analytics", "KPI", "KPIs", "Root Cause Analysis",
   "Lean", "Six Sigma", "Lean Six Sigma", "Kaizen", "5S", "Value Stream Mapping", "Standard Work", "Time Study", "Simulation", "Linear Programming", "Monte Carlo Simulation", "Inventory Management", "Procurement", "Vendor Management", "Stakeholder Management", "Negotiation", "Contract Management", "Financial Modeling", "Variance Analysis", "Budgeting", "Accounts Payable", "Accounts Receivable", "Cost Analysis", "Business Development", "Customer Relationship Management", "CRM",
   "PMP", "APICS", "CSCP", "CLTD", "Green Belt", "OSHA", "CDL",
-  "API", "APIs", "Data Visualization", "Forecasting", "Optimization", "Process Improvement", "Process Mapping", "Operations", "Logistics", "Transportation", "Fleet Management", "Warehouse", "Freight", "ERP", "Project Management", "Collaboration", "Leadership", "Teamwork", "Problem Solving", "Critical Thinking", "Analytics", "Reporting", "Dashboard", "Dashboards", "Presentation",
+  "API", "APIs", "Data Visualization", "Forecasting", "Optimization", "Process Improvement", "Process Mapping", "Operations", "Logistics", "Transportation", "Fleet Management", "Warehouse", "Freight", "ERP", "Project Management", "Collaboration", "Leadership", "Teamwork", "Problem Solving", "Critical Thinking", "Reporting", "Dashboard", "Dashboards", "Presentation",
   "Figma", "Sketch", "Adobe XD", "Photoshop", "Illustrator", "InDesign",
   "Communication", "Leadership", "Teamwork", "Problem Solving", "Critical Thinking",
   "Supply Chain", "Logistics", "Transportation", "Fleet Management", "Warehouse", "Freight",
@@ -1466,6 +1467,8 @@ TIQ.ai.hydrateTranscript = function (candidate, transcriptText) {
     var tldr = TIQ.generateTldr(transcriptText);
     if (tldr && !candidate.notes) { candidate.notes = tldr; changes.notesUpdated = true; }
   }
+  candidate.accomplishments = TIQ.generateAccomplishments(candidate);
+  if (TIQ.invalidateApproval) TIQ.invalidateApproval(candidate);
   return changes;
 };
 
@@ -1664,6 +1667,7 @@ TIQ.citeSource = function(c, field) {
    interrupted or failed scan is never mistaken for a scanned resume: parsedAt stays ""
    until extraction succeeds (getMissingFlags then reports "Resume Not Scanned"). */
 TIQ.ai.parseAndStoreResume = function(candidate, file) {
+  if (TIQ.invalidateApproval) TIQ.invalidateApproval(candidate);
   var resumeRef = { name: file && file.name ? file.name : "resume.pdf", type: file && file.type ? file.type : "", parsedAt: "", sourceUrl: "" };
   if (candidate && candidate.resumeUpload && typeof candidate.resumeUpload === "object" && candidate.resumeUpload.sourceUrl && typeof URL !== "undefined" && URL.revokeObjectURL) {
     try { URL.revokeObjectURL(candidate.resumeUpload.sourceUrl); } catch (_) {}
@@ -1706,7 +1710,7 @@ TIQ.ai.parseAndStoreResume = function(candidate, file) {
             promises.push(pdf.getPage(pageNum).then(function(page) {
               return page.getTextContent().then(function(content) {
                 var pageText = TIQ.ai.pageTextFromContent(content);
-                textParts.push(pageText);
+                textParts[pageNum - 1] = pageText;
               });
             }));
           })(i);
@@ -1803,12 +1807,11 @@ TIQ.refreshParsedCandidates = function() {
 
 /* ---- Summary Update Convenience ---- */
 TIQ.ai.updateCandidateSummary = function(candidate) {
+  if (TIQ.invalidateApproval) TIQ.invalidateApproval(candidate);
   var result = TIQ.ai.generateSummary(candidate);
   candidate.summary = result.summary;
   candidate.traceability = result.traceability;
-  if (!candidate.accomplishments || !candidate.accomplishments.length) {
-    candidate.accomplishments = TIQ.generateAccomplishments(candidate);
-  }
+  candidate.accomplishments = TIQ.generateAccomplishments(candidate);
   candidate.lastUpdated = TIQ.todayISO();
   TIQ.saveState();
   return result;

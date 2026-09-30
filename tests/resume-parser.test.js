@@ -228,6 +228,14 @@ function main() {
   assert(prose.skills.indexOf('Regression Analysis') === -1, 'jbh vocabulary: "regression testing" is not Regression Analysis');
   assert(prose.skills.indexOf('Parcel') === -1, 'jbh vocabulary: "parcel of land" is not the freight mode');
   assert(prose.skills.indexOf('Intermodal') === -1, 'jbh vocabulary: no freight term is invented from unrelated prose');
+
+  /* Generic nouns stay out of the dictionary so a sentence like "...for
+     analytics." does not mint a skill. Analytics is still a bucket key, so a
+     recruiter who types it still gets the Data & Analytics group. */
+  const chatter = TIQ.ai.extractResumeData('I really enjoy working with SQL and Tableau for analytics.');
+  assert(chatter.skills.indexOf('SQL') !== -1 && chatter.skills.indexOf('Tableau') !== -1, 'real tools in prose are still extracted');
+  assert(chatter.skills.indexOf('Analytics') === -1, 'generic word "analytics" is not extracted as a skill');
+  assert(TIQ.categorizeSkills(['Analytics'])[0].items.indexOf('Analytics') !== -1, 'Analytics still buckets for display');
 }
 
 main();

@@ -38,7 +38,7 @@ TIQ.CONFIG = {
   logoPath: "JBHUNT_LOGO.png",
 
   // --- Fonts ---
-  fontsUrl: "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap",
+  fontsUrl: "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap",
 
   // --- Recruiters ---
   recruiters: [
@@ -147,16 +147,16 @@ TIQ.CONFIG = {
   ],
 
   // --- View Titles ---
-  viewTitles: {
-    "analytics": "Executive Analytics",
-    "kiosk": "Event Info",
-    "capture": "Candidate Cards",
-    "review": "AI Review & Decision Hub",
-    "metrics": "Research Metrics"
-  },
+  workflow: [
+    {key: 'kiosk', step: 1, label: 'Set Up', when: 'Before the fair', title: 'Booth Setup'},
+    {key: 'capture', step: 2, label: 'Capture', when: 'During the conversation', title: 'Capture'},
+    {key: 'review', step: 3, label: 'Review', when: 'End of day', title: 'End-of-Day Review'},
+    {key: 'analytics', step: 4, label: 'Event Results', when: 'After the fair', title: 'Event Results'}
+  ],
+  study: [{key: 'metrics', label: 'Research Metrics', when: 'Controlled study', title: 'Research Metrics'}],
 
   // --- Default View ---
-  defaultView: "analytics",
+  defaultView: "capture",
 
   // --- Seed Candidates ---
   // Replace with your own test data
