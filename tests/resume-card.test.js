@@ -104,8 +104,7 @@ function main() {
   assert(scannedBar.indexOf('data-open-resume') === -1 || scannedBar.indexOf('resume-bar__action') === -1, 'no scan CTA once the resume is scanned');
 
   const legacyBar = TIQ.views._resumeBarHtml(baseCandidate({ resumeUpload: 'legacy_resume.pdf' }));
-  assert(legacyBar.indexOf('ON FILE') >= 0 && legacyBar.indexOf('legacy_resume.pdf') >= 0, 'string resumeUpload renders an ON FILE bar with the name');
-  assert(legacyBar.indexOf('resume-bar__action') >= 0, 'legacy (never scanned) candidate still offers the scan CTA');
+  assert(legacyBar === '', 'legacy string-only resume uploads do not render a dead ON FILE bar');
 
   const missingBar = TIQ.views._resumeBarHtml(baseCandidate({ resumeUpload: null }));
   assert(missingBar === '', 'candidate without a resume renders no resume bar');
@@ -151,6 +150,8 @@ function main() {
   assert(skillsBlock.indexOf('skill-group__leader') >= 0, 'skills block keeps the horizontal leader line');
   assert(skillsBlock.indexOf('skill-group__icons') >= 0, 'skills block renders badges in a horizontal flow');
   assert(skillsBlock.indexOf('skill-menu') >= 0, 'skills block uses a menu-style layout');
+  assert(skillsBlock.indexOf('skill-group__label') < skillsBlock.indexOf('skill-group__icons'), 'skills block renders labels before the skill chips');
+  assert(skillsBlock.indexOf('skill-more-tip__item') >= 0, 'skills overflow chip exposes hidden skills on hover/focus');
   assert(TIQ.views._skillsBlockHtml(baseCandidate({ skills: [], parsedResume: null })) === '', 'no skills means no skills block');
 
   /* ---- full card assembly ---- */
@@ -177,10 +178,10 @@ function main() {
   assert(cardHtml.indexOf('meta-strip') === -1 && cardHtml.indexOf('POSITIONS') === -1, 'old count-only meta strip is gone');
   assert(cardHtml.indexOf('header-resume-btn') === -1, 'header no longer carries a jump-to-resume button');
   assert(cardHtml.indexOf('candidate-status') === -1, 'card header no longer carries a scan status badge');
-  assert(cardHtml.indexOf('Grounded AI Highlights') >= 0, 'conversation band keeps the grounded highlights');
+  assert(cardHtml.indexOf('Grounded Highlights') >= 0, 'conversation band keeps the grounded highlights');
   assert(cardHtml.indexOf('FROM THE CONVERSATION') === -1, 'conversation band drops the outer source label');
   assert(cardHtml.indexOf('highlights-box') === -1, 'conversation highlights no longer sit inside the extra wrapper');
-  assert(cardHtml.indexOf('source-tag__icon') >= 0, 'highlight source tags carry a source icon anchor');
+  assert(cardHtml.indexOf('source-tag') >= 0, 'highlight evidence has a source tag');
   assert(cardHtml.indexOf('alert-banner__summary') >= 0, 'alert banner collapses into a footer summary');
 
   /* ---- the band renders in the capture right column, above the drawer ---- */

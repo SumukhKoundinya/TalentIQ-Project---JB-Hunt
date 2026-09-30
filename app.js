@@ -5,10 +5,11 @@ window.TIQ = window.TIQ || {};
 
 TIQ.router = {
   currentView: TIQ.CONFIG.defaultView,
-  viewTitles: TIQ.CONFIG.viewTitles,
+  routes: TIQ.CONFIG.workflow.concat(TIQ.CONFIG.study),
 
   navigateTo: function(viewName) {
-    if (!this.viewTitles[viewName]) return;
+    var route = this.routes.find(function(r) { return r.key === viewName; });
+    if (!route) return;
     this.currentView = viewName;
 
     document.querySelectorAll(".nav-link").forEach(function(link) {
@@ -16,8 +17,7 @@ TIQ.router = {
     });
 
     var title = document.getElementById("pageTitle");
-    if (title) title.textContent = this.viewTitles[viewName];
-
+    if (title) title.textContent = route.title;
     var container = document.getElementById("viewContainer");
     var searchWrap = document.getElementById("globalSearchWrap");
     if (!container) return;
@@ -30,6 +30,7 @@ TIQ.router = {
         if (searchWrap) searchWrap.style.display = "none";
         container.innerHTML = TIQ.skeleton.overlay("overview");
         requestAnimationFrame(function() {
+          if (TIQ.router.currentView !== 'analytics') return;
           container.innerHTML = TIQ.views.renderAnalytics();
           TIQ.views.initAnalyticsEvents();
         });
@@ -48,6 +49,7 @@ TIQ.router = {
         if (searchWrap) searchWrap.style.display = "";
         container.innerHTML = TIQ.skeleton.overlay("list");
         requestAnimationFrame(function() {
+          if (TIQ.router.currentView !== 'review') return;
           container.innerHTML = TIQ.views.renderReview();
           TIQ.views.initReviewEvents();
         });
@@ -65,6 +67,7 @@ TIQ.router = {
 
 TIQ.app = {
   init: function() {
+    TIQ.initWorkflow();
     // Update sidebar event info
     var sidebarEvent = document.getElementById("sidebarEventName");
     var sidebarDate = document.getElementById("sidebarEventDate");
@@ -120,7 +123,8 @@ TIQ.app = {
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
       // Number keys 1-4 for view navigation
-      var viewMap = { "1": "analytics", "2": "kiosk", "3": "capture", "4": "review" };
+      var viewMap = {};
+      TIQ.CONFIG.workflow.forEach(function(s) { viewMap[String(s.step)] = s.key; });
       if (viewMap[e.key]) { e.preventDefault(); TIQ.router.navigateTo(viewMap[e.key]); return; }
 
       // / to focus search
@@ -133,13 +137,13 @@ TIQ.app = {
 
       // ? to show keyboard shortcuts
       if (e.key === "?") {
-        TIQ.showToast("Keys: 1-4 = views, / = search, Esc = close");
+        TIQ.showToast("1 Set Up · 2 Capture · 3 Review · 4 Event Results · / Search · Esc Close");
       }
     });
 
     // New Record button navigates to intake
     var newBtn = document.querySelector(".create-button");
-    if (newBtn) newBtn.addEventListener("click", function() { TIQ.router.navigateTo("kiosk"); });
+    if (newBtn) newBtn.addEventListener("click", function() { TIQ.router.navigateTo("capture"); });
 
     // Navigate to initial view
     TIQ.router.navigateTo(TIQ.CONFIG.defaultView);

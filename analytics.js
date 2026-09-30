@@ -54,7 +54,7 @@ TIQ.analytics = (function () {
   }
 
   function dataCompleteness(candidates) {
-    if (!candidates || !candidates.length) return 0;
+    if (!candidates || !candidates.length) return null;
     var missing = 0;
     candidates.forEach(function (c) {
       if (!c) return;
@@ -98,12 +98,13 @@ TIQ.analytics = (function () {
           recruiter: recruiterName(e.recruiter_id),
           action: titleCaseWords(String(e.action || '').toLowerCase().replace(/_/g, ' ')),
           target: c.id,
-          time: 'just now',
+          timestamp: e.timestamp || '',
+          time: e.timestamp && !isNaN(Date.parse(e.timestamp)) ? new Date(e.timestamp).toLocaleString() : 'Time not recorded',
           dotColor: '#FEDB00'
         });
       });
     });
-    return items.slice(0, 5);
+    return items.sort(function(a, b) { return (Date.parse(b.timestamp) || 0) - (Date.parse(a.timestamp) || 0); }).slice(0, 5);
   }
 
   function perRecruiter(candidates) {
@@ -115,13 +116,29 @@ TIQ.analytics = (function () {
         var rid = e.recruiter_id || 'system';
         if (!map[rid]) map[rid] = { recruiterId: rid, recruiterName: recruiterName(rid), actions: 0, approvals: 0 };
         map[rid].actions++;
-        if (REVIEW_ACTIONS.indexOf(e.action) !== -1) map[rid].approvals++;
+        if (e.action === 'APPROVED') map[rid].approvals++;
       });
     });
     return Object.keys(map).map(function (k) { return map[k]; });
   }
 
   return {
+    missingFlagBreakdown: function(candidates) {
+      return TIQ.getMissingFlags({}).map(function(flag) {
+        var count = candidates.filter(function(c) { return TIQ.getMissingFlags(c).some(function(f) { return f.key === flag.key; }); }).length;
+        return {flag: flag.key, count: count, pct: candidates.length ? Math.round(count / candidates.length * 100) : null};
+      });
+    },
+    metricDescriptors: function(candidates) {
+      var n = candidates.length, counts = statusCounts(candidates);
+      var missing = candidates.reduce(function(sum, c) { return sum + TIQ.getMissingFlags(c).length; }, 0);
+      return [
+        {key:'records',label:'Records on this device',value:n,numerator:n,denominator:n,unit:'records',definition:'Locally stored records in the selected population.',whyItMatters:'Confirm the population before reviewing or exporting.',caveat:'No automatic cross-device sync.'},
+        {key:'interviews',label:'Interview requests',value:counts['Interview Requested'],numerator:counts['Interview Requested'],denominator:n,unit:'records',definition:'Records explicitly marked Interview Requested.',whyItMatters:'Arrange the next step outside TalentIQ.',caveat:'A request is not an interview booked or a message sent.'},
+        {key:'followup',label:'Follow-up requests',value:counts['Follow-Up'],numerator:counts['Follow-Up'],denominator:n,unit:'records',definition:'Records explicitly marked Follow-Up; excludes interview requests.',whyItMatters:'Review and contact these candidates.',caveat:'TalentIQ does not send follow-up messages.'},
+        {key:'completeness',label:'Field completeness',value:dataCompleteness(candidates),numerator:n*FLAG_COUNT-missing,denominator:n*FLAG_COUNT,unit:'%',definition:'Present checks divided by nine tracked checks per record.',whyItMatters:'Use the missing-data breakdown to decide what to ask next.',caveat:'Measures recorded information, not candidate quality or extraction accuracy. Checks include resume scan state.'}
+      ].map(function(d) { d.population = n + ' selected local records'; d.window = 'All stored dates'; d.source = 'Local candidate state'; return d; });
+    },
     statusCounts: statusCounts,
     avgReviewSeconds: avgReviewSeconds,
     formatDuration: formatDuration,

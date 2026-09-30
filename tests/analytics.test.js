@@ -61,7 +61,7 @@ function main() {
 
   const complete = { id: 'D1', workAuthorization: 'US Citizen', graduationDate: 'May 2026', gpa: '3.9', phone: '555-0100', resumeUpload: 'resume.pdf', workLocations: ['Nashville, TN'], skills: ['Python'], notes: 'Solid technical discussion.', areasDiscussed: ['AI'] };
   const partial = { id: 'D2', workAuthorization: 'US Citizen', gpa: '3.0' };
-  assert(A.dataCompleteness([]) === 0, 'dataCompleteness empty set is 0');
+  assert(A.dataCompleteness([]) === null, 'dataCompleteness empty set has no percentage');
   assert(A.dataCompleteness([complete]) === 100, 'dataCompleteness complete candidate is 100');
   assert(A.dataCompleteness([partial]) === 22, 'dataCompleteness partial candidate (7 of 9 flags)');
   assert(A.dataCompleteness([complete, partial]) === 61, 'dataCompleteness mixed set rounds to 61');
@@ -95,7 +95,7 @@ function main() {
   const feed = A.activityFeed(feedCands);
   assert(Array.isArray(feed) && feed.length === 5, 'activityFeed caps at 5 entries');
   assert(feed[0].recruiter === 'System' && feed[0].action === 'Summary Regen' && feed[0].target === 'F1', 'activityFeed last-2 entries, System fallback, title case');
-  assert(feed[0].time === 'just now' && feed[0].dotColor === '#FEDB00', 'activityFeed entry fields');
+  assert(feed[0].time === 'Time not recorded' && feed[0].dotColor === '#FEDB00', 'activityFeed does not invent missing timestamps');
   assert(feed[1].recruiter === 'Alex Carter' && feed[1].action === 'Approved', 'activityFeed looks up recruiter by id');
   assert(feed[3].recruiter === 'Morgan Wells', 'activityFeed resolves R3');
   assert(feed[4].recruiter === 'System' && feed[4].action === 'Created', 'activityFeed empty recruiter_id -> System');
@@ -108,9 +108,9 @@ function main() {
   const byRecruiter = A.perRecruiter(cands);
   assert(Array.isArray(byRecruiter), 'perRecruiter returns array');
   const r1 = byRecruiter.filter(function (r) { return r.recruiterId === 'R1'; })[0];
-  assert(r1 && r1.recruiterName === 'Taylor Morgan' && r1.actions === 4 && r1.approvals === 2, 'perRecruiter R1 actions+approvals');
+  assert(r1 && r1.recruiterName === 'Taylor Morgan' && r1.actions === 4 && r1.approvals === 1, 'perRecruiter R1 counts actual approvals');
   const r2 = byRecruiter.filter(function (r) { return r.recruiterId === 'R2'; })[0];
-  assert(r2 && r2.actions === 2 && r2.approvals === 1, 'perRecruiter R2 counts FOLLOW_UP as approval');
+  assert(r2 && r2.actions === 2 && r2.approvals === 0, 'perRecruiter never counts FOLLOW_UP as approval');
   const sys = byRecruiter.filter(function (r) { return r.recruiterId === 'R9'; })[0];
   assert(sys && sys.recruiterName === 'System' && sys.actions === 1 && sys.approvals === 0, 'perRecruiter unknown recruiter falls back to System');
   assert(byRecruiter.length === 4, 'perRecruiter one row per recruiter');

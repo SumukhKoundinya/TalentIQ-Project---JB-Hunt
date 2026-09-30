@@ -1,0 +1,11 @@
+const { loadApp, assert } = require('./harness');
+const T = loadApp(['analytics.js']);
+const text = 'Led a team of four. Reduced routing delays by 40% while coordinating dispatch across six regions and documenting the delivery process for the next operations team. ' + 'Built a dashboard for dispatchers to investigate delayed routes and record the outcome of each intervention.';
+const c = { parsedResume: { rawText: text, experience: [{ title: 'Operations Intern', company: 'Sample Logistics', dates: 'Summer 2026', description: text }] }, audioNotes: [{ id: 'n1', createdAt: '2026-09-14T10:00:00Z', transcript: 'I built a routing tool used by 12 dispatchers.' }] };
+const a = T.generateAccomplishments(c);
+assert(a.some(x => x.text === text && x.contextLabel.includes('Operations Intern')), 'full sibling sentences retain their parent context');
+assert(a.every(x => x.facet && x.evidenceText === x.text), 'every highlight has a facet and exact evidence');
+assert(a.some(x => x.source === 'conversation' && x.noteId === 'n1' && x.verification === 'Unverified transcript'), 'transcript evidence is linked and unverified');
+assert(T.analytics.dataCompleteness([]) === null, 'empty population has no completeness percentage');
+assert(T.analytics.activityFeed([{id:'one',auditLog:[{timestamp:'2020-01-01T00:00:00Z'}]}])[0].time !== 'just now', 'activity uses genuine timestamps');
+assert(typeof T.analytics.metricDescriptors === 'function', 'metric definitions are available');

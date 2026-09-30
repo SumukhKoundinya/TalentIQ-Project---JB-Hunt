@@ -5,51 +5,55 @@ window.TIQ = window.TIQ || {};
 
 /* ---- Overview View ---- */
 TIQ.views = TIQ.views || {};
+TIQ.views.renderAccomplishments = function(c) {
+  var accs = c.parsedResume || (c.audioNotes || []).some(function(n) { return n.transcript; }) ? TIQ.generateAccomplishments(c) : c.accomplishments || TIQ.generateAccomplishments(c);
+  var h = TIQ.escapeHtml;
+  function entry(a) {
+    return '<article class="highlight-item"><div class="highlight-facet">' + h(a.facet || 'Recorded statement') + '</div><strong>' + h(a.contextLabel || 'Role / project context not available') + '</strong><small class="highlight-context">' + h(a.contextDetail || (a.createdAt ? 'Recorded ' + new Date(a.createdAt).toLocaleString() : 'Timeframe not available')) + '</small><details class="highlight-quote"><summary><span>' + h(a.text) + '</span><small>Expand full evidence</small></summary><blockquote>' + h(a.evidenceText || a.text) + '</blockquote></details><span class="source-tag source-tag--' + TIQ.escapeAttr(a.source || 'conversation') + '">source: ' + h(a.source || 'recorded note') + ' · ' + h(a.verification || 'Legacy statement; verify source') + '</span>' + (a.noteId ? '<small>Recording reference: ' + h(String(a.noteId)) + ' · speaker not established</small>' : '') + '</article>';
+  }
+  var unsurfaced = ((c.parsedResume && c.parsedResume.experience) || []).filter(function(e) { return e.description && !accs.some(function(a) { return a.contextLabel && a.contextLabel.indexOf(e.title || e.company) !== -1; }); }).length;
+  return '<section class="accomplishments"><h3 class="highlights-title">Grounded Highlights · Accomplishments</h3><p class="highlight-help">Quoted evidence from the resume or recorded conversation. Context is extracted when available; transcript claims need verification.</p>' +
+    (accs.length ? accs.slice(0, 3).map(entry).join('') + (accs.length > 3 ? '<details class="more-highlights"><summary>Show ' + (accs.length - 3) + ' more statements</summary>' + accs.slice(3).map(entry).join('') + '</details>' : '') : '<p>No specific statements surfaced. Attach a resume or capture a detailed note.</p>') +
+    (unsurfaced ? '<p>' + unsurfaced + ' experience entries have descriptions without a surfaced statement. Review the original text.</p>' : '') + '</section>';
+};
+TIQ.views.renderFieldProvenance = function(c) {
+  var fields = {firstName:'First name',lastName:'Last name',email:'Email',phone:'Phone',university:'University',major:'Major',degreeProgram:'Program',graduationDate:'Graduation',gpa:'GPA',workAuthorization:'Work authorization',workLocations:'Location preferences',skills:'Skills',notes:'Notes'};
+  return '<details class="field-provenance"><summary>Field values &amp; origins</summary><dl>' + Object.keys(fields).map(function(k) {
+    var val = c[k], present = Array.isArray(val) ? val.length : !!val;
+    var source = c.provenance && c.provenance[k];
+    var label = !present ? 'Missing' : source === 'resume' ? 'From resume' : source === 'intake' ? 'Self-reported intake' : source === 'form' ? 'Entered in form' : source === 'conversation' ? 'Unverified transcript' : 'Origin not recorded';
+    return '<div><dt>' + TIQ.escapeHtml(fields[k]) + '</dt><dd>' + TIQ.escapeHtml(Array.isArray(val) ? val.join(', ') : val || '—') + ' <span class="source-tag">' + label + '</span></dd></div>';
+  }).join('') + '</dl></details>';
+};
 TIQ.views.renderOverview = function() {
-  var cands = TIQ.state.candidates || [];
+  var scope = TIQ.views._resultsEvent || 'all';
+  var cands = TIQ.eventRecords(scope);
   var A = TIQ.analytics;
-  var counts = A.statusCounts(cands);
-  var ev = TIQ.eventInfo();
-
+  var h = TIQ.escapeHtml, ids = [TIQ.currentEventId()];
+  TIQ.state.candidates.forEach(function(c) { if (c.eventId && ids.indexOf(c.eventId) === -1) ids.push(c.eventId); });
+  var caption = cands.length + ' local records · ' + (scope === 'all' ? 'all events, including unassigned' : scope === 'unassigned' ? 'unassigned event' : scope) + ' · all stored dates';
+  var feed = A.activityFeed(cands);
   return '<div class="view" id="view-overview">' +
-    '<div class="view-header"><span class="section-kicker">Executive Console</span></div>' +
-    '<div class="overview-event-bar">' +
-      '<div class="event-badge"><span class="event-badge__label">Event</span><span class="event-badge__value">' + TIQ.escapeHtml(ev.name) + '</span></div>' +
-      '<div class="event-badge"><span class="event-badge__label">Date</span><span class="event-badge__value">' + TIQ.escapeHtml(ev.date) + '</span></div>' +
-      '<div class="event-badge"><span class="event-badge__label">Location</span><span class="event-badge__value">' + TIQ.escapeHtml(ev.location) + '</span></div>' +
-    '</div>' +
-    TIQ.renderMetricsCards([
-      { label: "Total Scanned", value: cands.length, sub: "Candidate profiles collected", modifier: "blue" },
-      { label: "Interview Requests", value: counts["Interview Requested"] + counts["Follow-Up"], sub: "Next-day scheduling", modifier: "green" },
-      { label: "Avg Review Time", value: A.formatDuration(A.avgReviewSeconds(cands)), sub: "Per candidate review", modifier: "amber" },
-      { label: "Data Completeness", value: A.dataCompleteness(cands) + "%", sub: "Across all records", modifier: "purple" }
-    ]) +
+    '<p class="results-intro">Information quality, not candidate quality. These operational metrics do not score or rank candidates.</p>' +
+    '<label class="results-scope">Population <select id="resultsEvent">' + [{id:'all',label:'All records on this device'},{id:'unassigned',label:'Unassigned / legacy records'}].concat(ids.map(function(id) { return {id:id,label:id === TIQ.currentEventId() ? TIQ.eventInfo().name + ' (current event)' : id}; })).map(function(e) { return '<option value="' + TIQ.escapeAttr(e.id) + '"' + (scope === e.id ? ' selected' : '') + '>' + h(e.label) + '</option>'; }).join('') + '</select></label>' +
+    TIQ.howItWorksHtml() +
+    (!cands.length ? '<div class="results-empty"><h2>No records in this population</h2><p>Capture someone at the booth, import a submission, or load sample events to explore the workflow.</p><button class="primary-button" data-go="capture">Start capturing</button> <button class="secondary-button" data-demo-load>Load sample events</button></div>' : '') +
+    '<div class="results-metrics">' + A.metricDescriptors(cands).map(function(d) {
+      return '<article class="result-metric"><h2>' + h(d.label) + '</h2><strong class="result-value">' + (d.value === null ? '—' : d.value + (d.unit === '%' ? '%' : '')) + '</strong><p>' + d.numerator + ' / ' + d.denominator + (d.unit === '%' ? ' tracked checks' : ' records') + '</p><details><summary>Definition &amp; next action</summary><p>' + h(d.definition) + '</p><p>' + h(d.whyItMatters) + '</p><p>' + h(d.caveat) + '</p><small>' + h(d.source + ' · ' + caption) + '</small></details></article>';
+    }).join('') + '</div>' +
     '<div class="overview-grid">' +
+      '<section class="overview-card missing-breakdown"><h2>What to ask next</h2><p>Each bar counts records missing one of the nine tracked checks. Select a row to review those records.</p>' + A.missingFlagBreakdown(cands).map(function(f) { return '<button class="missing-row" data-missing="' + TIQ.escapeAttr(f.flag) + '"><span>' + h(f.flag) + '</span><span class="hbar-track"><span class="hbar-fill" style="width:' + (f.pct || 0) + '%"></span></span><span>' + f.count + ' / ' + cands.length + ' (' + (f.pct === null ? '—' : f.pct + '%') + ')</span></button>'; }).join('') + '<small>' + h(caption) + '</small></section>' +
+      '<section class="overview-card"><h2>Extraction measurements</h2><p>No historical before/after delta is available. Provenance tells us where a field came from; it cannot reconstruct the earlier record.</p><p>Use a paired, controlled study to measure impact. Sample records are not measured outcomes.</p><button class="secondary-button small-button" data-go="metrics">Open Research Metrics</button><p><small>' + h(caption) + '</small></p></section>' +
       '<div class="overview-card">' +
-        '<div class="overview-card__head"><span class="chart-title">Candidates by Major</span></div>' +
-        '<div class="overview-bars">' +
-          A.majorBreakdown(cands).map(function(m, i) {
-            return '<div class="hbar-row"><span class="hbar-label">' + TIQ.escapeHtml(m.label) + '</span><div class="hbar-track"><div class="hbar-fill" style="width:' + m.value + '%;animation-delay:' + (i * 80) + 'ms"></div></div><span class="hbar-val">' + m.value + '%</span></div>';
-          }).join("") +
-        '</div>' +
-      '</div>' +
-      '<div class="overview-card">' +
-        '<div class="overview-card__head"><span class="chart-title">Top Universities</span></div>' +
-        '<div class="overview-list">' +
-          A.topUniversities(cands).map(function(u, i) {
-            return '<div class="overview-list__item" style="animation-delay:' + (i * 60) + 'ms"><span class="overview-list__rank">' + (i + 1) + '</span><span class="overview-list__name">' + TIQ.escapeHtml(u.university) + '</span><span class="overview-list__count">' + u.count + '</span></div>';
-          }).join("") +
-        '</div>' +
-      '</div>' +
-      '<div class="overview-card">' +
-        '<div class="overview-card__head"><span class="chart-title">Today\'s Activity</span></div>' +
+        '<div class="overview-card__head"><span class="chart-title">Recorded activity</span></div>' +
         '<div class="overview-activity">' +
-          A.activityFeed(cands).map(function(f, i) {
+          (feed.length ? feed.map(function(f, i) {
             return '<div class="activity-item" style="animation-delay:' + (i * 60) + 'ms"><span class="activity-dot" style="background:' + TIQ.escapeAttr(f.dotColor) + '"></span><div><strong>' + TIQ.escapeHtml(f.recruiter) + '</strong> ' + TIQ.escapeHtml(f.action) + ' ' + TIQ.escapeHtml(f.target) + '<span class="activity-time">' + TIQ.escapeHtml(f.time) + '</span></div></div>';
-          }).join("") +
-        '</div>' +
+          }).join("") : '<p>No activity recorded in this population.</p>') +
+        '</div><small>Latest five entries; ' + h(caption) + '</small>' +
       '</div>' +
     '</div>' +
+    '<div class="results-actions"><button class="primary-button" id="resultsExport">Download records JSON</button><span>Manual handoff only; no ATS connection or messages sent.</span><button class="secondary-button" id="deleteEventData"' + (scope === 'all' ? ' disabled' : '') + '>Delete this event’s local data</button></div>' +
   '</div>';
 };
 
@@ -57,7 +61,23 @@ TIQ.views.renderAnalytics = function() {
   return TIQ.views.renderOverview();
 };
 
-TIQ.views.initAnalyticsEvents = function() {};
+TIQ.views.initAnalyticsEvents = function() {
+  document.getElementById('resultsEvent').onchange = function(e) { TIQ.views._resultsEvent = e.target.value; TIQ.router.navigateTo('analytics'); };
+  document.querySelectorAll('[data-missing]').forEach(function(b) { b.onclick = function() {
+    TIQ.views._reviewMissingFlag = b.dataset.missing; TIQ.views._reviewEventScope = TIQ.views._resultsEvent || 'all';
+    TIQ.views._aiReviewStatus = 'all'; TIQ.views._aiReviewFunc = 'all'; TIQ.views._aiReviewPriority = 'all'; TIQ.views._aiReviewSearch = '';
+    TIQ.router.navigateTo('review');
+  }; });
+  document.getElementById('resultsExport').onclick = function() {
+    TIQ.downloadText('talentiq-records.json', JSON.stringify({kind:'talentiq-record-export',version:1,exportedAt:TIQ.nowISO(),candidates:TIQ.eventRecords(TIQ.views._resultsEvent || 'all')}, function(k,v) { return k === 'sourceUrl' ? undefined : v; }, 2));
+  };
+  document.getElementById('deleteEventData').onclick = function() {
+    var id = TIQ.views._resultsEvent;
+    if (!id || id === 'all') return;
+    if (!confirm('Delete ' + TIQ.eventRecords(id).length + ' records for ' + id + ', including local notes, transcripts and linked audio? Other events and shared/exported copies will remain. This cannot be undone.')) return;
+    TIQ.deleteEventData(id).then(function(n) { TIQ.showToast(n + ' local records deleted.'); TIQ.router.navigateTo('analytics'); }).catch(function(e) { TIQ.showToast('Deletion did not complete: ' + e.message); });
+  };
+};
 
 /* ---- Event Info (QR Poster + Configurator) ---- */
 TIQ.views._kioskFormUrl = TIQ.views._kioskFormUrl || (((window.location && window.location.origin) || "") + "/candidate-form.html");
@@ -371,10 +391,15 @@ TIQ.views._resumeBarHtml = function(c) {
      empty-state block — the header carries the card from here. */
   if (state === "missing") return "";
 
+  /* Legacy string-only uploads only proved that a filename once existed; the
+     card's old "ON FILE" strip did not open or scan anything useful, so hide it
+     instead of presenting a dead control. */
+  if (state === "legacy") return "";
+
   var dotMod = state === "scanned" ? " is-ok" : (state === "failed" ? " is-bad" : " is-warn");
   var stateLabel = state === "scanned" ? "SCANNED"
     : state === "failed" ? "SCAN FAILED"
-    : state === "legacy" ? "ON FILE" : (state === "pending" ? "PARSING..." : "NOT SCANNED");
+    : (state === "pending" ? "PARSING..." : "NOT SCANNED");
   var detail = state === "failed"
     ? (info.error || "The PDF could not be read.")
     : state === "scanned"
@@ -629,16 +654,19 @@ TIQ.views._skillsBlockHtml = function(c) {
 
   var rows = grouped.map(function(group) {
     var items = group.items || [];
-    var shown = items.slice(0, 4);
-    var hidden = items.slice(4);
+    var labelText = group.label || "Skills";
+    var maxVisible = labelText.length > 16 ? 1 : 2;
+    if (items[0] && String(items[0]).length > 14) maxVisible = 1;
+    var shown = items.slice(0, maxVisible);
+    var hidden = items.slice(maxVisible);
     var pills = shown.map(function(s) {
       return '<span class="skill-pill">' + TIQ.escapeHtml(s) + '</span>';
     }).join("");
     if (hidden.length) pills += skillMoreChip(hidden, group.label.toLowerCase());
     return '<div class="skill-group-row">' +
-      '<div class="skill-group__icons">' + pills + '</div>' +
+      '<div class="skill-group__label">' + TIQ.escapeHtml(labelText) + ':</div>' +
       '<div class="skill-group__leader" aria-hidden="true"></div>' +
-      '<div class="skill-group__label">' + TIQ.escapeHtml(group.label) + ':</div>' +
+      '<div class="skill-group__icons">' + pills + '</div>' +
     '</div>';
   }).join("");
 
@@ -668,8 +696,8 @@ TIQ.views._buildCardHtml = function(c, isFront) {
     ? '<span class="prov-dot prov-dot--resume" title="Extracted from the scanned PDF"></span>' : '';
   var display = TIQ.views._displayName(c);
   var nameHtml = display
-    ? '<h3 class="candidate-name">' + TIQ.escapeHtml(display) + '</h3>'
-    : '<h3 class="candidate-name candidate-name--missing">Name not captured</h3>';
+    ? '<h2 class="candidate-name">' + TIQ.escapeHtml(display) + '</h2>'
+    : '<h2 class="candidate-name candidate-name--missing">Name not captured</h2>';
   var schoolBits = [c.university, c.major].filter(function(v) {
     return v && String(v).trim();
   });
@@ -702,23 +730,11 @@ TIQ.views._buildCardHtml = function(c, isFront) {
   var accs = (c.accomplishments && c.accomplishments.length)
     ? c.accomplishments
     : TIQ.generateAccomplishments(c);
-  var bullets = accs.slice(0, 3).map(function(a) {
-    return { text: a.text, source: a.source || "recruiter notes" };
-  });
-  var highlightHtml = bullets.map(function(b, i) {
-    var txt = b.text.length > 140 ? b.text.slice(0, 137) + '...' : b.text;
-    return '<div class="highlight-item highlight-item--' + TIQ.escapeAttr(b.source) + '">' +
-      (i > 0 ? '<hr class="highlight-divider" />' : '') +
-      '<p>' + TIQ.views._formatHighlightText(txt) + '</p>' +
-      '<span class="source-tag source-tag--' + TIQ.escapeAttr(b.source) + '"><span class="source-tag__icon" aria-hidden="true">' + TIQ.views._highlightSourceIcon(b.source) + '</span><span class="source-tag__text">source: ' + TIQ.escapeHtml(b.source) + '</span></span>' +
-    '</div>';
-  }).join("");
-  var convInner = '<div class="highlights-title">&#9733; Grounded AI Highlights</div>' +
-    (bullets.length ? highlightHtml : '<div class="highlight-item"><p>No grounded highlights yet &mdash; add a conversation note or resume note.</p></div>');
+  var convInner = TIQ.views.renderAccomplishments(c);
 
   /* Apple-style voice memo widget — front card only */
   if (isFront) {
-    convInner += '<div class="voice-memo-widget">' +
+    convInner += '<p class="recording-disclosure">Optional voice memo: ask permission before recording. Saved locally for recruiter review; transcription may be inaccurate. You can use typed notes instead.</p><label class="recording-consent"><input type="checkbox" id="recordingConsent"' + (c.consent && c.consent.audio ? ' checked' : '') + '> Candidate agreed to this recording</label><div class="voice-memo-widget">' +
       '<span class="record-indicator"></span>' +
       '<div class="voice-meta">' +
         '<span class="voice-label">Voice Memo</span>' +
@@ -1144,6 +1160,7 @@ TIQ.views.initCaptureEvents = function() {
         TIQ.views._previewResume(pc, pname);
       }
     } else if (e.target.closest("#captureGenerateDemo")) {
+      if (!confirm('Add 48 synthetic sample records? Existing records are kept.')) return;
       var count = TIQ.views.generateDemoCandidates();
       if (count > 0) {
         TIQ.showToast(count + " demo candidate" + (count > 1 ? "s" : "") + " generated.");
@@ -1415,7 +1432,7 @@ TIQ.views.initCaptureEvents = function() {
             var applyTranscript = function(text) {
               note.transcript = text || "";
               if (text) {
-                c.notes = (c.notes ? c.notes + "\n\n" : "") + "TL;DR: " + TIQ.generateTldr(c) + "\n\n" + TIQ.cleanTranscript(TIQ.correctProperNouns(text, c));
+                c.notes = (c.notes ? c.notes + "\n\n" : "") + "Unverified transcript (speaker not established): " + text;
                 TIQ.showToast("Voice note saved + transcribed (" + result.duration + "s).");
               } else {
                 TIQ.showToast("Voice note saved (" + result.duration + "s).");
@@ -1434,7 +1451,7 @@ TIQ.views.initCaptureEvents = function() {
 
             if (voskTranscript) {
               console.log("[TalentIQ] Vosk live transcription complete:", voskTranscript);
-              applyTranscript(TIQ.cleanTranscript(TIQ.correctProperNouns(voskTranscript, c)));
+              applyTranscript(voskTranscript);
             } else {
               setTranscript("Transcribing...");
               var offline = TIQ.OfflineTranscriber.isReady()
@@ -1444,7 +1461,7 @@ TIQ.views.initCaptureEvents = function() {
                 return TIQ.OfflineTranscriber.transcribe(result.blob);
               }).then(function(text) {
                 console.log("[TalentIQ] Vosk full transcription complete:", text);
-                applyTranscript(text ? TIQ.cleanTranscript(TIQ.correctProperNouns(text, c)) : "");
+                applyTranscript(text || "");
               }).catch(function(err) {
                 console.error("[TalentIQ] Vosk full transcription failed:", err);
                 note.transcript = "";
@@ -1474,6 +1491,9 @@ TIQ.views.initCaptureEvents = function() {
         }
 
         targetCandidate = TIQ.state.candidates[TIQ.views._captureIndex] || null;
+        var consent = document.getElementById('recordingConsent');
+        if (!consent || !consent.checked) { TIQ.showToast('Ask for recording permission, or continue with typed notes.'); return; }
+        if (targetCandidate) { targetCandidate.consent = Object.assign({}, targetCandidate.consent || {}, {audio:true,audioAt:TIQ.nowISO()}); TIQ.saveState(); }
 
         /* Mic first — never block on the Vosk model download */
         rec.start().then(function() {
@@ -1773,10 +1793,12 @@ TIQ.views.renderAIReview = function() {
   }).join("");
 
   var detailHtml = selCandidate ? TIQ.views._renderDetailPanel(selCandidate) :
-    '<div class="ai-detail-empty">Select a candidate to view details.</div>';
+    '<div class="ai-detail-empty"><p>No matching records. Capture a candidate or clear the current filters.</p><button class="primary-button" data-go="capture">Go to Capture</button></div>';
 
   return '<div class="view" id="view-ai-review">' +
     '<div class="view-header"><span class="section-kicker">Decision Hub</span></div>' +
+    TIQ.howItWorksHtml() +
+    (TIQ.views._reviewMissingFlag ? '<p class="results-intro">Missing ' + TIQ.escapeHtml(TIQ.views._reviewMissingFlag) + ' · population: ' + TIQ.escapeHtml(TIQ.views._reviewEventScope || 'all') + ' <button class="secondary-button small-button" id="clearMissingScope">Show all records</button></p>' : '') +
     '<div class="ai-filter-bar">' +
       '<select id="aiStatusFilter"><option value="all">All Statuses</option>' + TIQ.CONFIG.statuses.map(function(s) { return '<option value="' + s + '">' + s + '</option>'; }).join("") + '</select>' +
       '<select id="aiFuncFilter"><option value="all">All Functions</option>' + TIQ.CONFIG.functions.map(function(f) { return '<option value="' + f + '">' + f + '</option>'; }).join("") + '</select>' +
@@ -1795,13 +1817,15 @@ TIQ.views.renderAIReview = function() {
 
 TIQ.views._getFilteredCandidates = function() {
   var s = TIQ.views._aiReviewSearch.toLowerCase();
-  return TIQ.state.candidates.filter(function(c) {
+  return TIQ.eventRecords ? TIQ.eventRecords(TIQ.views._reviewEventScope || 'all').filter(match) : TIQ.state.candidates.filter(match);
+  function match(c) {
     var matchSearch = !s || [c.firstName, c.lastName, c.major, c.function, c.university, (c.skills || []).join(" "), c.notes, (c.areasDiscussed || []).join(" "), TIQ.getMissingFlags(c).map(function(f) { return f.label; }).join(" ")].some(function(v) { return String(v).toLowerCase().indexOf(s) >= 0; });
     var matchStatus = TIQ.views._aiReviewStatus === "all" || c.recordStatus === TIQ.views._aiReviewStatus;
     var matchFunc = TIQ.views._aiReviewFunc === "all" || c.function === TIQ.views._aiReviewFunc;
     var matchPri = TIQ.views._aiReviewPriority === "all" || c.priority === TIQ.views._aiReviewPriority;
-    return matchSearch && matchStatus && matchFunc && matchPri;
-  });
+    var matchMissing = !TIQ.views._reviewMissingFlag || TIQ.getMissingFlags(c).some(function(f) { return f.key === TIQ.views._reviewMissingFlag; });
+    return matchSearch && matchStatus && matchFunc && matchPri && matchMissing;
+  }
 };
 
 TIQ.views._rawOpen = {};
@@ -1816,7 +1840,7 @@ TIQ.views._renderResumeSection = function(c) {
   var dotMod = state === "scanned" ? "is-ok" : (state === "failed" ? "is-bad" : "is-warn");
   var stateLabel = state === "scanned" ? "SCANNED"
     : state === "failed" ? "SCAN FAILED"
-    : state === "legacy" ? "ON FILE, NOT SCANNED"
+    : state === "legacy" ? "NOT SCANNED"
     : state === "missing" ? "NO RESUME ATTACHED"
     : state === "pending" ? "PARSING..."
     : "NOT SCANNED";
@@ -1967,7 +1991,9 @@ TIQ.views._renderDetailPanel = function(c) {
       '<button class="secondary-button small-button" data-action="follow">Follow Up</button>' +
       '<button class="secondary-button small-button" data-action="regen">Regenerate Summary</button>' +
     '</div>' +
-    '<section class="ai-section"><div class="section-title"><span class="section-kicker">AI-Generated Snapshot</span></div><div class="snapshot-card"><p>' + TIQ.escapeHtml(summaryText) + '</p></div></section>' +
+    '<section class="ai-section"><div class="section-title"><span class="section-kicker">Extraction Snapshot · ' + TIQ.escapeHtml(c.approvalStatus || 'Pending') + '</span></div><label for="snapshotEdit">Review and edit the draft; changes require approval again</label><textarea id="snapshotEdit" class="notes-card notes-textarea" rows="6">' + TIQ.escapeHtml(summaryText) + '</textarea></section>' +
+    TIQ.views.renderAccomplishments(c) +
+    TIQ.views.renderFieldProvenance(c) +
     TIQ.views._renderResumeSection(c) +
     '<section class="ai-section"><div class="section-title"><span class="section-kicker">Missing Information Flags</span></div><div class="flag-list">' + flagsHtml + (aiMissingHtml ? '<div class="flag-list__ai">' + aiMissingHtml + '</div>' : '') + '</div></section>' +
     (traceHtml ? '<section class="ai-section"><div class="section-title"><span class="section-kicker">Source Traceability</span></div><div class="trace-list" id="aiTraceList">' + traceHtml + '</div></section>' : '') +
@@ -1996,6 +2022,8 @@ TIQ.views._renderAiIntegrity = function(c) {
 TIQ.views.initAIReviewEvents = function() {
   var container = document.getElementById("view-ai-review");
   if (!container) return;
+  var clearScope = document.getElementById('clearMissingScope');
+  if (clearScope) clearScope.onclick = function() { TIQ.views._reviewMissingFlag = ''; TIQ.views._reviewEventScope = 'all'; TIQ.router.navigateTo('review'); };
 
   TIQ.views._loadAudioBlobs();
 
@@ -2050,7 +2078,7 @@ TIQ.views.initAIReviewEvents = function() {
         if (actionBtn.dataset.action === "approve") {
           if (!TIQ.state.activeRecruiterId) { TIQ.showToast("Select a recruiter first."); return; }
           c.recordStatus = "Reviewed"; c.approvalStatus = "Approved"; c.approverId = TIQ.state.activeRecruiterId; c.approvalTimestamp = TIQ.nowISO();
-          TIQ.addAuditEntry(c, "APPROVED", "Approved via AI Review");
+          TIQ.addAuditEntry(c, "APPROVED", "Approved in Review");
           TIQ.logMetric({ type: 'candidate-approved', candidateId: c.id, recruiterId: TIQ.state.activeRecruiterId });
           TIQ.saveState(); TIQ.showToast(c.firstName + " approved."); rerender();
         } else if (actionBtn.dataset.action === "follow") {
@@ -2061,7 +2089,7 @@ TIQ.views.initAIReviewEvents = function() {
           TIQ.saveState(); TIQ.showToast(c.firstName + " flagged for follow-up."); rerender();
         } else if (actionBtn.dataset.action === "regen") {
           TIQ.ai.updateCandidateSummary(c);
-          TIQ.addAuditEntry(c, "SUMMARY_REGEN", "Summary regenerated from AI");
+          TIQ.addAuditEntry(c, "SUMMARY_REGEN", "Snapshot regenerated");
           TIQ.logMetric({ type: 'summary-regen', candidateId: c.id, recruiterId: TIQ.state.activeRecruiterId });
           TIQ.saveState(); TIQ.showToast("Summary regenerated."); rerender();
         }
@@ -2088,6 +2116,13 @@ TIQ.views.initAIReviewEvents = function() {
       }
     });
 
+    var snapshot = detailPanel.querySelector('#snapshotEdit');
+    if (snapshot) snapshot.addEventListener('change', function() {
+      var c = TIQ.state.candidates.find(function(x) { return x.id === TIQ.views._aiReviewSelected; });
+      if (!c) return;
+      c.summary = snapshot.value; TIQ.invalidateApproval(c);
+      TIQ.addAuditEntry(c, 'SNAPSHOT_EDITED', 'Recruiter edited draft; approval required again'); TIQ.saveState(); rerender();
+    });
     var notes = detailPanel.querySelector("#aiNotes");
     if (notes) {
       notes.addEventListener("change", function() {
@@ -2440,15 +2475,17 @@ TIQ.views._demoCandidates = [
 
 TIQ.views.generateDemoCandidates = function() {
   var created = 0;
-  TIQ.views._demoCandidates.forEach(function(demo) {
-    var exists = TIQ.state.candidates.some(function(c) {
-      return c.firstName === demo.firstName && c.lastName === demo.lastName;
-    });
+  Array.from({length:48}).forEach(function(_, i) {
+    var demo = JSON.parse(JSON.stringify(TIQ.views._demoCandidates[i % TIQ.views._demoCandidates.length]));
+    var id = 'SAMPLE-' + String(i + 1).padStart(2, '0');
+    var exists = TIQ.state.candidates.some(function(c) { return c.id === id; });
     if (exists) return;
-    var id = "TQ-" + (2400 + TIQ.state.candidates.length + 1);
     var c = Object.assign({}, demo, {
       id: id,
-      createdAt: TIQ.nowISO(),
+      firstName: 'Sample ' + (i + 1), lastName: demo.firstName,
+      email: 'sample' + (i + 1) + '@example.test',
+      isDemo: true, eventId: 'Sample event ' + (1 + Math.floor(i / 16)),
+      createdAt: '2026-09-' + (14 + Math.floor(i / 16)) + 'T10:00:00.000Z',
       lastUpdated: TIQ.todayISO(),
       capturedBy: TIQ.state.activeRecruiterId || "rec-1",
       audioNotes: [],
@@ -2461,6 +2498,21 @@ TIQ.views.generateDemoCandidates = function() {
       keySkills: demo.keySkills || [],
       parsedResume: null
     });
+    c.recordStatus = ['New','Reviewed','Follow-Up','Interview Requested'][i % 4];
+    c.approvalStatus = i % 3 === 0 ? 'Approved' : 'Pending';
+    c.approvalTimestamp = c.approvalStatus === 'Approved' ? c.createdAt : '';
+    c.approverId = c.approvalStatus === 'Approved' ? 'R1' : '';
+    c.phone = i % 3 ? '555-0100' : '';
+    c.workAuthorization = i % 4 === 0 ? '' : i % 4 === 1 ? 'Not authorized to work in the US' : demo.workAuthorization;
+    c.auditLog = [{action:'CREATED',timestamp:c.createdAt,detail:'Synthetic sample event record'}];
+    c.provenance = {firstName:'form',lastName:'form',email:'form',notes:'form'};
+    if (i % 2 === 0) {
+      var quote = 'Led a team of four on a routing project. Reduced simulated dispatch delays by 12% across six test routes and documented the process for the next project team.';
+      c.parsedResume = {rawText:'Operations Intern · Sample Logistics\nSummer 2026\n' + quote,experience:[{title:'Operations Intern',company:'Sample Logistics',dates:'Summer 2026',description:quote}],projects:[],certifications:[],skills:['Python','SQL'],education:[]};
+      c.resumeUpload = {name:'synthetic-sample.txt',parsedAt:c.createdAt,type:'text/plain'};
+      c.skills = ['Python','SQL']; c.provenance.skills = 'resume';
+      c.accomplishments = TIQ.generateAccomplishments(c);
+    }
     if (TIQ.ai && TIQ.ai.generateSummary) {
       var result = TIQ.ai.generateSummary(c);
       c.summary = result.summary;
@@ -2488,8 +2540,8 @@ TIQ.views.renderMetrics = function() {
     '<div class="view-header"><span class="section-kicker">Research Console</span></div>' +
     TIQ.renderMetricsCards([
       { label: "Funnel Reviewed", value: reviewed + "%", sub: "Candidates past the New stage", modifier: "blue" },
-      { label: "Avg Review Time", value: A.formatDuration(A.avgReviewSeconds(cands)), sub: "Per candidate review", modifier: "amber" },
-      { label: "Data Completeness", value: A.dataCompleteness(cands) + "%", sub: "Across all records", modifier: "green" },
+      { label: "Snapshot approvals", value: cands.filter(function(c) { return c.approvalStatus === 'Approved'; }).length, sub: 'Approved snapshots / ' + cands.length + ' local records; not a quality score', modifier: "amber" },
+      { label: "Field completeness", value: cands.length ? A.dataCompleteness(cands) + '%' : '—', sub: "Present checks / nine checks per local record", modifier: "green" },
       { label: "Resume Parse Success", value: parseRate >= 0 ? parseRate + "%" : "\u2014", sub: "Imported vs failed resumes", modifier: "purple" }
     ]) +
     '<div class="overview-grid">' +
@@ -2503,7 +2555,7 @@ TIQ.views.renderMetrics = function() {
         '</div>' +
       '</div>' +
       '<div class="overview-card">' +
-        '<div class="overview-card__head"><span class="chart-title">Per Recruiter Activity</span></div>' +
+        '<details><summary>Review actions by recruiter</summary><p>Recorded actions across all stored dates, not a performance measure. Approvals count only APPROVED audit entries.</p>' +
         '<table class="data-table">' +
           '<thead><tr><th>Recruiter</th><th>Actions</th><th>Approvals</th></tr></thead>' +
           '<tbody>' +
@@ -2511,7 +2563,7 @@ TIQ.views.renderMetrics = function() {
               return '<tr><td>' + TIQ.escapeHtml(r.recruiterName) + '</td><td>' + r.actions + '</td><td>' + r.approvals + '</td></tr>';
             }).join("") +
           '</tbody>' +
-        '</table>' +
+        '</table></details>' +
       '</div>' +
     '</div>' +
     '<button type="button" class="primary-button" id="metricsExportCsv" style="margin-top:16px">Export Metrics CSV</button>' +

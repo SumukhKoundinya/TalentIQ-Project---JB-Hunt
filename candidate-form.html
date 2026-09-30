@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="J.B. Hunt — Submit your profile at the career fair" />
   <title>Submit Your Profile | J.B. Hunt</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; margin: 0; padding: 0; }
@@ -23,7 +23,7 @@
       --surface-soft: #F8FAFB;
       --text: #1A1A1A;
       --text-soft: #4A5568;
-      --text-muted: #64748B;
+      --text-muted: #334155;
       --border: #CBD5E1;
       --border-soft: #E8ECF0;
       --red: #DC2626;
@@ -34,7 +34,7 @@
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
@@ -61,7 +61,7 @@
     }
     .form-logo {
       width: 36px;
-      height: 36px;
+      height: 44px;
       border-radius: 8px;
       object-fit: contain;
       margin: 0 auto 6px;
@@ -130,7 +130,7 @@
     .field input,
     .field select {
       width: 100%;
-      height: 36px;
+      height: 44px;
       background: var(--surface-soft);
       border: 1.5px solid var(--border);
       border-radius: var(--radius-sm);
@@ -219,7 +219,7 @@
     /* Submit */
     .submit-btn {
       width: 100%;
-      height: 40px;
+      height: 44px;
       background: var(--brand);
       color: #fff;
       border: none;
@@ -322,7 +322,7 @@
 </head>
 <body>
 
-  <div class="form-page" id="formPage">
+  <main class="form-page" id="formPage">
     <div class="form-header">
       <img src="JBHUNT_LOGO.png" alt="J.B. Hunt" class="form-logo" onerror="this.style.display='none'" />
       <div class="form-title">Submit Your Profile</div>
@@ -337,32 +337,32 @@
     <form id="candidateForm" class="form-card" novalidate>
       <div class="field-row">
         <div class="field">
-          <label class="field-label">First Name <span class="required">*</span></label>
-          <input name="firstName" type="text" placeholder="e.g. Maya" required autocomplete="given-name" />
+          <label class="field-label" for="firstNameInput">First Name <span class="required">*</span></label>
+          <input id="firstNameInput" name="firstName" type="text" placeholder="e.g. Maya" required autocomplete="given-name" />
           <span class="field-error" data-for="firstName"></span>
         </div>
         <div class="field">
-          <label class="field-label">Last Name <span class="required">*</span></label>
-          <input name="lastName" type="text" placeholder="e.g. Williams" required autocomplete="family-name" />
+          <label class="field-label" for="lastNameInput">Last Name <span class="required">*</span></label>
+          <input id="lastNameInput" name="lastName" type="text" placeholder="e.g. Williams" required autocomplete="family-name" />
           <span class="field-error" data-for="lastName"></span>
         </div>
       </div>
 
       <div class="field">
-        <label class="field-label">Email <span class="required">*</span></label>
-        <input name="email" type="email" placeholder="you@university.edu" required autocomplete="email" />
+        <label class="field-label" for="emailInput">Email <span class="required">*</span></label>
+        <input id="emailInput" name="email" type="email" placeholder="you@university.edu" required autocomplete="email" />
         <span class="field-error" data-for="email"></span>
       </div>
 
       <div class="field">
-        <label class="field-label">Phone</label>
-        <input name="phone" type="tel" placeholder="555-0100" autocomplete="tel" />
+        <label class="field-label" for="phoneInput">Phone</label>
+        <input id="phoneInput" name="phone" type="tel" placeholder="555-0100" autocomplete="tel" />
       </div>
 
       <div class="field-row">
         <div class="field">
-          <label class="field-label">University <span class="required">*</span></label>
-          <select name="university" required>
+          <label class="field-label" for="universityInput">University <span class="required">*</span></label>
+          <select id="universityInput" name="university" required>
             <option value="">Select...</option>
             <option>Nashville State University</option>
             <option>University of Alabama</option>
@@ -378,8 +378,8 @@
           <span class="field-error" data-for="university"></span>
         </div>
         <div class="field">
-          <label class="field-label">Major <span class="required">*</span></label>
-          <select name="major" required>
+          <label class="field-label" for="majorInput">Major <span class="required">*</span></label>
+          <select id="majorInput" name="major" required>
             <option value="">Select...</option>
             <option>Computer Science</option>
             <option>Data Science</option>
@@ -397,13 +397,13 @@
       </div>
 
       <div class="field">
-        <label class="field-label">Graduation Date <span class="required">*</span></label>
-        <input name="graduationDate" type="month" required />
+        <label class="field-label" for="graduationDateInput">Graduation Date <span class="required">*</span></label>
+        <input id="graduationDateInput" name="graduationDate" type="month" required />
         <span class="field-error" data-for="graduationDate"></span>
       </div>
 
       <div class="field">
-        <label class="field-label">Resume</label>
+        <label class="field-label" for="resumeInput">Resume</label>
         <div class="file-upload" id="fileUpload">
           <input type="file" name="resume" accept=".pdf,application/pdf" id="resumeInput" />
           <div class="file-upload-icon">&#128196;</div>
@@ -414,20 +414,26 @@
         <span class="field-error" data-for="resume" id="fileError"></span>
       </div>
 
-      <button type="submit" class="submit-btn" id="submitBtn">Submit Profile</button>
+      <div class="field"><label><input type="checkbox" name="profileConsent" required /> I agree to save my profile in this browser and share it with the recruiter for career-fair follow-up. TalentIQ does not make automated screening decisions. I can ask the recruiter to delete their local copy.</label></div>
+      <div class="field"><label><input type="checkbox" name="audioConsent" /> Optional: I agree to a voice memo during the recruiter conversation. Declining does not prevent submitting my profile.</label></div>
+      <p class="file-upload-hint">Data stays in this browser until deleted or browser storage is cleared. Downloading and sharing sends a copy through your chosen channel. Fonts and PDF libraries load from external hosts. No automatic sync or automatic deletion.</p>
+      <button type="submit" class="submit-btn" id="submitBtn">Save profile &amp; prepare handoff</button>
     </form>
 
     <div class="form-footer">
       J.B. Hunt Transport &bull; TalentIQ
     </div>
-  </div>
+  </main>
 
   <div class="success-screen" id="successScreen">
     <div class="success-icon">&#10003;</div>
-    <div class="success-title">You're all set!</div>
-    <div class="success-msg">Your profile has been submitted. A recruiter will follow up with you soon.</div>
+    <div class="success-title">Ready to share</div>
+    <div class="success-msg">Saved in this browser, not sent to a recruiter. Download the submission JSON and give it to the recruiter using an agreed sharing method. They preview and import it into TalentIQ. Attach your original PDF separately; resume files and extracted fields are not included.</div>
     <div class="success-scan" id="scanStatus"></div>
     <div class="success-id">Your ID: <strong id="submittedId"></strong></div>
+    <button type="button" class="submit-btn" id="downloadSubmission">Download submission JSON</button>
+    <button type="button" class="submit-btn" id="deleteLocalSubmission">Delete my local profile</button>
+    <p id="handoffStatus" role="status">The JSON file contains personal information and is not encrypted. Downloading it does not send it.</p>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -436,8 +442,9 @@
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
   </script>
-  <script src="config.js?v=4"></script>
-  <script src="data.js?v=4"></script>
+  <script src="config.js?v=21"></script>
+  <script src="data.js?v=20"></script>
+  <script src="workflow.js?v=21"></script>
   <script>
     (function() {
       var form = document.getElementById("candidateForm");
@@ -470,7 +477,7 @@
       var fileError = document.getElementById("fileError");
 
       function acceptFile(file) {
-        if (file && TIQ.intake && TIQ.intake.isParsableResume(file)) {
+        if (file && file.size <= 5 * 1024 * 1024 && TIQ.intake && TIQ.intake.isParsableResume(file)) {
           selectedFile = file;
           fileName.textContent = file.name;
           fileUpload.classList.add("has-file");
@@ -479,7 +486,7 @@
           selectedFile = null;
           fileName.textContent = "";
           fileUpload.classList.remove("has-file");
-          if (fileError) fileError.textContent = "Only PDF resumes can be scanned. Please attach a .pdf or submit without a resume.";
+          if (fileError) fileError.textContent = "Choose a PDF under 5 MB, or submit without a resume.";
         }
       }
 
@@ -572,7 +579,7 @@
           }
         });
 
-        if (!valid) return;
+        if (!valid || !form.querySelector('[name="profileConsent"]').checked) return;
 
         submitBtn.disabled = true;
         submitBtn.textContent = "Submitting...";
@@ -649,6 +656,10 @@
           };
         }
 
+        newCandidate.id = 'intake-' + (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2));
+        newCandidate.consent = {profile:true,audio:form.querySelector('[name="audioConsent"]').checked,at:nowISO()};
+        newCandidate.provenance = {};
+        ['firstName','lastName','email','phone','university','major','graduationDate'].forEach(function(k) { if (newCandidate[k]) newCandidate.provenance[k] = 'intake'; });
         var id = newCandidate.id;
         state.candidates.push(newCandidate);
 
@@ -656,6 +667,18 @@
         else saveState(state);
 
         var finish = function(scanLine, scanOk) {
+          document.getElementById('downloadSubmission').onclick = function() {
+            try { TIQ.downloadText('talentiq-' + id + '.json', TIQ.bridge.serialize(newCandidate)); }
+            catch (err) { document.getElementById('handoffStatus').textContent = err.message; }
+          };
+          document.getElementById('deleteLocalSubmission').onclick = function() {
+            if (!confirm('Delete this profile from this browser? Shared or downloaded copies are not deleted.')) return;
+            TIQ.state.candidates = TIQ.state.candidates.filter(function(c) { return c.id !== id; });
+            TIQ.saveState(); newCandidate = null;
+            document.getElementById('downloadSubmission').disabled = true;
+            document.getElementById('deleteLocalSubmission').disabled = true;
+            document.getElementById('handoffStatus').textContent = 'Local profile deleted. Delete downloaded copies separately.';
+          };
           submittedId.textContent = id;
           scanStatus.textContent = scanLine || "";
           scanStatus.className = scanOk ? "success-scan" : "success-scan warn";
