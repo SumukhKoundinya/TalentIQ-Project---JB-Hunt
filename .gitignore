@@ -23,6 +23,10 @@ JBHUNT_LOGO.png
 # Unrelated project files
 hydro_config.py
 
+# Scratch project copies and generated output (kept local, never in source control)
+TalentIQ-Project---JB-Hunt/
+brag-output/
+
 # Next.js build cache
 talent-iq/.next/
 talent-iq/tsconfig.tsbuildinfo
