@@ -280,6 +280,14 @@ TIQ.views._openKioskEditor = function(kind) {
 TIQ.views._captureIndex = 0;
 TIQ.views._captureRecorder = null;
 TIQ.views._swipeState = null;
+
+/* Phase 3 step 13: which candidate's "More from this candidate" disclosure is
+   open. Keyed by capture index rather than a bare boolean on purpose — when the
+   recruiter triages to the next candidate the stored index no longer matches, so
+   the new card renders closed and the previous card can never inherit an open
+   disclosure across a re-render. A bare boolean would have needed a manual reset
+   at every one of the ~12 _rerenderCapture call sites. */
+TIQ.views._captureMoreIndex = null;
 TIQ.views._importingResumes = false;
 
 /* Waveform visualizer — decorative bars for the Apple-style voice memo widget */
@@ -655,8 +663,10 @@ TIQ.views._skillsBlockHtml = function(c) {
   var rows = grouped.map(function(group) {
     var items = group.items || [];
     var labelText = group.label || "Skills";
-    var maxVisible = labelText.length > 16 ? 1 : 2;
-    if (items[0] && String(items[0]).length > 14) maxVisible = 1;
+    /* Spec §7 asks for the top 3 skills always visible. The narrow-label and
+       long-skill-name cases still drop to 2 so a single row keeps fitting. */
+    var maxVisible = labelText.length > 16 ? 2 : 3;
+    if (items[0] && String(items[0]).length > 14) maxVisible = Math.min(maxVisible, 2);
     var shown = items.slice(0, maxVisible);
     var hidden = items.slice(maxVisible);
     var pills = shown.map(function(s) {
@@ -681,6 +691,59 @@ TIQ.views._skillsBlockHtml = function(c) {
     '<div class="band-label band-label--plain">SKILLS' + srcDot + '</div>' +
     '<div class="skill-menu">' + rows + '</div>' +
   '</section>';
+};
+
+/* Click-to-jump map for the missing-information flags (spec §7 "always-visible,
+   inline, click-to-jump"). Keys are the `key` values TIQ.getMissingFlags emits.
+   Resume and Notes have a real home in the right-column drawer, so they open that
+   tab. Skills / Graduation / GPA point at the card line that should be carrying
+   the value. The remaining four have no line on the card at all (work
+   authorization, phone, location preference, areas discussed), so they fall back
+   to Notes — the only writable surface Capture has. This is a deliberate,
+   incomplete mapping; it is called out in the chip's title attribute so the
+   behaviour is not a surprise. */
+var FLAG_JUMPS = {
+  "Resume":            { tab: "resume", where: "opens the Resume panel on the right" },
+  "Notes":             { tab: "notes",  where: "opens the Recruiter Notes panel on the right" },
+  "Work Authorization":{ tab: "notes",  where: "has no line on this card, so it opens Recruiter Notes" },
+  "Phone":             { tab: "notes",  where: "has no line on this card, so it opens Recruiter Notes" },
+  "Location":          { tab: "notes",  where: "has no line on this card, so it opens Recruiter Notes" },
+  "Areas Discussed":   { tab: "notes",  where: "has no line on this card, so it opens Recruiter Notes" },
+  "Skills":            { region: ".skills-block", where: "jumps to the skills list" },
+  "Graduation":        { region: ".major-grad",    where: "jumps to the graduation date" },
+  "GPA":               { region: ".major-grad",    where: "jumps to the GPA" }
+};
+
+TIQ.views._flagChipsHtml = function(flags) {
+  if (!flags || !flags.length) {
+    return '<div class="card-flags card-flags--clear" role="group" aria-label="Missing information">' +
+      '<span class="card-flag card-flag--clear"><span class="card-flag__icon" aria-hidden="true">&#10003;</span>' +
+      '<span class="card-flag__label">No missing information flags</span></span>' +
+    '</div>';
+  }
+  var chips = flags.map(function(f) {
+    var jump = FLAG_JUMPS[f.key] || { tab: "notes", where: "opens Recruiter Notes" };
+    var attr = jump.tab
+      ? ' data-flag-tab="' + TIQ.escapeAttr(jump.tab) + '"'
+      : ' data-flag-region="' + TIQ.escapeAttr(jump.region) + '"';
+    return '<button type="button" class="card-flag" data-flag-key="' + TIQ.escapeAttr(f.key) + '"' + attr +
+      ' title="' + TIQ.escapeAttr(f.label + " — " + jump.where) + '">' +
+      '<span class="card-flag__icon" aria-hidden="true">&#9888;&#65039;</span>' +
+      '<span class="card-flag__label">' + TIQ.escapeHtml(f.label) + '</span>' +
+    '</button>';
+  }).join("");
+  /* The flagged set is pinned outside the card's scroll area, so a recruiter can
+     never scroll past it or have to expand to read it. */
+  return '<div class="card-flags" role="group" aria-label="Missing information (' + flags.length + ')">' +
+    '<span class="card-flags__label">Missing info</span>' +
+    '<div class="card-flags__chips">' + chips + '</div>' +
+    '<details class="alert-banner alert-banner--inline" data-flag-key="' + TIQ.escapeAttr(flags[0].key) + '">' +
+      '<summary class="alert-banner__summary">All ' + flags.length + ' flags</summary>' +
+      '<div class="alert-banner__body">' + flags.map(function(f) {
+        return '<div class="alert-banner__item">' + TIQ.escapeHtml(f.label) + '</div>';
+      }).join("") + '</div>' +
+    '</details>' +
+  '</div>';
 };
 
 TIQ.views._buildCardHtml = function(c, isFront) {
@@ -745,26 +808,40 @@ TIQ.views._buildCardHtml = function(c, isFront) {
     '</div>' +
     '<div id="liveTranscriptPreview" class="live-transcript-preview" style="display:none"><span class="live-transcript-dot"></span><span class="live-transcript-text"></span></div>';
   }
-  var convBandHtml = '<section class="conversation-band">' +
-    convInner +
-  '</section>';
+  /* Section 4: "More from this candidate" — the grounded highlights and the
+     voice memo widget, behind a <details>-style toggle (spec §7). The body lives
+     inside the card's scroll area, so opening it makes more content scrollable
+     but never changes the card's own height — the stack does not reflow and the
+     triage bar cannot shift. `_captureMoreIndex` is the toggle's own state var
+     (spec §13: its own state) so the open/closed choice survives a re-render,
+     and because it is keyed by candidate the next candidate renders closed. */
+  var moreOpen = TIQ.views._captureMoreIndex === TIQ.views._captureIndex;
+  var moreHtml = '<details class="card-more"' + (moreOpen ? ' open' : '') + '>' +
+    '<summary class="card-more__summary">' +
+      '<span class="card-more__label">More from this candidate</span>' +
+      '<span class="card-more__chevron" aria-hidden="true"></span>' +
+    '</summary>' +
+    '<div class="card-more__body">' +
+      '<section class="conversation-band">' + convInner + '</section>' +
+    '</div>' +
+  '</details>';
 
-  /* Section 4: compliance alert banner(s) — verified missing-data flags */
-  var alertHtml = "";
-  if (flags.length) {
-    var shownFlags = flags.slice(0, 3);
-    var moreFlags = flags.length - shownFlags.length;
-    alertHtml = '<details class="alert-banner" data-flag-key="' + TIQ.escapeAttr(shownFlags[0].key) + '">' +
-      '<summary class="alert-banner__summary">&#9888;&#65039; ' + shownFlags.map(function(f) { return TIQ.escapeHtml(f.label); }).join(' &bull; ') +
-        (moreFlags > 0 ? ' &bull; +' + moreFlags + ' more' : '') +
-      '</summary>' +
-      '<div class="alert-banner__body">' + flags.map(function(f) { return '<div class="alert-banner__item">' + TIQ.escapeHtml(f.label) + '</div>'; }).join("") + '</div>' +
-    '</details>';
-  }
+  /* Swipe hint — rendered on the front card only, and pinned below the flags so
+     it is visible without scrolling (spec §12: hint at full opacity, not 0.55). */
+  var hintHtml = isFront
+    ? '<p class="capture-card__swipe-hint">' +
+        '<span class="capture-card__swipe-arrow" aria-hidden="true">&larr;</span>' +
+        'Swipe, or use the buttons below' +
+        '<span class="capture-card__swipe-arrow" aria-hidden="true">&rarr;</span>' +
+      '</p>'
+    : '';
 
+  /* Always visible without scrolling: the flagged set and the hint. The rest of
+     the card scrolls. */
   return '<div class="card-scroll">' +
-    resumeBarHtml + headerHtml + skillsHtml + convBandHtml + alertHtml +
-  '</div>';
+    resumeBarHtml + headerHtml + skillsHtml + moreHtml +
+  '</div>' +
+  TIQ.views._flagChipsHtml(flags) + hintHtml;
 };
 
 TIQ.views._renderDrawerResume = function(sel) {
@@ -858,15 +935,23 @@ TIQ.views.renderRecruiterCapture = function() {
   var flags = TIQ.getMissingFlags(c);
   var flagsHtml = flags.length ? flags.map(TIQ.formatFlagChip).join("") : '<span class="flag-chip flag-clear">[No Critical Missing Info]</span>';
 
+  /* Phase 3 step 9: normal-flow stack, no absolute positioning. The loop used to
+     count down (s = stackSize-1 .. 0) because the cards were absolutely
+     positioned and DOM order only mattered for paint order. In normal flow the
+     front card has to come FIRST, and the two behind it collapse to deck edges
+     beneath it — so they render no content of their own. The swipe drives
+     `transform` on the front card alone. */
   var stackHtml = '<div class="capture-stack">';
   var stackSize = Math.min(3, cands.length - idx);
-  for (var s = stackSize - 1; s >= 0; s--) {
-    var sc = cands[idx + s];
-    stackHtml += '<div class="capture-card candidate-card capture-card--' + s + '" data-stack="' + s + '">' +
-      TIQ.views._buildCardHtml(sc, s === 0) +
-      (s === 0 ? '<div class="capture-overlay capture-overlay--left"><span class="capture-overlay__label">REVIEWED</span></div>' +
-        '<div class="capture-overlay capture-overlay--right"><span class="capture-overlay__label">FOLLOW UP</span></div>' : '') +
-    '</div>';
+  stackHtml += '<div class="capture-card candidate-card capture-card--0" data-stack="0">' +
+    TIQ.views._buildCardHtml(cands[idx], true) +
+    '<div class="capture-overlay capture-overlay--left"><span class="capture-overlay__label">REVIEWED</span></div>' +
+    '<div class="capture-overlay capture-overlay--right"><span class="capture-overlay__label">FOLLOW UP</span></div>' +
+  '</div>';
+  for (var s = 1; s < stackSize; s++) {
+    /* The per-index class drives the scale ramp in CSS; --peek marks it as a
+       contentless deck edge rather than a real card. */
+    stackHtml += '<div class="capture-card candidate-card capture-card--peek capture-card--' + s + '" data-stack="' + s + '" aria-hidden="true"></div>';
   }
   stackHtml += '</div>';
 
@@ -1123,6 +1208,33 @@ TIQ.views.initCaptureEvents = function() {
     var backBtn = e.target.closest("#captureBackToOverview");
     var categoryBtn = e.target.closest(".capture-complete__card-btn");
     var previewBtn = e.target.closest(".preview-btn");
+    var flagChip = e.target.closest(".card-flag[data-flag-tab], .card-flag[data-flag-region]");
+
+    /* Click-to-jump for the missing-information flags. Handled before the triage
+       buttons: a flag chip is a <button>, so it must never fall through to a
+       swipe commit, and the swipe engine already ignores pointerdown on buttons
+       so no drag starts either. */
+    if (flagChip) {
+      e.preventDefault();
+      e.stopPropagation();
+      var flagTab = flagChip.getAttribute("data-flag-tab");
+      var flagRegion = flagChip.getAttribute("data-flag-region");
+      if (flagTab) {
+        var jumpTab = this.querySelector('[data-drawer-tab="' + flagTab + '"]');
+        if (jumpTab) jumpTab.click();
+        var jumpPanel = this.querySelector('[data-drawer-panel="' + flagTab + '"]');
+        if (jumpPanel) jumpPanel.scrollIntoView({ block: "nearest" });
+      }
+      if (flagRegion) {
+        var region = this.querySelector(".capture-card--0 " + flagRegion);
+        if (region) {
+          region.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          region.classList.add("is-flagged");
+          window.setTimeout(function() { region.classList.remove("is-flagged"); }, 1400);
+        }
+      }
+      return;
+    }
 
     if (skipBtn) {
       TIQ.views._undoLastCaptureAction();
@@ -1198,6 +1310,19 @@ TIQ.views.initCaptureEvents = function() {
       return;
     }
   });
+
+  /* Keep the in-card disclosure's state var in step with the DOM, so the choice
+     survives the re-render that follows a triage action, a resume scan, or a
+     flag that clears itself. Native <details> does the toggling and the styling;
+     this only mirrors `open` into TIQ.views._captureMoreIndex. Storing the index
+     rather than a boolean is what makes the disclosure correct across candidate
+     switches: the new card's index won't match, so it renders closed. */
+  var moreDetails = container.querySelector(".card-more");
+  if (moreDetails) {
+    moreDetails.addEventListener("toggle", function() {
+      TIQ.views._captureMoreIndex = moreDetails.open ? TIQ.views._captureIndex : null;
+    });
+  }
 
   var notes = document.getElementById("captureNotes");
   if (notes) {
@@ -1571,7 +1696,9 @@ TIQ.views.initSwipeEngine = function() {
     if (!dominantAxis) return;
 
     if (dominantAxis === "h") {
-      var rot = dx * 0.08;
+      /* Keep drag feedback proportional to pointer movement while honoring
+         §10's restrained-motion cap. */
+      var rot = Math.max(-3, Math.min(3, dx * 0.08));
       frontCard.style.transform = "translateX(" + dx + "px) rotate(" + rot + "deg)";
       var progress = Math.min(Math.abs(dx) / 120, 1);
       var leftOvl = frontCard.querySelector(".capture-overlay--left");
@@ -1606,9 +1733,11 @@ TIQ.views._animateSwipeOut = function(direction) {
   var frontCard = document.querySelector(".capture-card--0");
   if (!frontCard) { TIQ.views._applySwipeAction(direction); return; }
 
+  /* Commit in the same direction as the drag, travelling fully off the deck
+     with the restrained rotation and timing specified in §10. */
   var transforms = {
-    left: "translateX(-60%) rotate(-15deg)",
-    right: "translateX(60%) rotate(15deg)"
+    left: "translateX(-115%) rotate(-3deg)",
+    right: "translateX(115%) rotate(3deg)"
   };
 
   frontCard.classList.remove("capture-card--swiping");
@@ -1617,24 +1746,33 @@ TIQ.views._animateSwipeOut = function(direction) {
   frontCard.getBoundingClientRect();
   requestAnimationFrame(function() {
     frontCard.style.transform = transforms[direction];
+    /* Reduced motion neutralises the transform in CSS (transform: none
+       !important), so the card fades in place instead of travelling. */
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      frontCard.style.opacity = "0";
+    }
   });
 
   var leftOvl = frontCard.querySelector(".capture-overlay--left");
   var rightOvl = frontCard.querySelector(".capture-overlay--right");
-  if (direction === "left" && leftOvl) { leftOvl.style.transition = "opacity 750ms ease"; leftOvl.style.opacity = "1"; }
+  if (direction === "left" && leftOvl) { leftOvl.style.transition = "opacity 180ms cubic-bezier(0.2, 0, 0, 1)"; leftOvl.style.opacity = "1"; }
   else if (leftOvl) leftOvl.style.opacity = "0";
-  if (direction === "right" && rightOvl) { rightOvl.style.transition = "opacity 750ms ease"; rightOvl.style.opacity = "1"; }
+  if (direction === "right" && rightOvl) { rightOvl.style.transition = "opacity 180ms cubic-bezier(0.2, 0, 0, 1)"; rightOvl.style.opacity = "1"; }
   else if (rightOvl) rightOvl.style.opacity = "0";
 
   var done = false;
-  function onEnd() {
+  function onEnd(e) {
+    /* transform and opacity both transition; ignore the bubbling transitionend
+       from the overlays so the action fires exactly once, on our own property. */
+    if (e && e.target !== frontCard) return;
     if (done) return;
     done = true;
     frontCard.removeEventListener("transitionend", onEnd);
     TIQ.views._applySwipeAction(direction);
   }
   frontCard.addEventListener("transitionend", onEnd);
-  setTimeout(onEnd, 850);
+  /* Safety net for reduced-motion and browsers that omit transitionend. */
+  setTimeout(onEnd, 240);
 };
 
 TIQ.views._springBack = function() {

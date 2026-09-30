@@ -12,7 +12,7 @@
 .results-scope { display: flex; align-items: center; gap: 16px; font-weight: 600; }
 .results-scope select { max-width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 6px; }
 .results-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
-.result-metric { background: var(--surface); padding: 20px; border-top: 3px solid var(--brand); border-radius: 6px; min-width: 0; }
+.result-metric { background: var(--surface); padding: 20px; border: 1px solid var(--line-soft); border-radius: 6px; box-shadow: 0 2px 10px var(--shadow-soft); min-width: 0; }
 .result-metric h2 { font-size: 14px; margin: 0 0 12px; }
 .result-value { font-size: 36px; letter-spacing: -.04em; color: var(--brand-dark); }
 .result-metric p, .result-metric details { font-size: 12px; line-height: 1.6; }
@@ -158,7 +158,10 @@
   --sidebar-hairline: rgba(255,255,255,0.08);
   --font-sans: var(--font-family-base);
   --font-mono: 'IBM Plex Mono', 'Fira Code', monospace;
-  --header-height: 104px;
+  /* Phase 3 removed --header-height. It existed only to size .capture-workspace,
+     and it could not be correct: body uses `font-size: clamp(13px, 1.2vw, 15px)`,
+     so the topbar is 80.6px tall at a narrow viewport and 89px at 1440px. The
+     workspace now inherits its height from the flex chain instead. */
   --app-gutter: clamp(12px, 2vw, 32px);
   --control-height: clamp(38px, 4.4vw, 44px);
   --card-radius-fluid: clamp(14px, 2.4vw, 20px);
@@ -383,10 +386,7 @@ a { color: inherit; text-decoration: none; }
   padding: 12px 14px;
   box-shadow: 0 2px 10px var(--shadow-soft);
 }
-.metric-card--blue { border-top: 3px solid var(--blue); }
-.metric-card--green { border-top: 3px solid var(--green); }
-.metric-card--amber { border-top: 3px solid var(--amber); }
-.metric-card--purple { border-top: 3px solid var(--purple); }
+/* Phase 3 §12: colour-coded 3px top rules removed; base border + shadow remain. */
 .metric-card__label { display: block; font-size: 11px; font-weight: 800; color: var(--text-muted); }
 .metric-card__value { display: block; margin-top: 4px; font-size: 22px; font-weight: 900; color: var(--text); }
 .metric-card__sub { display: block; margin-top: 4px; font-size: 12px; color: var(--text-muted); }
@@ -507,11 +507,8 @@ a { color: inherit; text-decoration: none; }
 .event-badge__label { font-size: 10px; font-weight: 800; color: var(--text-muted); display: block; }
 .event-badge__value { font-size: 15px; font-weight: 800; color: var(--text); display: block; margin-top: 2px; }
 .overview-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
-.stat-card { background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--radius-md); padding: 14px; border-top: 3px solid var(--brand); animation: staggerFadeIn 400ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.stat-card { background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--radius-md); padding: 14px; box-shadow: 0 2px 10px var(--shadow-soft); animation: staggerFadeIn 400ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 @keyframes staggerFadeIn { from { opacity: 0; transform: translateY(12px); } }
-.stat-card--green { border-top-color: var(--green); }
-.stat-card--amber { border-top-color: var(--amber); }
-.stat-card--purple { border-top-color: var(--purple); }
 .stat-card__value { font-size: clamp(26px, 3vw, 36px); font-weight: 900; color: var(--text); letter-spacing: -0.03em; }
 .stat-card__label { font-size: 13px; font-weight: 700; color: var(--text); margin-top: 4px; }
 .stat-card__sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
@@ -745,9 +742,18 @@ a { color: inherit; text-decoration: none; }
   display: grid;
   grid-template-columns: 420px minmax(0, 1fr);
   gap: 24px;
-  height: calc(100vh - var(--header-height));
-  height: calc(100dvh - var(--header-height));
-  min-height: 520px;
+  /* Phase 3: was `height: calc(100dvh - var(--header-height))`. That token cannot
+     be right at more than one width — body sets `font-size: clamp(13px, 1.2vw,
+     15px)`, so the topbar above this view is 80.6px tall at a narrow viewport and
+     89px at 1440px, and it also grows when it wraps. A fixed token therefore
+     either left the triage bar below the fold or wasted space, and because the
+     whole ancestor chain (.main-content -> #viewContainer -> .view ->
+     .capture-layout) is already `flex: 1; min-height: 0`, the leftover space can
+     just be inherited. `min-height: 0` is load-bearing: the default `auto` would
+     let the card's content push the column past the viewport. */
+  flex: 1;
+  height: auto;
+  min-height: 0;
   width: 100%;
   max-width: 1440px;
   margin: 0 auto;
@@ -770,24 +776,59 @@ a { color: inherit; text-decoration: none; }
 }
 .capture-stack-shell {
   width: 100%;
-  flex: 1 1 auto;
+  /* Phase 3: basis 0, not auto. With `auto` the shell's base size is its content
+     height, so revealing the in-card "More from this candidate" disclosure grew
+     the shell, pushed the sticky triage bar 11px down, and broke the §7 promise
+     that expanding never reflows the stack. A zero basis makes the shell claim
+     exactly the leftover space regardless of card content, so the triage bar
+     cannot move. `overflow: hidden` clips the deck to the column so the peek
+     strips and the rotated card never bleed into the triage bar. */
+  flex: 1 1 0;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
   position: relative;
   z-index: 50;
 }
+/* During either an active drag or the committed exit, let the card pass beyond
+   the deck and lift its stacking contexts above the triage bar and adjacent UI.
+   At rest the deck remains clipped as before. `:has()` avoids extra JS state. */
+.capture-stack-shell:has(.capture-card--exiting),
+.capture-stack-shell:has(.capture-card--swiping) {
+  overflow: visible;
+  z-index: 70;
+}
+/* Raise the whole card column too: the card's large z-index is otherwise
+   confined beneath neighboring UI by the column's own stacking context. */
+.capture-col-left:has(.capture-card--exiting),
+.capture-col-left:has(.capture-card--swiping) {
+  z-index: 80;
+}
+
+/* Phase 3 step 12: the right column was a floating white card — white surface,
+   1px border, and a drop shadow that lifted it off the page. §3 asks for a warm
+   surface panel that feels connected to the paper, so the surface goes warm and
+   the drop shadow goes away entirely. Elevation now comes from the fill. */
 .capture-col-right {
   flex: 1 1 auto;
   gap: 12px;
   position: relative;
   z-index: 20;
-  background: var(--surface);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-lg);
+  background: var(--surface-warm);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
   padding: 20px;
-  box-shadow: 0 6px 18px var(--shadow-soft);
+  box-shadow: none;
   overflow-y: auto;
   overflow-x: hidden;
+}
+/* The column itself is now the warm surface, and .capture-panel defaults to the
+   same warm fill — the drawer would have dissolved into the panel. It keeps a
+   white fill and a soft shadow so it still reads as the raised surface holding
+   Resume / Voice / Notes. */
+.capture-col-right .capture-panel--drawer {
+  background: var(--surface);
+  border-color: var(--line-soft);
+  box-shadow: 0 1px 2px var(--shadow-soft), 0 4px 12px var(--shadow-soft);
 }
 .capture-details {
   gap: 10px;
@@ -961,10 +1002,19 @@ a { color: inherit; text-decoration: none; }
 .audit-empty { font-size: 13px; color: var(--text-muted); font-weight: 600; }
 .citation-list { display: flex; flex-wrap: wrap; gap: 8px; }
 
-/* Card Stack */
+/* Card Stack — Phase 3 step 9.
+   This used to be absolutely positioned: every card was pinned to top:0/left:0
+   at height:100%, so the stack was three layers of overlay rather than a
+   document structure. It now sits in normal flow. The front card flexes to fill
+   the column; the two behind it are short peek strips tucked under it with a
+   negative margin and scaled from the top edge, which is what produces the
+   depth cue. Swipe is still driven purely by transform, so none of the pointer
+   handling in views.js had to change. */
 .capture-stack {
   position: relative; width: 100%; max-width: 420px; height: 100%;
   margin: 0 auto; perspective: 800px;
+  display: flex; flex-direction: column;
+  min-height: 0;
 }
 .capture-stack__empty {
   display: flex; align-items: center; justify-content: center;
@@ -972,7 +1022,9 @@ a { color: inherit; text-decoration: none; }
   border-radius: var(--radius-lg); color: var(--text-muted); font-weight: 700; font-size: 14px;
 }
 .capture-card {
-  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  position: relative; top: auto; left: auto;
+  width: 100%; height: auto; min-height: 0;
+  flex: 0 0 auto;
   background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--radius-lg);
   padding: 20px; box-shadow: 0 8px 24px var(--shadow-soft);
   display: flex; flex-direction: column; gap: 10px;
@@ -980,14 +1032,23 @@ a { color: inherit; text-decoration: none; }
   will-change: transform;
 }
 .capture-card:active { cursor: grabbing; }
-.capture-card--0 { z-index: 3; }
+/* Basis 0, not auto: see .capture-stack-shell. The front card must absorb the
+   leftover column space rather than start from its content height, otherwise
+   opening the in-card disclosure resizes the card and shifts the triage bar. */
+.capture-card--0 { z-index: 3; flex: 1 1 0; }
 .capture-card--0.capture-card--swiping,
 .capture-card--swiping { z-index: 9999; }
-.capture-card--1 { z-index: 2; transform: scale(0.95) translateY(8px); pointer-events: none; }
-.capture-card--2 { z-index: 1; transform: scale(0.9) translateY(16px); pointer-events: none; }
+/* Peek strips. Fixed height + overflow:hidden so a back card can never push the
+   stack taller than the column; the negative margin tucks each one up under the
+   card in front, and the front card's z-index:3 covers the overlap. The scale
+   ramp and the downward stagger are the original Tinder deck values — each card
+   behind sits a little smaller and a little lower than the one in front. */
+.capture-card--1 { z-index: 2; flex: 0 0 76px; height: 76px; overflow: hidden; margin-top: -56px; transform: scale(0.95) translateY(8px); transform-origin: top center; pointer-events: none; }
+.capture-card--2 { z-index: 1; flex: 0 0 76px; height: 76px; overflow: hidden; margin-top: -56px; transform: scale(0.9) translateY(16px); transform-origin: top center; pointer-events: none; }
 .capture-card--swiping { transition: none !important; }
-.capture-card--exiting { transition: transform 800ms cubic-bezier(0.2, 0.8, 0.2, 1); pointer-events: none; z-index: 9999; box-shadow: 0 24px 60px rgba(0,0,0,0.18); }
-.capture-card--spring { transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+/* §10: the committed card exits the deck in 180ms with no overshoot or bounce. */
+.capture-card--exiting { transition: transform 180ms cubic-bezier(0.2, 0, 0, 1), opacity 180ms cubic-bezier(0.2, 0, 0, 1); opacity: 0; pointer-events: none; z-index: 9999; box-shadow: 0 24px 60px rgba(0,0,0,0.18); }
+.capture-card--spring { transition: transform 180ms cubic-bezier(0.2, 0, 0, 1); }
 
 /* Swipe Overlays */
 .capture-overlay {
@@ -1110,11 +1171,24 @@ a { color: inherit; text-decoration: none; }
 .capture-card__note-btn.recording { border-color: var(--red); background: var(--red-soft); color: var(--red); }
 
 .capture-card__quick { display: flex; gap: 16px; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; }
+/* Phase 3 §12: the swipe hint was opacity 0.55 and, being absolutely positioned
+   at bottom:60px, also collided with whatever sat at the card's foot. It is now
+   a normal-flow row pinned under the flags, at full opacity — the softer colour
+   does the de-emphasising instead of the alpha. */
 .capture-card__swipe-hint {
-  position: absolute; bottom: 60px; left: 0; right: 0; text-align: center;
-  font-size: 11px; color: var(--text-muted); font-weight: 600; opacity: 0.55;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 0 0;
+  border-top: 1px solid var(--line-soft);
+  text-align: center;
+  font-size: 11px; color: var(--text-muted); font-weight: 600; opacity: 1;
   pointer-events: none;
 }
+.capture-card__swipe-arrow { font-size: 12px; font-weight: 700; color: var(--text-soft); }
 
 /* Notes & Audio (below stack) */
 .capture-section-title { font-size: 11px; font-weight: 800; color: var(--text-muted); margin-bottom: 8px; }
@@ -1146,12 +1220,22 @@ a { color: inherit; text-decoration: none; }
 .audio-delete-btn { border: none; background: none; color: var(--text-muted); font-size: 14px; cursor: pointer; padding: 4px; }
 .audio-delete-btn:hover { color: var(--red); }
 
-/* Triage Bar */
+/* Triage Bar — Phase 3 step 11.
+   Sticky to the bottom of the left column so it is reachable without scrolling
+   and never moves when the in-card "More from this candidate" disclosure opens.
+   The opaque warm backdrop matters: the card content scrolls underneath this
+   bar, so without it text would show through the gap between the buttons. */
 .capture-triage {
+  position: sticky;
+  bottom: 0;
+  z-index: 60;
   display: flex;
   gap: 10px;
   width: 100%;
   flex-shrink: 0;
+  padding-top: 10px;
+  background: var(--surface-warm);
+  box-shadow: 0 -10px 14px -10px rgba(0, 0, 0, 0.18);
 }
 .capture-triage-btn {
   flex: 1;
@@ -1167,12 +1251,16 @@ a { color: inherit; text-decoration: none; }
   font-weight: 800;
   letter-spacing: 0.02em;
   cursor: pointer;
-  transition: transform 150ms, box-shadow 150ms, background 150ms;
+  /* §10: hover feedback is a background/border tint only. The translateY(-1px)
+     lift and the scale(0.98) press were both on the spec's "deliberately
+     removed" list as playful motion, so the transition no longer mentions
+     transform at all. */
+  transition: box-shadow 150ms, background 150ms, border-color 150ms;
   box-shadow: 0 4px 12px var(--shadow);
 }
-.capture-triage-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px var(--shadow-lg); }
-.capture-triage-btn:active { transform: translateY(0) scale(0.98); }
-.capture-triage-btn:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; transform: none; }
+.capture-triage-btn:hover { box-shadow: 0 6px 18px var(--shadow-lg); }
+.capture-triage-btn:active { box-shadow: 0 2px 6px var(--shadow); }
+.capture-triage-btn:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; }
 .capture-triage-arrow { font-size: 15px; font-weight: 900; line-height: 1; }
 .capture-triage--review { background: #6B7280; }
 .capture-triage--review:hover { background: #4B5563; }
@@ -1242,9 +1330,14 @@ a { color: inherit; text-decoration: none; }
 .capture-shortcuts { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 4px; font-weight: 600; }
 
 @media (prefers-reduced-motion: reduce) {
-  .capture-card--exiting { transition: opacity 200ms ease; transform: none !important; }
+  /* Reduced motion still has to commit the triage, so the card fades in place
+     instead of travelling. `transform: none !important` also neutralises the
+     inline transform views.js writes, which CSS cannot otherwise outrank —
+     views.js pairs that with an opacity fade so the commit is still visible. */
+  .capture-card--exiting { transition: opacity 180ms ease; transform: none !important; }
   .capture-card--spring { transition: none; }
   .capture-card { transition: none; }
+  .card-more__chevron { transition: none; }
 }
 
 /* Completion Screen */
@@ -1538,6 +1631,22 @@ mark.source-hl { background: var(--accent); color: var(--black); border-radius: 
   .capture-workspace { display: flex; flex-direction: column; height: auto; min-height: 0; overflow: visible; }
   .capture-col-right { order: 2; }
   .capture-col-left { order: 1; }
+  /* Phase 3: once the workspace stacks, .capture-stack no longer inherits the
+     viewport-height column, so `height: 100%` resolves to auto and the front
+     card grows to its full content height — which would push the pinned flag row
+     to the bottom of the page and break "flags always visible". Bounding the
+     stack keeps the card's internal scroll (and therefore the pinned flags and
+     hint) intact.
+
+     The bound is deliberately smaller than the card wants. The workspace top is
+     NOT statically known here: at these widths the topbar wraps, so the chrome
+     above the card can be ~220px. The budget below the workspace is therefore
+     viewport height minus that chrome, and the stack has to leave room for the
+     column gap (12px) plus the sticky triage bar (~60px + 10px padding) or the
+     triage bar starts below the fold and the spec's "triage is reachable without
+     scrolling" fails. 56dvh leaves ~90px of slack at a 900px-tall viewport.
+     The 768px blocks below use the same value so there is one behaviour. */
+  .capture-stack { height: clamp(360px, 56dvh, 560px); }
   .capture-details__grid { grid-template-columns: 1fr; }
   .kiosk-qr-panel { height: auto; width: 100%; min-width: 0; max-width: none; }
   .capture-summary-strip__grid { grid-template-columns: 1fr; }
@@ -1560,7 +1669,7 @@ mark.source-hl { background: var(--accent); color: var(--black); border-radius: 
   .topbar-actions { gap: 8px; }
   .recruiter-picker { width: 100%; min-width: 0; }
   .results-actions { gap: 8px; margin-bottom: 14px; }
-  .capture-stack { max-width: 100%; height: clamp(430px, 70dvh, 560px); }
+  .capture-stack { max-width: 100%; height: clamp(360px, 56dvh, 560px); }
   .capture-card { padding: 18px; }
   .capture-triage { gap: 8px; }
   .capture-triage-btn { padding: 12px 10px; font-size: 12px; }
@@ -1591,7 +1700,7 @@ mark.source-hl { background: var(--accent); color: var(--black); border-radius: 
   .capture-meta { flex-wrap: wrap; }
   .capture-col-left { align-items: stretch; flex: none; width: 100%; }
   .capture-col-right { flex: none; height: auto; overflow-y: visible; }
-  .capture-stack { height: clamp(430px, 70dvh, 560px); }
+  .capture-stack { height: clamp(360px, 56dvh, 560px); }
 }
 @media (max-width: 480px) {
   :root { --app-gutter: 10px; }
@@ -1987,6 +2096,146 @@ mark.source-hl { background: var(--accent); color: var(--black); border-radius: 
   font-weight: 600;
 }
 .capture-stack .candidate-card .alert-banner__item { line-height: 1.35; }
+
+/* ---- Phase 3, spec §7: missing-information flags as always-visible chips ----
+   The flags used to be a collapsible amber banner pinned to the bottom of the
+   card's scroll area, so the one thing that most affects a triage decision
+   needed a click to become readable. They are now inline chips that sit outside
+   .card-scroll entirely, so the card's scrolling content can never push them out
+   of view, and each chip jumps to the place the missing value belongs. */
+.capture-stack .candidate-card .card-flags {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-height: 86px;
+  overflow-y: auto;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+.capture-stack .candidate-card .card-flags__label {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.capture-stack .candidate-card .card-flags__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.capture-stack .candidate-card .card-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border: 1px solid #E9CDCD;
+  border-radius: 999px;
+  background: var(--red-soft);
+  color: var(--danger-text);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  /* Tint only — §10 keeps hover feedback to a background/border shift with no
+     lift, no scale. */
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.capture-stack .candidate-card .card-flag:hover {
+  background: #FCE3E3;
+  border-color: var(--danger);
+}
+.capture-stack .candidate-card .card-flag:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.capture-stack .candidate-card .card-flag__icon { font-size: 10px; }
+.capture-stack .candidate-card .card-flag--clear {
+  background: var(--green-soft);
+  border-color: #B6EBCB;
+  color: var(--success-text);
+  cursor: default;
+}
+/* The "All N flags" details kept for a plain-text, sequential read of the whole
+   set. It is deliberately NOT the amber banner any more — that treatment read
+   as an alarm state; this is a neutral disclosure sitting inside the flag row. */
+.capture-stack .candidate-card .alert-banner--inline {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 0;
+  padding: 0;
+}
+.capture-stack .candidate-card .alert-banner--inline .alert-banner__summary {
+  padding: 3px 0;
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.capture-stack .candidate-card .alert-banner--inline .alert-banner__body {
+  border-top: 1px solid var(--line-soft);
+  padding: 6px 0 0;
+  color: var(--text-soft);
+}
+
+/* Brief ring on a jump target, so the eye lands on the line the flag refers to. */
+.capture-stack .candidate-card .is-flagged {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---- Phase 3, spec §7: "More from this candidate" in-card disclosure ----
+   The body lives INSIDE .card-scroll rather than beside it. That is what makes
+   the "never reflows the stack, never shifts the triage bar" constraint true by
+   construction: the card's height is fixed by the flex column, so opening the
+   disclosure only makes more content scrollable inside the card — nothing
+   outside the card can move. _cardMoreOpen in views.js holds the state so the
+   panel rebuilds open after a re-render. */
+.capture-stack .candidate-card .card-more {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+  border-top: 1px solid var(--line-soft);
+}
+.capture-stack .candidate-card .card-more__summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 2px 7px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+.capture-stack .candidate-card .card-more__summary::-webkit-details-marker { display: none; }
+.capture-stack .candidate-card .card-more__summary:hover { color: var(--brand); }
+.capture-stack .candidate-card .card-more__summary:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.capture-stack .candidate-card .card-more__chevron {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+.capture-stack .candidate-card .card-more[open] .card-more__chevron { transform: rotate(-135deg); }
+.capture-stack .candidate-card .card-more__body { padding-bottom: 4px; }
 
 /* ---- Resume Preview Modal ---- */
 .resume-preview-modal {
