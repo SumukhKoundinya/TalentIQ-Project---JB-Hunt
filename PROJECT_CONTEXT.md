@@ -1,64 +1,37 @@
 # TalentIQ — Project Context
 
-> Living status doc for face + speaker recognition and resume pipeline work.
+> Living status doc after merging Nirmay’s product SPA with Recruiter Capture recording.
 
-## Architecture findings
+## Navigation
 
-| Area | Current state |
-|------|----------------|
-| Profiles | Flat candidates; PK `id` (`TQ-####`) |
-| Media | Audio notes + conversation video recorder (Capture) |
-| Swipe | Capture: Reviewed / Follow-Up; **Info Cards**: accept / reject field proposals |
-| Persistence | `localStorage` + IndexedDB for faces and recordings |
-| Backend | FastAPI `ml.server` — face, resume, transcribe, conversation pipeline |
+### Workspace (Nirmay 4-section design + recording)
+1. **Analytics** — live metrics from candidate state  
+2. **Event Info** — booth QR / intake destination  
+3. **Candidate Cards** — resume swipe cards, skill icons, bulk PDF import  
+4. **Recruiter Capture** — full booth recording (camera, mic, face ID, voice notes → Info Cards)  
+5. **AI Review** — end-of-day triage  
 
-## Roadmap status
+### Verify
+- **Info Cards** — accept/reject extracted field proposals from recordings/resumes  
+- **Research Metrics** — study dashboard  
 
-1. **M1 — Face enrollment** — complete
-2. **Recording → match → speak → Whisper → extract → Info Cards** — complete (local-only)
-3. **Resume parse → Intake autofill + Info Cards** — complete (local-only)
-4. Future: TalkNet ASD swap-in, stronger Whisper model, richer extractors
+## Recording features (Recruiter Capture)
+- Full-screen recording UI (`recording-screen`)
+- Camera + mic permission, flip camera, pause/resume
+- Booth people identify / multi-speaker tagging
+- Face overlay + live booth count
+- Conversation video → `TIQ.pipeline.processConversationVideo` → Info Cards
+- Voice notes → `TIQ.pipeline.processAudioNote` → Info Cards
+- Navigation guard while recording is active
 
-## Recording + Resume pipeline (shipped)
-
-**Mode:** Fully local (no cloud LLM / no API keys)
-
-### Shared
-- Proposal queue `TIQ.state.proposals` with accept/reject
-- Reusable `TIQ.SwipeDeck` + **Info Cards** nav view
-- Accept writes field + provenance; reject never verifies data
-
-### Recording track
-- Capture UI: conversation video record → `/api/conversation/process`
-- Voice notes: audio record → `/api/conversation/process-audio` (same extract → Info Cards)
-- Face match: Facenet512 vs enrolled gallery (Unknown below threshold)
-- Active speaker: mouth-motion + face timeline (TalkNet-swappable), adaptive for booth noise
-- Transcription: `faster-whisper` `tiny.en` with VAD + audio normalize (noise-hardened)
-- Heuristic field extraction → Info Cards (recruiter swipe to verify)
-
-### Resume track
-- Intake resume upload → `/api/resume/parse` (PDF via pdfplumber, DOCX via python-docx)
-- Autofill intake inputs; queue proposals for swipe confirmation
-
-### How to run
+## Run
 ```bash
 source .venv-ml/bin/activate
-pip install -r requirements-ml.txt
 uvicorn ml.server:app --host 127.0.0.1 --port 8000
 # http://127.0.0.1:8000
-
-PYTHONPATH=. python ml/smoke_test_pipeline.py http://127.0.0.1:8000
 ```
 
-### Endpoints
-- `GET /api/face/health`, `POST /api/face/enroll`, `POST /api/face/recognize-video`
-- `GET /api/resume/health`, `POST /api/resume/parse`
-- `GET /api/transcribe/health`, `POST /api/transcribe`
-- `POST /api/active-speaker/analyze`
-- `POST /api/conversation/process`
-
 ## Constraints (unchanged)
-- No scoring / ranking / auto-reject of candidates
-- No protected-trait inference (no DeepFace age/gender/race)
-- Never auto-verify extracted profile fields (swipe accept = recruiter verified)
-- Never force uncertain face matches
+- No scoring / ranking / auto-reject of candidates  
+- No protected-trait inference  
+- Never auto-verify extracted profile fields (swipe accept = recruiter verified)  

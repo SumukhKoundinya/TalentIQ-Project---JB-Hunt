@@ -53,7 +53,7 @@ TIQ.pipeline.recognizeFrame = function(blob) {
 
 /**
  * Process a conversation video blob for a candidate.
- * Creates pending proposals for Info Cards review.
+ * Applies extracted fields to the candidate profile.
  */
 TIQ.pipeline.processConversationVideo = function(blob, candidateId, onProgress, options) {
   var progress = onProgress || function() {};
@@ -90,7 +90,7 @@ TIQ.pipeline.processConversationVideo = function(blob, candidateId, onProgress, 
         });
       });
   }).then(function(body) {
-    progress("Creating info cards...");
+    progress("Saving extracted details...");
     var recordingId = options.recordingId || ("REC-" + Date.now());
     if (options.persist !== false) {
       TIQ.recordingDB.put(recordingId, blob, {
@@ -152,7 +152,7 @@ TIQ.pipeline.processConversationVideo = function(blob, candidateId, onProgress, 
 };
 
 /**
- * Process a short voice note for one candidate → Info Card proposals.
+ * Process a short voice note for one candidate → apply extracted fields.
  * Uses noise-hardened transcription (no face/ASD required).
  */
 TIQ.pipeline.processAudioNote = function(blob, candidateId, onProgress, options) {
@@ -179,7 +179,7 @@ TIQ.pipeline.processAudioNote = function(blob, candidateId, onProgress, options)
       });
     })
     .then(function(body) {
-      progress("Creating info cards…");
+      progress("Saving extracted details…");
       var created = 0;
       (body.proposals || []).forEach(function(p) {
         var field = TIQ.pipeline.FIELD_MAP[p.field] || p.field;
@@ -342,7 +342,7 @@ TIQ.pipeline.autofillIntake = function(fields, confidence) {
   return { count: filled.length, labels: filled };
 };
 
-/** After intake create, emit resume proposals for swipe confirmation */
+/** After intake create, apply resume-extracted fields to the profile */
 TIQ.pipeline.enqueueResumeProposals = function(candidateId, fields, confidence, filename) {
   fields = fields || {};
   confidence = confidence || {};

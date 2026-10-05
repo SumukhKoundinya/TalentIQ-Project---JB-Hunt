@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="48" viewBox="0 0 200 48" role="img" aria-label="J.B. Hunt">
+  <rect width="200" height="48" rx="8" fill="#FEDB00"/>
+  <!-- diagonal hatch accents -->
+  <g stroke="#211F20" stroke-width="3" opacity="0.18">
+    <path d="M12 0 L0 12"/>
+    <path d="M24 0 L0 24"/>
+    <path d="M36 0 L0 36"/>
+    <path d="M48 0 L0 48"/>
+    <path d="M188 48 L200 36"/>
+    <path d="M176 48 L200 24"/>
+    <path d="M164 48 L200 12"/>
+  </g>
+  <text x="100" y="30" text-anchor="middle" fill="#211F20" font-family="Arial Black, Helvetica Neue, Arial, sans-serif" font-size="18" font-weight="900" letter-spacing="0.08em">J.B. HUNT</text>
+</svg>

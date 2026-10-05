@@ -13,6 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Search, Download } from "lucide-react"
 import { useState, useMemo } from "react"
+import {
+  RippleButton,
+  RippleButtonRipples,
+} from "@/components/animate-ui/components/buttons/ripple"
 
 function getMissingFlags(c: any): string[] {
   const flags: string[] = []
@@ -77,8 +81,14 @@ export default function AIReviewPage() {
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-lg font-bold">AI Review</h1>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => exportCsv(filtered)}><Download className="h-3 w-3 mr-1" /> CSV</Button>
-            <Button size="sm" variant="outline" onClick={() => exportJson(filtered)}><Download className="h-3 w-3 mr-1" /> JSON</Button>
+            <RippleButton size="sm" variant="outline" onClick={() => exportCsv(filtered)}>
+              <Download className="h-3 w-3 mr-1" /> CSV
+              <RippleButtonRipples />
+            </RippleButton>
+            <RippleButton size="sm" variant="outline" onClick={() => exportJson(filtered)}>
+              <Download className="h-3 w-3 mr-1" /> JSON
+              <RippleButtonRipples />
+            </RippleButton>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -151,8 +161,14 @@ export default function AIReviewPage() {
               </div>
 
               <div className="flex gap-2">
-                <Button size="sm" onClick={() => setStatus(selected.id, "Reviewed")}>Approve</Button>
-                <Button size="sm" variant="outline" onClick={() => setStatus(selected.id, "Follow-Up")}>Follow Up</Button>
+                <RippleButton size="sm" onClick={() => setStatus(selected.id, "Reviewed")}>
+                  Approve
+                  <RippleButtonRipples />
+                </RippleButton>
+                <RippleButton size="sm" variant="outline" onClick={() => setStatus(selected.id, "Follow-Up")}>
+                  Follow Up
+                  <RippleButtonRipples />
+                </RippleButton>
               </div>
 
               <Card>

@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wireframe — Event Info / Booth Console</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :root {
+    --bg: #EEF1F5;
+    --panel: #FFFFFF;
+    --slot: #E4E8EE;
+    --slot-2: #F1F4F8;
+    --line: #D5DBE3;
+    --line-soft: #E9EDF2;
+    --ink: #1F2933;
+    --ink-2: #5B6774;
+    --ink-3: #8B96A3;
+    --brand: #005DBA;
+    --brand-ink: #004A94;
+    --brand-soft: #EAF2FB;
+    --flag: #FEDB00;
+    --flag-line: #C9A227;
+    --dark: #211F20;
+    --green: #16A34A;
+    --amber: #D97706;
+    --red: #DC2626;
+    --r-lg: 14px;
+    --r-md: 9px;
+    --r-sm: 6px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  button { font: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+  /* ============ Toolbar ============ */
+  .wf-bar {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 12px 22px;
+    background: var(--dark);
+    color: #fff;
+    border-bottom: 3px solid var(--flag);
+  }
+  .wf-bar__mark {
+    font-size: 11px; font-weight: 800; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--flag);
+  }
+  .wf-bar__title { font-size: 14px; font-weight: 700; }
+  .wf-bar__meta { font-size: 12px; color: rgba(255,255,255,.55); }
+  .wf-bar__spacer { flex: 1; }
+  .wf-toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.22);
+    color: #fff; border-radius: 999px;
+    padding: 7px 15px; font-size: 12px; font-weight: 700;
+  }
+  .wf-toggle:hover { background: rgba(255,255,255,.16); }
+  .wf-toggle .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--flag); box-shadow: 0 0 0 3px rgba(254,219,0,.25);
+  }
+  body:not(.anno) .wf-toggle .dot { background: rgba(255,255,255,.35); box-shadow: none; }
+
+  /* ============ Frames ============ */
+  .wf-stage { max-width: 1440px; margin: 0 auto; padding: 26px 22px 60px; }
+  .frame-tag {
+    display: flex; align-items: baseline; gap: 10px;
+    margin: 0 0 10px;
+  }
+  .frame-tag h2 {
+    margin: 0; font-size: 12px; font-weight: 900;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2);
+  }
+  .frame-tag span { font-size: 12px; color: var(--ink-3); }
+
+  .app {
+    display: grid;
+    grid-template-columns: 216px minmax(0, 1fr);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    box-shadow: 0 18px 40px rgba(31,41,51,.10);
+  }
+
+  /* ---- Sidebar (context reference only) ---- */
+  .sb { background: var(--dark); color: #CBD5E0; padding: 16px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .sb__logo {
+    height: 52px; border-radius: var(--r-sm);
+    background: var(--flag); color: var(--dark);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 13px; letter-spacing: .04em;
+    margin-bottom: 14px;
+  }
+  .sb__label {
+    font-size: 9.5px; font-weight: 800; letter-spacing: .16em;
+    text-transform: uppercase; color: rgba(255,255,255,.38);
+    padding: 8px 10px 4px;
+  }
+  .sb__link {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 10px; border-radius: var(--r-sm);
+    font-size: 13px; font-weight: 600; color: rgba(255,255,255,.72);
+    border: 1px solid transparent;
+  }
+  .sb__ico { width: 15px; height: 15px; border: 1.6px solid currentColor; border-radius: 3px; opacity: .75; }
+  .sb__link--on { background: var(--brand); color: #fff; }
+  .sb__link--on .sb__ico { opacity: 1; }
+  .sb__card {
+    margin-top: auto; padding: 12px;
+    border: 1px solid rgba(255,255,255,.14); border-radius: var(--r-md);
+  }
+  .sb__card b { display: block; font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.4); font-weight: 800; }
+  .sb__card p { margin: 6px 0 0; font-size: 12.5px; font-weight: 700; color: #fff; line-height: 1.35; }
+  .sb__card small { display: block; margin-top: 5px; font-size: 11px; color: rgba(255,255,255,.5); }
+
+  /* ---- Main ---- */
+  .main { min-width: 0; background: var(--bg); }
+
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 16px 24px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  .crumb { font-size: 10.5px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
+  .crumb i { font-style: normal; color: var(--brand); }
+  .topbar h1 { margin: 3px 0 0; font-size: 25px; font-weight: 900; letter-spacing: -.03em; }
+  .topbar__right { display: flex; align-items: center; gap: 10px; }
+  .who { text-align: right; }
+  .who b { display: block; font-size: 9.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+  .who span {
+    display: inline-block; margin-top: 3px; padding: 6px 12px;
+    border: 1px solid var(--line); border-radius: var(--r-sm);
+    background: var(--slot-2); font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+  }
+
+  .content { padding: 18px 24px 26px; }
+
+  /* ---- Event strip ---- */
+  .strip {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--flag);
+    border-radius: var(--r-md);
+    padding: 13px 18px;
+    margin-bottom: 16px;
+  }
+  .strip__name { font-size: 17px; font-weight: 900; letter-spacing: -.02em; }
+  .strip__meta { display: flex; gap: 7px; align-items: center; font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
+  .strip__meta .sep { color: var(--line); }
+  .strip__mode {
+    font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-2); background: var(--slot); border-radius: 999px; padding: 4px 10px;
+  }
+  .strip__spacer { flex: 1; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 800;
+    padding: 7px 13px; border-radius: 999px;
+    border: 1px solid transparent;
+    background: var(--green); color: #fff;
+  }
+  .pill .led { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px rgba(255,255,255,.28); }
+  .pill--warn { background: var(--amber); }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    border-radius: var(--r-sm); font-size: 12.5px; font-weight: 700;
+    padding: 9px 15px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--ink);
+  }
+  .btn:hover { background: var(--slot-2); }
+  .btn--ghost { border-style: dashed; color: var(--ink-2); }
+  .btn--primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .btn--primary:hover { background: var(--brand-ink); }
+  .btn--block { width: 100%; }
+  .btn--sm { padding: 7px 12px; font-size: 12px; }
+
+  /* ---- Console grid ---- */
+  .console { display: grid; grid-template-columns: minmax(0, 1fr) 336px; gap: 16px; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 18px;
+  }
+  .card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .kicker {
+    font-size: 10px; font-weight: 900; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--ink-3);
+  }
+  .card__hint { font-size: 12px; color: var(--ink-3); }
+
+  /* ---- QR hero ---- */
+  .hero { text-align: center; padding: 22px 22px 20px; position: relative; }
+  .hero__lead { margin: 0; font-size: clamp(20px, 2.3vw, 27px); font-weight: 900; letter-spacing: -.03em; }
+  .hero__sub { margin: 5px 0 16px; font-size: 13px; color: var(--ink-2); }
+  .qr-slot {
+    width: 252px; height: 252px; margin: 0 auto;
+    background: var(--panel);
+    border: 1.5px dashed var(--line);
+    border-radius: var(--r-md);
+    display: flex; align-items: center; justify-content: center;
+    padding: 14px;
+    position: relative;
+  }
+  .qr-slot svg { width: 100%; height: 100%; display: block; }
+  .qr-slot__note {
+    position: absolute; bottom: -9px; left: 50%; transform: translateX(-50%);
+    background: var(--panel); padding: 0 8px;
+    font-size: 9.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3);
+  }
+  .dest {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin: 20px auto 4px; max-width: 460px;
+  }
+  .dest code {
+    font-family: var(--mono); font-size: 12.5px; color: var(--brand-ink);
+    background: var(--brand-soft); border: 1px solid #CFE0F3;
+    padding: 6px 11px; border-radius: var(--r-sm);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .hero__hint { margin: 0 0 16px; font-size: 12.5px; color: var(--ink-3); }
+  .hero__actions { display: flex; gap: 9px; justify-content: center; flex-wrap: wrap; }
+
+  /* ---- Pulse ---- */
+  .pulse { display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 14px; align-items: center; padding: 15px 18px; }
+  .stat__num { font-size: 25px; font-weight: 900; letter-spacing: -.03em; line-height: 1.05; }
+  .stat__num small { font-size: 13px; font-weight: 800; color: var(--ink-3); }
+  .stat__lbl { font-size: 11px; font-weight: 700; color: var(--ink-3); letter-spacing: .04em; text-transform: uppercase; margin-top: 3px; }
+  .pulse__link { font-size: 12.5px; font-weight: 800; color: var(--brand); text-decoration: none; white-space: nowrap; }
+  .pulse__link:hover { text-decoration: underline; }
+
+  /* ---- Form-ish controls ---- */
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 5px; }
+  .field input, .field select {
+    width: 100%; font: inherit; font-size: 13px; color: var(--ink);
+    padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--r-sm);
+    background: var(--slot-2);
+  }
+  .field input:focus, .field select:focus { background: var(--panel); border-color: var(--brand); outline: none; }
+  .field--url input { font-family: var(--mono); font-size: 12.5px; }
+  .dest-state {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 700; color: var(--green);
+    margin-bottom: 13px;
+  }
+  .dest-state .led { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .dest-actions { display: flex; gap: 9px; }
+  .dest-actions .btn { flex: 1; }
+
+  /* ---- Checklist ---- */
+  .steps { list-style: none; margin: 0; padding: 0; }
+  .steps li { border-top: 1px solid var(--line-soft); }
+  .steps li:first-child { border-top: none; }
+  .step {
+    display: flex; align-items: center; gap: 11px; width: 100%;
+    background: none; border: 0; text-align: left;
+    padding: 11px 2px; font-size: 13.5px; font-weight: 600; color: var(--ink);
+    border-radius: var(--r-sm);
+  }
+  .step:hover { background: var(--slot-2); }
+  .step__box {
+    flex: 0 0 auto; width: 19px; height: 19px; border-radius: 5px;
+    border: 1.8px solid var(--line); background: var(--panel);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 900; color: transparent;
+  }
+  .step__done .step__box { background: var(--green); border-color: var(--green); color: #fff; }
+  .step__done { color: var(--ink-2); }
+  .step__tag {
+    margin-left: auto; font-size: 10px; font-weight: 800; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink-3);
+  }
+  .step__done .step__tag { color: var(--green); }
+  .steps__foot {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--line-soft);
+    font-size: 12px; font-weight: 700; color: var(--ink-2);
+  }
+
+  /* ============ Annotations ============ */
+  .anno-target { position: relative; }
+  body.anno .anno-target { outline: 1.6px dashed var(--flag-line); outline-offset: 4px; border-radius: calc(var(--r-lg) + 2px); }
+  body.anno .anno-target::after {
+    content: attr(data-anno);
+    position: absolute; top: -11px; right: -11px; z-index: 20;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--flag); color: var(--dark);
+    border: 1.5px solid var(--dark);
+    font-size: 11.5px; font-weight: 900;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px rgba(31,41,51,.25);
+  }
+  body:not(.anno) .anno-target::after { content: none; }
+  body.anno .anno-left::after { right: auto; left: -11px; }
+
+  /* ============ Legend & notes ============ */
+  .legend {
+    margin-top: 26px;
+    background: var(--panel);
+    border: 1.6px dashed var(--line);
+    border-radius: var(--r-lg);
+    padding: 20px 22px;
+  }
+  .legend h3, .notes h3 {
+    margin: 0 0 14px; font-size: 11px; font-weight: 900;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--brand);
+  }
+  .legend__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 4px 26px; }
+  .legend__item { display: flex; gap: 11px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; color: var(--ink-2); line-height: 1.55; }
+  .legend__n {
+    flex: 0 0 auto; width: 21px; height: 21px; border-radius: 50%;
+    background: var(--flag); border: 1.5px solid var(--dark); color: var(--dark);
+    font-size: 11px; font-weight: 900; display: flex; align-items: center; justify-content: center;
+    margin-top: 1px;
+  }
+  .legend__item b { color: var(--ink); font-weight: 800; }
+
+  .notes {
+    margin-top: 18px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;
+  }
+  .note {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--r-lg); padding: 18px 20px;
+  }
+  .note ul { list-style: none; margin: 0; padding: 0; }
+  .note li {
+    font-size: 13px; color: var(--ink-2); line-height: 1.6;
+    padding: 6px 0 6px 16px; position: relative;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .note li:last-child { border-bottom: none; }
+  .note li::before { content: ""; position: absolute; left: 0; top: 12px; width: 6px; height: 6px; border-radius: 50%; background: var(--brand); }
+  .note li b { color: var(--ink); font-weight: 800; }
+  .note--change li::before { background: var(--flag-line); }
+
+  /* ============ Mobile frame ============ */
+  .phone-wrap { display: flex; gap: 26px; flex-wrap: wrap; align-items: flex-start; }
+  .phone {
+    width: 392px; max-width: 100%;
+    background: var(--panel);
+    border: 10px solid var(--dark);
+    border-radius: 34px;
+    overflow: hidden;
+    box-shadow: 0 18px 40px rgba(31,41,51,.16);
+  }
+  .phone__status {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 18px 4px; font-size: 11px; font-weight: 800; color: var(--ink);
+    background: var(--panel);
+  }
+  .phone__body { background: var(--bg); padding: 12px 13px 22px; display: flex; flex-direction: column; gap: 12px; }
+  .phone .topbar { padding: 10px 14px; border-radius: var(--r-md); border: 1px solid var(--line); }
+  .phone .topbar h1 { font-size: 19px; }
+  .phone .who { display: none; }
+  .phone .strip { padding: 11px 13px; gap: 8px; margin-bottom: 0; }
+  .phone .strip__name { font-size: 15.5px; }
+  .phone .strip__spacer { display: none; }
+  .phone .pill { order: 3; }
+  .phone .qr-slot { width: 236px; height: 236px; }
+  .phone .hero { padding: 18px 14px; }
+  .phone .hero__actions { flex-direction: column; }
+  .phone .hero__actions .btn { width: 100%; padding: 12px; font-size: 14px; }
+  .phone .pulse { grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 13px; }
+  .phone .stat__num { font-size: 20px; }
+  .phone .pulse__link { grid-column: 1 / -1; text-align: center; padding-top: 4px; border-top: 1px solid var(--line-soft); }
+  .phone .console { grid-template-columns: 1fr; }
+  .phone-note {
+    flex: 1; min-width: 260px;
+    background: var(--panel); border: 1.6px dashed var(--line);
+    border-radius: var(--r-lg); padding: 18px 20px;
+  }
+  .phone-note h4 { margin: 0 0 10px; font-size: 11px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--brand); }
+  .phone-note ol { margin: 0; padding-left: 18px; font-size: 13px; color: var(--ink-2); line-height: 1.7; }
+  .phone-note b { color: var(--ink); }
+
+  /* ============ Toast ============ */
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 20px);
+    background: var(--dark); color: #fff;
+    font-size: 13px; font-weight: 700;
+    padding: 11px 18px; border-radius: 999px;
+    border-left: 4px solid var(--flag);
+    opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+    z-index: 90; box-shadow: 0 10px 30px rgba(31,41,51,.35);
+  }
+  .toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+  .wf-foot {
+    max-width: 1440px; margin: 0 auto; padding: 0 22px 44px;
+    font-size: 12px; color: var(--ink-3); text-align: center;
+  }
+  .wf-foot b { color: var(--ink-2); }
+
+  /* ============ Responsive ============ */
+  @media (max-width: 1180px) {
+    .console { grid-template-columns: minmax(0, 1fr) 300px; }
+  }
+  @media (max-width: 980px) {
+    .app { grid-template-columns: 1fr; }
+    .sb { display: none; }
+    .console { grid-template-columns: 1fr; }
+    .col--rail { flex-direction: row; flex-wrap: wrap; }
+    .col--rail > .card { flex: 1 1 300px; }
+    .pulse { grid-template-columns: repeat(3, 1fr); }
+    .pulse__link { grid-column: 1 / -1; text-align: center; }
+  }
+  @media (max-width: 620px) {
+    .content { padding: 14px; }
+    .topbar { padding: 13px 16px; }
+    .hero__actions .btn { width: 100%; }
+    .strip { gap: 10px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+  @media print {
+    .wf-bar, .toast { display: none; }
+    body { background: #fff; }
+    .app { box-shadow: none; }
+  }
+</style>
+</head>
+<body class="anno">
+
+<header class="wf-bar">
+  <span class="wf-bar__mark">Wireframe</span>
+  <span class="wf-bar__title">Event Info — Booth Console</span>
+  <span class="wf-bar__meta">v3 · desktop + mobile · low fidelity, real copy</span>
+  <span class="wf-bar__spacer"></span>
+  <button class="wf-toggle" id="annoToggle" aria-pressed="true">
+    <span class="dot"></span> Annotations on
+  </button>
+</header>
+
+<div class="wf-stage">
+
+  <!-- ================= DESKTOP ================= -->
+  <div class="frame-tag">
+    <h2>Frame 1 — Desktop console</h2>
+    <span>1280px+ · sidebar + topbar shown for context only</span>
+  </div>
+
+  <div class="app">
+
+    <!-- Sidebar: reference chrome, not part of this redesign -->
+    <aside class="sb" aria-hidden="true">
+      <div class="sb__logo">J.B. HUNT</div>
+      <div class="sb__label">Workspace</div>
+      <div class="sb__link"><span class="sb__ico"></span>Analytics</div>
+      <div class="sb__link sb__link--on"><span class="sb__ico"></span>Event Info</div>
+      <div class="sb__link"><span class="sb__ico"></span>Candidate Cards</div>
+      <div class="sb__link"><span class="sb__ico"></span>AI Review</div>
+      <div class="sb__link"><span class="sb__ico"></span>Research Metrics</div>
+      <div class="sb__card">
+        <b>Event</b>
+        <p>Logistics &amp; Technology Fair 2026</p>
+        <small>Sep 14, 2026 · Nashville, TN</small>
+      </div>
+    </aside>
+
+    <div class="main">
+
+      <div class="topbar">
+        <div>
+          <div class="crumb">J.B. Hunt <i>/</i> TalentIQ</div>
+          <h1>Event Info</h1>
+        </div>
+        <div class="topbar__right">
+          <div class="who">
+            <b>Logged in as</b>
+            <span>Carl Pegue ▾</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+
+        <!-- ② Event strip -->
+        <div class="strip anno-target anno-left" data-anno="2">
+          <div>
+            <div class="strip__name">Logistics &amp; Technology Fair 2026</div>
+            <div class="strip__meta">
+              <span>Sep 14, 2026</span><span class="sep">·</span><span>Nashville, TN</span>
+            </div>
+          </div>
+          <span class="strip__mode">Mobile + Desktop</span>
+          <span class="strip__spacer"></span>
+          <span class="pill anno-target" data-anno="1" id="statusPill"><span class="led"></span><span id="statusText">Setup 2 of 4</span></span>
+          <button class="btn btn--sm anno-target" data-anno="3" data-wire="Opens the event editor inline (today: hidden behind a corner ⓘ)">Edit event</button>
+        </div>
+
+        <div class="console">
+
+          <!-- LEFT: QR hero + pulse -->
+          <div class="col">
+
+            <section class="card hero anno-target" data-anno="4">
+              <p class="hero__lead">Scan to submit your profile</p>
+              <p class="hero__sub">Point your phone camera at the code — the form opens on your device.</p>
+
+              <div class="qr-slot">
+                <svg id="qrSvg" viewBox="0 0 29 29" role="img" aria-label="Booth QR code placeholder"></svg>
+                <span class="qr-slot__note">QR · 240px min</span>
+              </div>
+
+              <div class="dest anno-target" data-anno="5">
+                <code id="destUrl">talentiq.jbhunt.com/booth/nash-2026</code>
+                <button class="btn btn--sm" data-copy>Copy</button>
+              </div>
+              <p class="hero__hint">Candidates land on the intake form — never on a blank page.</p>
+
+              <div class="hero__actions anno-target" data-anno="6">
+                <button class="btn btn--primary" data-copy>Copy QR link</button>
+                <button class="btn" data-wire="Opens the print dialog with the poster layout">Print poster</button>
+                <button class="btn" data-wire="Opens the candidate form in a new tab">Open form</button>
+                <button class="btn btn--ghost" data-wire="Runs a test submission so the recruiter knows the flow works">Test scan</button>
+              </div>
+            </section>
+
+            <section class="card pulse anno-target" data-anno="7">
+              <div>
+                <div class="stat__num">42</div>
+                <div class="stat__lbl">Scanned today</div>
+              </div>
+              <div>
+                <div class="stat__num">9</div>
+                <div class="stat__lbl">Need follow-up</div>
+              </div>
+              <div>
+                <div class="stat__num">4<small> min</small></div>
+                <div class="stat__lbl">Since last scan</div>
+              </div>
+              <a class="pulse__link" href="#" data-wire="Jumps to AI Review, filtered to this event">Open AI Review →</a>
+            </section>
+
+          </div>
+
+          <!-- RIGHT RAIL: config + checklist -->
+          <div class="col col--rail">
+
+            <section class="card anno-target" data-anno="8">
+              <div class="card__head">
+                <span class="kicker">Intake destination</span>
+                <span class="card__hint">Where the QR sends people</span>
+              </div>
+              <div class="dest-state"><span class="led"></span> Connected</div>
+              <div class="field">
+                <label for="wfMethod">Method</label>
+                <select id="wfMethod">
+                  <option>Google Form / external link</option>
+                  <option>Custom URL</option>
+                </select>
+              </div>
+              <div class="field field--url">
+                <label for="wfUrl">Form URL</label>
+                <input id="wfUrl" type="url" value="https://forms.gle/jbh-tech-fair-2026" />
+              </div>
+              <div class="dest-actions">
+                <button class="btn btn--sm" data-wire="Opens the URL to confirm it resolves">Test link</button>
+                <button class="btn btn--sm btn--primary" data-wire="Saves the URL and re-renders the QR">Save</button>
+              </div>
+            </section>
+
+            <section class="card anno-target" data-anno="9">
+              <div class="card__head">
+                <span class="kicker">Booth setup</span>
+                <span class="card__hint" id="stepCount">2 of 4 done</span>
+              </div>
+              <ul class="steps" id="stepList">
+                <li><button class="step step__done" aria-pressed="true">
+                  <span class="step__box">✓</span> Booth QR generated <span class="step__tag">Done</span>
+                </button></li>
+                <li><button class="step step__done" aria-pressed="true">
+                  <span class="step__box">✓</span> Intake destination set <span class="step__tag">Done</span>
+                </button></li>
+                <li><button class="step" aria-pressed="false">
+                  <span class="step__box">✓</span> Poster printed for the table <span class="step__tag">To do</span>
+                </button></li>
+                <li><button class="step" aria-pressed="false">
+                  <span class="step__box">✓</span> Test scan completed <span class="step__tag">To do</span>
+                </button></li>
+              </ul>
+              <div class="steps__foot">
+                <span>Checked off on this device</span>
+                <span>Tick a row to update</span>
+              </div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= LEGEND ================= -->
+  <section class="legend">
+    <h3>What the numbers mean</h3>
+    <div class="legend__grid">
+      <div class="legend__item"><span class="legend__n">1</span><div><b>Status pill.</b> Booth readiness at a glance — amber while setup is incomplete, green once all four steps are ticked. Driven by the checklist, never hand-set.</div></div>
+      <div class="legend__item"><span class="legend__n">2</span><div><b>Event strip.</b> Name, date, location and mode collapse into one horizontal band. Replaces the tall dark card; the sidebar already shows the same event, so it is not repeated at full size.</div></div>
+      <div class="legend__item"><span class="legend__n">3</span><div><b>Visible edit.</b> A plain "Edit event" button. Replaces the corner ⓘ icon, which reads as help text rather than an action.</div></div>
+      <div class="legend__item"><span class="legend__n">4</span><div><b>QR hero.</b> Largest object on the screen, candidate-facing headline above it. A student walking past should understand the screen without asking anyone.</div></div>
+      <div class="legend__item"><span class="legend__n">5</span><div><b>Destination shown.</b> The URL the QR points at is always visible with one-click copy. Today it hides behind a modal — a recruiter cannot verify where the code sends people.</div></div>
+      <div class="legend__item"><span class="legend__n">6</span><div><b>Four actions.</b> Copy link (primary), print poster, open form, and a new <b>Test scan</b> so the booth can be verified before the hall fills.</div></div>
+      <div class="legend__item"><span class="legend__n">7</span><div><b>Booth pulse.</b> Live capture stats for this event only: scanned today, open follow-ups, time since the last scan, and a jump into AI Review.</div></div>
+      <div class="legend__item"><span class="legend__n">8</span><div><b>Intake destination, inline.</b> Method + URL edited in place with a Test link action. No modal, no lost context; the QR re-renders on save.</div></div>
+      <div class="legend__item"><span class="legend__n">9</span><div><b>Setup checklist.</b> Four steps a recruiter ticks off at the booth. Progress feeds the status pill and gives the page a job beyond static info.</div></div>
+    </div>
+  </section>
+
+  <!-- ================= NOTES ================= -->
+  <div class="notes">
+    <div class="note note--change">
+      <h3>Changed from today's page</h3>
+      <ul>
+        <li><b>Event card → strip.</b> Dark 420px card with redundant copy ("Quick candidate capture…") becomes a one-line identity band.</li>
+        <li><b>Modals → inline.</b> Both ⓘ editors become visible controls; nothing to discover.</li>
+        <li><b>QR moves left and grows</b> to a 252px hero; the right side becomes a working rail instead of a second display panel.</li>
+        <li><b>Destination URL surfaced</b> under the code with copy, instead of living only in settings.</li>
+        <li><b>Added:</b> setup checklist, booth pulse, test scan, open form.</li>
+        <li><b>Removed:</b> duplicated "Scan to Submit Profile" shown twice around the same QR.</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h3>Interaction spec</h3>
+      <ul>
+        <li><b>Copy QR link</b> → clipboard + toast "QR link copied". Same label in button and toast.</li>
+        <li><b>Save destination</b> → re-render QR, toast "Booth QR settings saved.", state chip stays "Connected".</li>
+        <li><b>Test link</b> → opens the URL in a new tab; failure keeps the previous URL and says so.</li>
+        <li><b>Checklist</b> → optimistic toggle, persisted locally; pill flips to "Booth ready" at 4/4.</li>
+        <li><b>Test scan</b> → routes one test submission into AI Review flagged as a test, so it can be discarded.</li>
+        <li><b>Print poster</b> → print stylesheet hides chrome, prints QR + event + URL at poster scale.</li>
+        <li>Escape closes any inline editor; all actions keyboard reachable with visible focus.</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h3>Open questions</h3>
+      <ul>
+        <li>Should the pulse read <b>this event only</b>, or all capture today? Booth context argues for this event.</li>
+        <li>Is <b>Test scan</b> worth a slot, or does it belong in the destination card as a secondary link?</li>
+        <li>Does the checklist persist per event, or reset each fair morning?</li>
+        <li>Confirm QR minimum printed size for the poster so the on-screen 252px matches physical scan distance.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ================= MOBILE ================= -->
+  <div class="frame-tag" style="margin-top:34px">
+    <h2>Frame 2 — Mobile / tablet at the booth</h2>
+    <span>390px · QR first, then identity, then controls</span>
+  </div>
+
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="phone__status"><span>9:41</span><span>Booth mode</span></div>
+      <div class="phone__body">
+        <div class="topbar">
+          <div>
+            <div class="crumb">J.B. Hunt <i>/</i> TalentIQ</div>
+            <h1>Event Info</h1>
+          </div>
+        </div>
+
+        <div class="strip">
+          <div>
+            <div class="strip__name">Logistics &amp; Technology Fair 2026</div>
+            <div class="strip__meta"><span>Sep 14, 2026</span><span class="sep">·</span><span>Nashville, TN</span></div>
+          </div>
+          <span class="pill pill--warn"><span class="led"></span>Setup 2 of 4</span>
+          <button class="btn btn--sm">Edit event</button>
+        </div>
+
+        <div class="console">
+          <div class="col">
+            <section class="card hero">
+              <p class="hero__lead">Scan to submit your profile</p>
+              <p class="hero__sub">Point your phone camera at the code.</p>
+              <div class="qr-slot">
+                <svg id="qrSvgMobile" viewBox="0 0 29 29" role="img" aria-label="Booth QR code placeholder"></svg>
+                <span class="qr-slot__note">QR · 240px min</span>
+              </div>
+              <div class="dest">
+                <code>talentiq.jbhunt.com/booth/nash-2026</code>
+                <button class="btn btn--sm" data-copy>Copy</button>
+              </div>
+              <p class="hero__hint">Opens the intake form on your device.</p>
+              <div class="hero__actions">
+                <button class="btn btn--primary" data-copy>Copy QR link</button>
+                <button class="btn" data-wire="Print dialog">Print poster</button>
+                <button class="btn" data-wire="Opens the candidate form">Open form</button>
+                <button class="btn btn--ghost" data-wire="Runs a test submission">Test scan</button>
+              </div>
+            </section>
+
+            <section class="card pulse">
+              <div><div class="stat__num">42</div><div class="stat__lbl">Scanned</div></div>
+              <div><div class="stat__num">9</div><div class="stat__lbl">Follow-up</div></div>
+              <div><div class="stat__num">4<small> min</small></div><div class="stat__lbl">Last scan</div></div>
+              <a class="pulse__link" href="#">Open AI Review →</a>
+            </section>
+
+            <section class="card">
+              <div class="card__head"><span class="kicker">Intake destination</span><span class="card__hint">Connected</span></div>
+              <div class="field"><label>Method</label><select><option>Google Form / external link</option></select></div>
+              <div class="field field--url"><label>Form URL</label><input type="url" value="https://forms.gle/jbh-tech-fair-2026"></div>
+              <div class="dest-actions">
+                <button class="btn btn--sm">Test link</button>
+                <button class="btn btn--sm btn--primary">Save</button>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="card__head"><span class="kicker">Booth setup</span><span class="card__hint">2 of 4 done</span></div>
+              <ul class="steps">
+                <li><button class="step step__done"><span class="step__box">✓</span> Booth QR generated <span class="step__tag">Done</span></button></li>
+                <li><button class="step step__done"><span class="step__box">✓</span> Intake destination set <span class="step__tag">Done</span></button></li>
+                <li><button class="step"><span class="step__box">✓</span> Poster printed for the table <span class="step__tag">To do</span></button></li>
+                <li><button class="step"><span class="step__box">✓</span> Test scan completed <span class="step__tag">To do</span></button></li>
+              </ul>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-note">
+      <h4>Mobile rules</h4>
+      <ol>
+        <li><b>QR first.</b> On a phone the code is the reason the page exists, so it sits above event details.</li>
+        <li><b>Actions stack full-width</b> for one-handed use while holding a conversation.</li>
+        <li><b>Stats collapse to three columns</b> with the review link as a full-width row underneath.</li>
+        <li><b>Rail cards flow below</b> the hero instead of sitting beside it — no side-scrolling at the booth.</li>
+        <li><b>Print stylesheet</b> strips the sidebar, topbar, checklist and stats, leaving QR + event + URL.</li>
+        <li>Same content order as desktop, only stacked: identity → QR → pulse → setup.</li>
+      </ol>
+    </div>
+  </div>
+
+</div>
+
+<div class="wf-foot">
+  <b>Open</b> <code>wireframe-event-console.html</code> in a browser · toggle annotations in the top bar · checklist and copy buttons are live · wireframe-only actions show a toast.
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  /* --- deterministic placeholder QR (visual only) --- */
+  function drawQR(svg) {
+    if (!svg) return;
+    var N = 29, seed = 20260914, rects = [];
+    function rnd() { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; }
+    function finder(x, y) {
+      rects.push('<rect x="' + x + '" y="' + y + '" width="7" height="7" fill="#1F2933"/>');
+      rects.push('<rect x="' + (x + 1) + '" y="' + (y + 1) + '" width="5" height="5" fill="#fff"/>');
+      rects.push('<rect x="' + (x + 2) + '" y="' + (y + 2) + '" width="3" height="3" fill="#1F2933"/>');
+    }
+    function inFinder(c, r) {
+      return (c < 8 && r < 8) || (c > N - 9 && r < 8) || (c < 8 && r > N - 9);
+    }
+    for (var r = 0; r < N; r++) {
+      for (var c = 0; c < N; c++) {
+        if (inFinder(c, r)) continue;
+        if (rnd() > 0.52) rects.push('<rect x="' + c + '" y="' + r + '" width="1" height="1" fill="#1F2933"/>');
+      }
+    }
+    finder(0, 0); finder(N - 7, 0); finder(0, N - 7);
+    svg.innerHTML = rects.join('');
+  }
+  drawQR(document.getElementById('qrSvg'));
+  drawQR(document.getElementById('qrSvgMobile'));
+
+  /* --- toast --- */
+  var toastEl = document.getElementById('toast'), toastTimer;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('on'); }, 2400);
+  }
+
+  /* --- annotation toggle --- */
+  var toggle = document.getElementById('annoToggle');
+  toggle.addEventListener('click', function () {
+    var on = document.body.classList.toggle('anno');
+    toggle.setAttribute('aria-pressed', String(on));
+    toggle.innerHTML = '<span class="dot"></span> Annotations ' + (on ? 'on' : 'off');
+  });
+
+  /* --- checklist drives the status pill --- */
+  var list = document.getElementById('stepList');
+  function syncSteps() {
+    var steps = list.querySelectorAll('.step');
+    var done = 0;
+    steps.forEach(function (s) {
+      var isDone = s.classList.contains('step__done');
+      if (isDone) done++;
+      s.setAttribute('aria-pressed', String(isDone));
+      s.querySelector('.step__tag').textContent = isDone ? 'Done' : 'To do';
+    });
+    document.getElementById('stepCount').textContent = done + ' of ' + steps.length + ' done';
+    var pill = document.getElementById('statusPill');
+    var txt = document.getElementById('statusText');
+    if (done === steps.length) {
+      pill.classList.remove('pill--warn');
+      txt.textContent = 'Booth ready';
+    } else {
+      pill.classList.add('pill--warn');
+      txt.textContent = 'Setup ' + done + ' of ' + steps.length;
+    }
+  }
+  list.addEventListener('click', function (e) {
+    var btn = e.target.closest('.step');
+    if (!btn) return;
+    btn.classList.toggle('step__done');
+    syncSteps();
+  });
+  syncSteps();
+
+  /* --- wireframe actions --- */
+  document.addEventListener('click', function (e) {
+    var copyBtn = e.target.closest('[data-copy]');
+    if (copyBtn) {
+      var url = 'https://' + document.getElementById('destUrl').textContent.trim();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function () { toast('QR link copied.'); },
+          function () { toast('QR link copied.'); });
+      } else { toast('QR link copied.'); }
+      return;
+    }
+    var wireBtn = e.target.closest('[data-wire]');
+    if (wireBtn) {
+      toast('Wireframe: ' + wireBtn.getAttribute('data-wire'));
+    }
+  });
+})();
+</script>
+</body>
+</html>

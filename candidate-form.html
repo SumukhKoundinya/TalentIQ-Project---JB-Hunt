@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="J.B. Hunt — Submit your profile at the career fair" />
+  <title>Submit Your Profile | J.B. Hunt</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; margin: 0; padding: 0; }
+
+    :root {
+      --brand: #005DBA;
+      --brand-dark: #003D7A;
+      --brand-soft: #F0F6FC;
+      --accent: #FEDB00;
+      --black: #211F20;
+      --bg: #E2E8F0;
+      --surface: #FFFFFF;
+      --surface-soft: #F8FAFB;
+      --text: #1A1A1A;
+      --text-soft: #4A5568;
+      --text-muted: #64748B;
+      --border: #CBD5E1;
+      --border-soft: #E8ECF0;
+      --red: #DC2626;
+      --green: #16A34A;
+      --radius-lg: 12px;
+      --radius-md: 8px;
+      --radius-sm: 6px;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-page {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 480px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 20px;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .form-header {
+      padding: 12px 0 8px;
+      text-align: center;
+    }
+    .form-logo {
+      width: min(168px, 58vw);
+      height: auto;
+      border-radius: 4px;
+      object-fit: contain;
+      margin: 0 auto 8px;
+      display: block;
+    }
+    .form-title {
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      color: var(--black);
+      margin-bottom: 2px;
+    }
+    .form-subtitle {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    /* Event badge */
+    .event-badge {
+      background: var(--black);
+      color: #fff;
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      margin-bottom: 10px;
+    }
+    .event-badge__name {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .event-badge__meta {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-top: 2px;
+    }
+
+    /* Form card */
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg);
+      padding: 14px 14px;
+      margin-bottom: 8px;
+    }
+
+    .field {
+      margin-bottom: 8px;
+    }
+    .field:last-child {
+      margin-bottom: 0;
+    }
+    .field-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+    .field-label .required {
+      color: var(--red);
+    }
+    .field input,
+    .field select {
+      width: 100%;
+      height: 36px;
+      background: var(--surface-soft);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 10px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 150ms, box-shadow 150ms;
+      -webkit-appearance: none;
+    }
+    .field input:focus,
+    .field select:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(0,93,186,0.12);
+    }
+    .field input.error,
+    .field select.error {
+      border-color: var(--red);
+      box-shadow: 0 0 0 3px rgba(220,38,38,0.1);
+    }
+    .field-error {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--red);
+      margin-top: 1px;
+      min-height: 12px;
+      display: block;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    /* File upload */
+    .file-upload {
+      position: relative;
+      border: 1.5px dashed var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface-soft);
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 150ms, background 150ms;
+    }
+    .file-upload:hover,
+    .file-upload.dragging {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+    }
+    .file-upload input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .file-upload-icon {
+      font-size: 18px;
+      margin-bottom: 2px;
+    }
+    .file-upload-text {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .file-upload-hint {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+    .file-upload-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--brand);
+      margin-top: 4px;
+      word-break: break-all;
+    }
+    .file-upload.has-file {
+      border-style: solid;
+      border-color: var(--brand);
+      background: var(--brand-soft);
+    }
+
+    /* Submit */
+    .submit-btn {
+      width: 100%;
+      height: 40px;
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 150ms, transform 100ms;
+      margin-top: 4px;
+    }
+    .submit-btn:hover { background: var(--brand-dark); }
+    .submit-btn:active { transform: scale(0.98); }
+    .submit-btn:disabled {
+      background: var(--border);
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Footer */
+    .form-footer {
+      text-align: center;
+      padding: 8px 0 16px;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* Success screen */
+    .success-screen {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .success-screen.visible {
+      display: flex;
+    }
+    .success-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: var(--green);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      margin-bottom: 20px;
+    }
+    .success-title {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+    .success-msg {
+      font-size: 14px;
+      color: var(--text-muted);
+      max-width: 300px;
+      line-height: 1.6;
+    }
+    .success-id {
+      margin-top: 16px;
+      padding: 10px 16px;
+      background: var(--surface-soft);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .success-id strong {
+      color: var(--brand);
+    }
+    .success-scan {
+      margin-top: 14px;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 700;
+      max-width: 320px;
+      line-height: 1.5;
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--green);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+    .success-scan:empty { display: none; }
+    .success-scan.warn {
+      background: #FFF6E0;
+      color: #8A6100;
+      border-color: #F0C36D;
+    }
+
+    /* Loading */
+    .form-card.hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="form-page" id="formPage">
+    <div class="form-header">
+      <img src="JBHUNT_LOGO.jpg?v=mark2" alt="J.B. Hunt" class="form-logo" onerror="this.style.display='none'" />
+      <div class="form-title">Submit Your Profile</div>
+      <div class="form-subtitle">Quick form — takes less than 2 minutes</div>
+    </div>
+
+    <div class="event-badge">
+      <div class="event-badge__name">Logistics & Technology Fair 2026</div>
+      <div class="event-badge__meta">Sep 14, 2026 &bull; Nashville, TN</div>
+    </div>
+
+    <form id="candidateForm" class="form-card" novalidate>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">First Name <span class="required">*</span></label>
+          <input name="firstName" type="text" placeholder="e.g. Maya" required autocomplete="given-name" />
+          <span class="field-error" data-for="firstName"></span>
+        </div>
+        <div class="field">
+          <label class="field-label">Last Name <span class="required">*</span></label>
+          <input name="lastName" type="text" placeholder="e.g. Williams" required autocomplete="family-name" />
+          <span class="field-error" data-for="lastName"></span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Email <span class="required">*</span></label>
+        <input name="email" type="email" placeholder="you@university.edu" required autocomplete="email" />
+        <span class="field-error" data-for="email"></span>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Phone</label>
+        <input name="phone" type="tel" placeholder="555-0100" autocomplete="tel" />
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">University <span class="required">*</span></label>
+          <select name="university" required>
+            <option value="">Select...</option>
+            <option>Nashville State University</option>
+            <option>University of Alabama</option>
+            <option>University of Arkansas</option>
+            <option>University of Memphis</option>
+            <option>University of Missouri</option>
+            <option>University of Tennessee</option>
+            <option>University of Central Arkansas</option>
+            <option>Vanderbilt University</option>
+            <option>MTSU</option>
+            <option>Fisk University</option>
+          </select>
+          <span class="field-error" data-for="university"></span>
+        </div>
+        <div class="field">
+          <label class="field-label">Major <span class="required">*</span></label>
+          <select name="major" required>
+            <option value="">Select...</option>
+            <option>Computer Science</option>
+            <option>Data Science</option>
+            <option>Information Systems</option>
+            <option>Cybersecurity</option>
+            <option>Supply Chain Management</option>
+            <option>Software Engineering</option>
+            <option>Industrial Engineering</option>
+            <option>Business Administration</option>
+            <option>Mechanical Engineering</option>
+            <option>Electrical Engineering</option>
+          </select>
+          <span class="field-error" data-for="major"></span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Graduation Date <span class="required">*</span></label>
+        <input name="graduationDate" type="month" required />
+        <span class="field-error" data-for="graduationDate"></span>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Resume</label>
+        <div class="file-upload" id="fileUpload">
+          <input type="file" name="resume" accept=".pdf,application/pdf" id="resumeInput" />
+          <div class="file-upload-icon">&#128196;</div>
+          <div class="file-upload-text">Tap to upload resume</div>
+          <div class="file-upload-hint">PDF only (max 5MB)</div>
+          <div class="file-upload-name" id="fileName"></div>
+        </div>
+        <span class="field-error" data-for="resume" id="fileError"></span>
+      </div>
+
+      <button type="submit" class="submit-btn" id="submitBtn">Submit Profile</button>
+    </form>
+
+    <div class="form-footer">
+      J.B. Hunt Transport &bull; TalentIQ
+    </div>
+  </div>
+
+  <div class="success-screen" id="successScreen">
+    <div class="success-icon">&#10003;</div>
+    <div class="success-title">You're all set!</div>
+    <div class="success-msg">Your profile has been submitted. A recruiter will follow up with you soon.</div>
+    <div class="success-scan" id="scanStatus"></div>
+    <div class="success-id">Your ID: <strong id="submittedId"></strong></div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
+  <script src="config.js?v=4"></script>
+  <script src="data.js?v=4"></script>
+  <script>
+    (function() {
+      var form = document.getElementById("candidateForm");
+      var fileInput = document.getElementById("resumeInput");
+      var fileUpload = document.getElementById("fileUpload");
+      var fileName = document.getElementById("fileName");
+      var submitBtn = document.getElementById("submitBtn");
+      var successScreen = document.getElementById("successScreen");
+      var submittedId = document.getElementById("submittedId");
+      var scanStatus = document.getElementById("scanStatus");
+
+      /* ---- Helpers ---- */
+      function nowISO() { return new Date().toISOString(); }
+      function todayISO() { return new Date().toISOString().slice(0, 10); }
+
+      function loadState() {
+        try {
+          var raw = localStorage.getItem("talentiq_state_v1");
+          if (!raw) return null;
+          return JSON.parse(raw);
+        } catch(_) { return null; }
+      }
+
+      function saveState(state) {
+        localStorage.setItem("talentiq_state_v1", JSON.stringify(state));
+      }
+
+      /* ---- File handling ---- */
+      var selectedFile = null;
+      var fileError = document.getElementById("fileError");
+
+      function acceptFile(file) {
+        if (file && TIQ.intake && TIQ.intake.isParsableResume(file)) {
+          selectedFile = file;
+          fileName.textContent = file.name;
+          fileUpload.classList.add("has-file");
+          if (fileError) fileError.textContent = "";
+        } else {
+          selectedFile = null;
+          fileName.textContent = "";
+          fileUpload.classList.remove("has-file");
+          if (fileError) fileError.textContent = "Only PDF resumes can be scanned. Please attach a .pdf or submit without a resume.";
+        }
+      }
+
+      fileInput.addEventListener("change", function() {
+        if (fileInput.files && fileInput.files[0]) {
+          acceptFile(fileInput.files[0]);
+        }
+      });
+
+      fileUpload.addEventListener("dragover", function(e) {
+        e.preventDefault();
+        fileUpload.classList.add("dragging");
+      });
+      fileUpload.addEventListener("dragleave", function() {
+        fileUpload.classList.remove("dragging");
+      });
+      fileUpload.addEventListener("drop", function(e) {
+        e.preventDefault();
+        fileUpload.classList.remove("dragging");
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          acceptFile(e.dataTransfer.files[0]);
+        }
+      });
+
+      /* ---- Inline validation ---- */
+      var requiredFields = form.querySelectorAll("[required]");
+      requiredFields.forEach(function(field) {
+        field.addEventListener("blur", function() {
+          var errEl = form.querySelector('.field-error[data-for="' + field.name + '"]');
+          if (!errEl) return;
+          var val = (field.value || "").trim();
+          if (!val) {
+            errEl.textContent = "Required";
+            field.classList.add("error");
+          } else if (field.type === "email" && val.indexOf("@") === -1) {
+            errEl.textContent = "Invalid email";
+            field.classList.add("error");
+          } else {
+            errEl.textContent = "";
+            field.classList.remove("error");
+          }
+        });
+        field.addEventListener("input", function() {
+          var errEl = form.querySelector('.field-error[data-for="' + field.name + '"]');
+          if (errEl && errEl.textContent) {
+            var val = (field.value || "").trim();
+            if (val && (field.type !== "email" || val.indexOf("@") >= 0)) {
+              errEl.textContent = "";
+              field.classList.remove("error");
+            }
+          }
+        });
+      });
+
+      /* ---- Submit ---- */
+      form.addEventListener("submit", function(e) {
+        e.preventDefault();
+        var fd = new FormData(form);
+
+        var firstName = (fd.get("firstName") || "").trim();
+        var lastName = (fd.get("lastName") || "").trim();
+        var email = (fd.get("email") || "").trim();
+        var phone = (fd.get("phone") || "").trim();
+        var university = fd.get("university") || "";
+        var major = fd.get("major") || "";
+        var gradDate = fd.get("graduationDate") || "";
+
+        /* Validate required */
+        var valid = true;
+        var fields = [
+          { name: "firstName", val: firstName },
+          { name: "lastName", val: lastName },
+          { name: "email", val: email },
+          { name: "university", val: university },
+          { name: "major", val: major },
+          { name: "graduationDate", val: gradDate }
+        ];
+
+        fields.forEach(function(f) {
+          var errEl = form.querySelector('.field-error[data-for="' + f.name + '"]');
+          var input = form.querySelector('[name="' + f.name + '"]');
+          if (!f.val) {
+            if (errEl) errEl.textContent = "Required";
+            if (input) input.classList.add("error");
+            valid = false;
+          } else if (f.name === "email" && f.val.indexOf("@") === -1) {
+            if (errEl) errEl.textContent = "Invalid email";
+            if (input) input.classList.add("error");
+            valid = false;
+          }
+        });
+
+        if (!valid) return;
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Submitting...";
+
+        var resumeName = selectedFile ? selectedFile.name : "";
+
+        var appTIQ = (typeof window !== "undefined" && window.TIQ) ? window.TIQ : null;
+        var state = (appTIQ && appTIQ.state) ? appTIQ.state : loadState();
+        if (!state || !Array.isArray(state.candidates)) {
+          state = { candidates: [], activeRecruiterId: "", lastSelectedId: "" };
+        }
+        if (!state.activeRecruiterId) state.activeRecruiterId = "";
+
+        var newCandidate;
+        if (appTIQ && appTIQ.intake) {
+          newCandidate = appTIQ.intake.buildCandidate(
+            {
+              firstName: firstName,
+              lastName: lastName,
+              email: email,
+              phone: phone,
+              university: university,
+              major: major,
+              graduationDate: gradDate,
+              resumeName: resumeName
+            },
+            { state: state }
+          );
+        } else {
+          newCandidate = {
+            id: "TQ-" + (2500 + state.candidates.length),
+            firstName: firstName,
+            lastName: lastName,
+            email: email,
+            phone: phone,
+            university: university,
+            degreeProgram: "Bachelor of Science",
+            major: major,
+            graduationDate: gradDate,
+            gpa: "",
+            resumeUpload: resumeName,
+            function: "General",
+            workLocations: [],
+            workAuthorization: "",
+            skills: [],
+            keySkills: [],
+            areasDiscussed: [],
+            notes: "",
+            summary: "",
+            traceability: [],
+            accomplishments: [],
+            recordStatus: "New",
+            approvalStatus: "Pending",
+            approverId: "",
+            approvalTimestamp: "",
+            followUpRequestedBy: "",
+            followUpTimestamp: "",
+            lastUpdated: todayISO(),
+            created_at: nowISO(),
+            priority: "Medium",
+            attributes: [],
+            audioNotes: [],
+            auditLog: [
+              {
+                action: "CREATED",
+                recruiter_id: "",
+                timestamp: nowISO(),
+                time_to_complete: 0,
+                detail: "Candidate intake form submitted via QR scan"
+              }
+            ],
+            reviewTimeMs: 0,
+            noteEdits: 0
+          };
+        }
+
+        var id = newCandidate.id;
+        state.candidates.push(newCandidate);
+
+        if (appTIQ && appTIQ.saveState) appTIQ.saveState();
+        else saveState(state);
+
+        var finish = function(scanLine, scanOk) {
+          submittedId.textContent = id;
+          scanStatus.textContent = scanLine || "";
+          scanStatus.className = scanOk ? "success-scan" : "success-scan warn";
+          form.parentElement.classList.add("hidden");
+          successScreen.classList.add("visible");
+        };
+
+        var canScan = selectedFile && appTIQ && appTIQ.intake &&
+          appTIQ.intake.isParsableResume(selectedFile) &&
+          appTIQ.ai && appTIQ.ai.parseAndStoreResume;
+
+        if (!canScan) {
+          finish("", true);
+          return;
+        }
+
+        /* The success screen only appears AFTER the scan finishes (or times out),
+           so closing the tab early no longer silently skips the resume parse. */
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Scanning resume…";
+
+        var parsePromise;
+        try {
+          parsePromise = appTIQ.ai.parseAndStoreResume(newCandidate, selectedFile);
+        } catch (err) {
+          parsePromise = Promise.resolve(null);
+        }
+        var timeout = new Promise(function(resolve) {
+          setTimeout(function() { resolve(null); }, 20000);
+        });
+
+        Promise.race([parsePromise, timeout]).then(function(parsed) {
+          if (parsed) {
+            var skillCount = Array.isArray(parsed.skills) ? parsed.skills.length : 0;
+            finish(skillCount ? "Resume scanned — " + skillCount + " skill" + (skillCount === 1 ? "" : "s") + " detected." : "Resume scanned.", true);
+          } else {
+            finish("Your profile was saved, but your resume couldn't be scanned. Please show your PDF to the recruiter.", false);
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

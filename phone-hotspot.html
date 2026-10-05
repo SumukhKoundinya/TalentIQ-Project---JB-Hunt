@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TalentIQ — Phone access</title>
+  <style>
+    :root {
+      --yellow: #FEDB00;
+      --blue: #005DBA;
+      --black: #211F20;
+      --bg: #E8EEF5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--black);
+      background:
+        radial-gradient(ellipse 80% 50% at 10% 0%, rgba(254, 219, 0, 0.35), transparent 55%),
+        radial-gradient(ellipse 70% 45% at 100% 10%, rgba(0, 93, 186, 0.18), transparent 50%),
+        var(--bg);
+      padding: 2.5rem 1.25rem 3rem;
+    }
+    main {
+      max-width: 34rem;
+      margin: 0 auto;
+    }
+    .brand {
+      font-size: 0.75rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--blue);
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-size: clamp(1.75rem, 5vw, 2.35rem);
+      line-height: 1.15;
+      margin: 0 0 0.75rem;
+      font-weight: 800;
+    }
+    p.lead {
+      margin: 0 0 1.75rem;
+      font-size: 1.05rem;
+      line-height: 1.45;
+      opacity: 0.85;
+    }
+    ol {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: step;
+      display: grid;
+      gap: 0.85rem;
+    }
+    li {
+      counter-increment: step;
+      display: grid;
+      grid-template-columns: 2.25rem 1fr;
+      gap: 0.85rem;
+      align-items: start;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(33, 31, 32, 0.08);
+      border-radius: 14px;
+      padding: 1rem 1.1rem;
+    }
+    li::before {
+      content: counter(step);
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 999px;
+      background: var(--yellow);
+      color: var(--black);
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    li strong { display: block; margin-bottom: 0.2rem; }
+    li span { font-size: 0.95rem; line-height: 1.4; opacity: 0.88; }
+    .status {
+      margin-top: 1.75rem;
+      padding: 1.1rem 1.2rem;
+      border-radius: 14px;
+      background: var(--black);
+      color: #fff;
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 0.92rem;
+      line-height: 1.5;
+      word-break: break-all;
+    }
+    .status .ok { color: var(--yellow); }
+    .hint {
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand">TalentIQ · J.B. Hunt</div>
+    <h1>Campus Wi‑Fi blocks your phone</h1>
+    <p class="lead">
+      This network isolates devices and blocks tunnels. Use your phone’s hotspot so the Mac and phone can talk.
+    </p>
+    <ol>
+      <li>
+        <div>
+          <strong>On your iPhone</strong>
+          <span>Settings → Personal Hotspot → Allow Others to Join → On</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>On this Mac</strong>
+          <span>Join that hotspot (Wi‑Fi menu). Leave this page open.</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Open the URL on your phone</strong>
+          <span>This page refreshes with the working link and a QR once the Mac is on the hotspot.</span>
+        </div>
+      </li>
+    </ol>
+    <div class="status" id="status">Waiting for hotspot IP…</div>
+    <p class="hint">Server is already running on port 8000. Keep this Mac awake.</p>
+    <div id="qr" style="margin-top:1.25rem;display:none;text-align:center"></div>
+  </main>
+  <script>
+    async function poll() {
+      try {
+        const r = await fetch("/phone-ip.json?t=" + Date.now(), { cache: "no-store" });
+        if (!r.ok) throw new Error("no json");
+        const data = await r.json();
+        const el = document.getElementById("status");
+        const qr = document.getElementById("qr");
+        if (data.hotspot && data.url) {
+          el.innerHTML = '<span class="ok">Ready — open on your phone:</span><br>' + data.url;
+          qr.style.display = "block";
+          qr.innerHTML = '<img alt="QR" width="240" height="240" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=' + encodeURIComponent(data.url) + '" />';
+        } else if (data.url) {
+          el.innerHTML = "Still on campus Wi‑Fi (" + data.ip + "). Join the phone hotspot.<br>Current LAN URL (likely blocked): " + data.url;
+          qr.style.display = "none";
+        } else {
+          el.textContent = "No Wi‑Fi IP yet. Join the phone hotspot.";
+          qr.style.display = "none";
+        }
+      } catch (e) {
+        document.getElementById("status").textContent = "Waiting for hotspot IP…";
+      }
+    }
+    poll();
+    setInterval(poll, 2000);
+  </script>
+</body>
+</html>
