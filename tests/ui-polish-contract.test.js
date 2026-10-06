@@ -15,6 +15,8 @@ assert.strictEqual((kiosk.match(/Scan to Submit Profile/g) || []).length, 0, 'Bo
 assert.strictEqual((kiosk.match(/Scan the QR code/g) || []).length, 1, 'Booth Setup presents the scan instruction once in the candidate steps');
 assert(kiosk.includes('Edit event details') && kiosk.includes('Edit booth QR and intake settings'), 'Booth Setup edit actions are explicitly labelled');
 assert(capture.includes('Mark as reviewed') && capture.includes('Request follow-up'), 'Capture triage controls state what each action does');
+assert(/\.capture-triage--review\s*\{[^}]*background:\s*var\(--ink-muted\)/s.test(css), 'Mark as reviewed uses a neutral grey background');
+assert(!/#view-capture\s+\.capture-triage--review\s*\{[^}]*background:\s*var\(--brand\)/s.test(css), 'Capture-specific overrides do not restore the blue review button');
 assert.strictEqual((capture.match(/data-drawer-tab=/g) || []).length, 2, 'Capture has exactly two evidence tabs');
 assert(capture.includes('data-drawer-tab="resume"') && capture.includes('data-drawer-tab="notes"') && !capture.includes('data-drawer-tab="voice"'), 'Capture tabs are Resume and Notes');
 const notesPanel = capture.slice(capture.indexOf('data-drawer-panel="notes"'), capture.indexOf("'</div>' +", capture.indexOf('data-drawer-panel="notes"')));

@@ -5,6 +5,7 @@ All notable changes to TalentIQ will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- Changed the Capture “Mark as reviewed” button to neutral grey and bumped the stylesheet cache key (`styles.css`, `index.html`).
 - Tightened Set Up spacing while keeping the side-by-side desktop layout: 32px poster inset, 40px column gap, 280px on-screen QR in a white quiet zone, larger print QR, compact 120px footer logo, and corrected 1–3 step badges (`styles.css`, `index.html`, `tests/booth-setup.test.js`).
 - Reworked Set Up as a printable event poster with editable event details in the top-right header, numbered candidate instructions, a footer brand mark, and Copy link before Print poster (`views.js`, `styles.css`, `index.html`, `tests/booth-setup.test.js`).
 
