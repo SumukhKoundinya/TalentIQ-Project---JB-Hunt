@@ -165,6 +165,23 @@ TIQ.renderCitationList = function(traceability) {
   }).join('') + '</div>';
 };
 
+/* Accessible tabs with a sliding active indicator. Panels are rendered by the
+   owning view and linked through the stable ids emitted here. */
+TIQ.renderTabs = function(groupId, tabs, activeIndex) {
+  tabs = Array.isArray(tabs) ? tabs : [];
+  if (!tabs.length) return "";
+  var active = Math.max(0, Math.min(Number(activeIndex) || 0, tabs.length - 1));
+  var prefix = String(groupId || "tabs");
+  return '<div class="tabs" role="tablist" aria-label="' + TIQ.escapeAttr(prefix) + ' sections" data-tab-group="' + TIQ.escapeAttr(prefix) + '" style="--tab-count:' + tabs.length + '">' +
+    tabs.map(function(tab, index) {
+      var id = prefix + '-tab-' + tab.id;
+      var panelId = prefix + '-tabpanel-' + tab.id;
+      return '<button type="button" class="tabs__tab' + (index === active ? ' is-active' : '') + '" role="tab" id="' + TIQ.escapeAttr(id) + '" aria-controls="' + TIQ.escapeAttr(panelId) + '" aria-selected="' + (index === active ? 'true' : 'false') + '" tabindex="' + (index === active ? '0' : '-1') + '" data-tab-index="' + index + '" data-tab-id="' + TIQ.escapeAttr(tab.id) + '">' + TIQ.escapeHtml(tab.label) + '</button>';
+    }).join('') +
+    '<span class="tabs__indicator" aria-hidden="true" style="--tab-index:' + active + '"></span>' +
+  '</div>';
+};
+
 TIQ.renderMetricsCards = function(metrics) {
   metrics = metrics || [];
   return '<div class="metrics-grid">' + metrics.map(function(metric) {

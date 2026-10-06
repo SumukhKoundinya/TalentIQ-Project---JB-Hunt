@@ -44,7 +44,7 @@ function newFieldTests() {
   assert(viaIntake.resumeAddress === '' && viaIntake.links && typeof viaIntake.links === 'object', 'intake seeds the new resumeAddress and links fields');
 
   const noResume = TIQ.intake.buildCandidate({ firstName: 'A', lastName: 'B', email: 'a@b.c' });
-  assert(noResume.degreeProgram === TIQ.CONFIG.defaultDegreeProgram, 'intake still assumes a default degree when there is no resume to scan');
+  assert(noResume.degreeProgram === '', 'intake leaves an unspecified degree empty even without a resume');
 
   const c = viaIntake;
   TIQ.ai.applyParsedData(c, rich);

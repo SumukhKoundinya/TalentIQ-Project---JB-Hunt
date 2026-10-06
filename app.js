@@ -17,7 +17,12 @@ TIQ.router = {
     });
 
     var title = document.getElementById("pageTitle");
-    if (title) title.textContent = route.title;
+    if (title) title.textContent = viewName === "kiosk" ? "Set Up" : route.title;
+    var recruiterLabel = document.querySelector(".recruiter-label");
+    var recruiterSelect = document.getElementById("recruiterSelect");
+    var recruiterPrompt = viewName === "kiosk" ? "Logged in as" : "Active recruiter";
+    if (recruiterLabel) recruiterLabel.textContent = recruiterPrompt;
+    if (recruiterSelect) recruiterSelect.setAttribute("aria-label", recruiterPrompt);
     var container = document.getElementById("viewContainer");
     var searchWrap = document.getElementById("globalSearchWrap");
     if (!container) return;
@@ -66,7 +71,8 @@ TIQ.router = {
 };
 
 TIQ.app = {
-  init: function() {
+  init: async function() {
+    if (TIQ.prepareFictionalDemo) await TIQ.prepareFictionalDemo();
     TIQ.initWorkflow();
     // Update sidebar event info
     var sidebarEvent = document.getElementById("sidebarEventName");
@@ -117,6 +123,7 @@ TIQ.app = {
     // Escape key closes modal
     document.addEventListener("keydown", function(e) {
       if (e.key === "Escape" && modal && !modal.hidden) modal.hidden = true;
+      if (document.getElementById("demoLogin")) return;
 
       // Global keyboard shortcuts (ignore if inside input/textarea/select)
       var tag = e.target.tagName;
@@ -145,11 +152,33 @@ TIQ.app = {
     var newBtn = document.querySelector(".create-button");
     if (newBtn) newBtn.addEventListener("click", function() { TIQ.router.navigateTo("capture"); });
 
-    // Navigate to initial view
-    TIQ.router.navigateTo(TIQ.CONFIG.defaultView);
+    // Start with a local, demo-only recruiter chooser. This is not authentication.
+    var candidateId = new URLSearchParams(window.location.search).get('candidate');
+    var found = candidateId && TIQ.views.selectCaptureCandidate(candidateId);
+    var loginRoot = document.getElementById("demoLoginRoot");
+    var appShell = document.querySelector(".app-shell");
+    var skipLink = document.querySelector(".skip-link");
+    if (loginRoot) {
+      loginRoot.innerHTML = TIQ.views.renderDemoLogin();
+      if (appShell) appShell.hidden = true;
+      if (skipLink) skipLink.hidden = true;
+      TIQ.views.initDemoLoginEvents(function(recruiterId) {
+        TIQ.state.activeRecruiterId = recruiterId;
+        if (sel) sel.value = recruiterId;
+        TIQ.saveState();
+        loginRoot.innerHTML = "";
+        if (appShell) appShell.hidden = false;
+        if (skipLink) skipLink.hidden = false;
+        TIQ.router.navigateTo(found ? 'capture' : 'kiosk');
+        if (candidateId && !found) TIQ.showToast('This profile is not saved in this browser at this address. Import its submission JSON or submit here first.');
+      });
+    }
   }
 };
 
 document.addEventListener("DOMContentLoaded", function() {
-  TIQ.app.init();
+  TIQ.app.init().catch(function(error) {
+    console.error('[TalentIQ] Previous data cleanup failed:',error);
+    document.getElementById('viewContainer').textContent='Previous data cleanup could not finish. Close other TalentIQ tabs and reload to retry.';
+  });
 });

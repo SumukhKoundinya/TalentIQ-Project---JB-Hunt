@@ -157,10 +157,10 @@ function main() {
   /* ---- full card assembly ---- */
   const cardHtml = TIQ.views._buildCardHtml(scanned, true);
   const order = [
-    'resume-bar',
     'card-header',
     'skills-block',
-    'conversation-band'
+    'resume-highlights',
+    'capture-card-footer'
   ];
   let lastIdx = -1;
   let ordered = true;
@@ -169,7 +169,7 @@ function main() {
     if (i < 0 || i < lastIdx) ordered = false;
     lastIdx = Math.max(lastIdx, i);
   });
-  assert(ordered, 'card is ordered: resume bar, header, skills, conversation');
+  assert(ordered, 'card is ordered: identity, skills, scrollable resume highlights, actions');
 
   const noResumeCard = TIQ.views._buildCardHtml(baseCandidate({ resumeUpload: null }), true);
   assert(noResumeCard.indexOf('resume-bar') === -1, 'a card with no resume renders no resume bar');
@@ -178,19 +178,17 @@ function main() {
   assert(cardHtml.indexOf('meta-strip') === -1 && cardHtml.indexOf('POSITIONS') === -1, 'old count-only meta strip is gone');
   assert(cardHtml.indexOf('header-resume-btn') === -1, 'header no longer carries a jump-to-resume button');
   assert(cardHtml.indexOf('candidate-status') === -1, 'card header no longer carries a scan status badge');
-  assert(cardHtml.indexOf('Grounded Highlights') >= 0, 'conversation band keeps the grounded highlights');
+  assert(cardHtml.indexOf('Resume Highlights') >= 0, 'card keeps source-backed resume highlights');
   assert(cardHtml.indexOf('FROM THE CONVERSATION') === -1, 'conversation band drops the outer source label');
   assert(cardHtml.indexOf('highlights-box') === -1, 'conversation highlights no longer sit inside the extra wrapper');
-  assert(cardHtml.indexOf('source-tag') >= 0, 'highlight evidence has a source tag');
+  assert(cardHtml.includes('role="region" tabindex="0" aria-label="Resume highlights"'), 'highlight evidence remains in a named keyboard-scrollable region');
   assert(cardHtml.indexOf('alert-banner__summary') >= 0, 'alert banner collapses into a footer summary');
 
-  /* ---- the band renders in the capture right column, above the drawer ---- */
+  /* ---- candidate records remain in the capture right column ---- */
   const captureHtml = TIQ.views.renderRecruiterCapture();
   const colRightIdx = captureHtml.indexOf('capture-col-right');
-  const bandIdx = captureHtml.indexOf('resume-band');
-  const drawerIdx = captureHtml.indexOf('capture-panel--drawer');
-  assert(colRightIdx >= 0 && bandIdx > colRightIdx, 'resume band renders inside the capture right column');
-  assert(bandIdx < drawerIdx, 'resume band sits above the drawer panel');
+  const recordsIdx = captureHtml.indexOf('capture-evidence-toolbar');
+  assert(colRightIdx >= 0 && recordsIdx > colRightIdx, 'candidate records render inside the capture right column');
   assert(captureHtml.indexOf('capture-stack') < colRightIdx, 'card stack stays in the left column');
   assert(captureHtml.indexOf('capture-panel--intake') === -1, 'the Resume Intake panel is gone from the right column');
 

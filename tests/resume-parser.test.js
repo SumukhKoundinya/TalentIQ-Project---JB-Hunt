@@ -1,4 +1,5 @@
 const { loadApp, assert } = require('./harness');
+const fs = require('node:fs');
 
 const RESUME = `
 Sofia Rodriguez
@@ -63,8 +64,10 @@ Computational Thinking.
 Technical: Proficient in Java, Python, HTML, CSS, JavaScript.
 `;
 
+const wordCount = text => String(text || '').trim().split(/\s+/).length;
+
 function main() {
-  const TIQ = loadApp();
+  const TIQ = loadApp(['components.js', 'skill-icons.js', 'views.js']);
   const parsed = TIQ.ai.extractResumeData(RESUME);
   const c = parsed.contact;
 
@@ -85,7 +88,7 @@ function main() {
   assert(real.contact.firstName === 'Nirmay' && real.contact.lastName === 'Sharma', 'real resume extracts name');
   assert(real.experience.length >= 1, 'real resume extracts experience entries');
   assert(!real.experience.some(function (e) { return e.dates && e.title === e.dates; }), 'a bare date line never becomes an entry title');
-  const ta = real.experience.filter(function (e) { return e.title === 'Teaching Assistant'; })[0];
+  const ta = real.experience.filter(function (e) { return e.title.indexOf('Teaching Assistant') === 0; })[0];
   assert(ta && ta.duration && ta.duration.isCurrent === true, 'a date line on its own row attaches to the entry above it');
   assert(real.projects.length >= 1, 'real resume extracts projects');
   assert(real.certifications.length >= 2, 'real resume extracts certifications');
@@ -108,6 +111,135 @@ function main() {
     'the highlights include a leadership claim');
   assert(new Set(accs.map(function(a) { return a.text; })).size === accs.length,
     'the three highlights are distinct claims');
+
+  const wrappedProjectText = [
+    'PROJECTS',
+    'Freight Performance Dashboard | Supply Chain Analytics Capstone',
+    '• Analyzed 12,000 simulated shipment records using SQL and Power BI to compare on-time delivery, cost per',
+    'mile, and carrier performance.',
+    '• Identified five lanes with recurring delays and proposed scheduling changes projected to lower late deliveries by 15%.',
+    'SKILLS',
+    'SQL, Power BI'
+  ].join('\n');
+  const wrappedProject = TIQ.ai.extractResumeData(wrappedProjectText);
+  assert(wrappedProject.projects.length === 1, 'a lowercase PDF line-wrap does not create a phantom project');
+  assert(wrappedProject.projects[0].description.includes('cost per mile, and carrier performance.'),
+    'a wrapped project sentence is rejoined without losing its continuation');
+  const projectWorkResume = TIQ.ai.extractResumeData([
+    'PROFESSIONAL EXPERIENCE',
+    'Operations Analyst — Delta Distribution Group — Memphis, TN',
+    '2023–2025',
+    '• Reduced order backlog by 20% across regional accounts.',
+    'PROJECT WORK',
+    'Freight Performance Dashboard | Supply Chain Analytics Capstone',
+    '• Analyzed 12,000 simulated shipment records using SQL and Power BI.',
+    'Identified five lanes with recurring delays and proposed scheduling changes projected to lower late deliveries by 15%.'
+  ].join('\n'));
+  assert(projectWorkResume.experience.length === 1 && projectWorkResume.experience[0].title === 'Operations Analyst',
+    'PROJECT WORK ends the preceding professional experience section');
+  assert(projectWorkResume.experience[0].company === 'Delta Distribution Group' && projectWorkResume.experience[0].location === 'Memphis, TN',
+    'a three-part em-dash role header separates employer and location');
+  assert(projectWorkResume.projects.length === 1 && projectWorkResume.projects[0].name === 'Freight Performance Dashboard',
+    'PROJECT WORK is parsed as a project section, not a phantom role');
+  assert(/Identified five lanes/.test(projectWorkResume.projects[0].description),
+    'unbulleted source actions after the project title stay attached to that project');
+  const wrappedCandidate = TIQ.intake.buildCandidate({firstName:'Alex', lastName:'Morgan'});
+  wrappedCandidate.parsedResume = Object.assign({}, wrappedProject, {projects:[
+    {name:'Freight Performance Dashboard',description:'Supply Chain Analytics Capstone • Analyzed 12,000 simulated shipment records using SQL and Power BI to compare on-time delivery, cost per'},
+    {name:'mile, and carrier performance.',description:'• Identified five lanes with recurring delays and proposed scheduling changes projected to lower late deliveries by 15%.'}
+  ]});
+  const projectHighlights = TIQ.views._captureVisualEntries(wrappedCandidate).filter(function(entry) { return entry.category === 'Project'; });
+  assert(projectHighlights.length === 1, 'the card shows one project instead of a duplicate continuation entry');
+  assert(projectHighlights[0].facts.some(fact => /12,000 simulated shipment records/.test(fact) && /Analyzed/.test(fact)),
+    'the concise wrapped highlight retains the source simulation qualifier');
+  assert(wrappedCandidate.parsedResume.rawText.includes('cost per\nmile, and carrier performance.'),
+    'complete wrapped source detail remains available in the parsed résumé evidence');
+
+  const alexResume = [
+    'ALEX MORGAN', 'EDUCATION', 'University of Arkansas', 'Bachelor of Science in Business Administration, Supply Chain Management', 'EXPERIENCE',
+    'Transportation Operations Intern | Ozark Freight Solutions | Springdale, AR',
+    'May 2025 - August 2025',
+    '• Tracked 50-70 daily shipments and updated delivery status in the transportation management system, escalating delays to dispatch and customer service.',
+    '• Built an Excel exception tracker that reduced weekly reporting preparation from 3 hours to 45 minutes.',
+    '• Reviewed 300 shipment records, identified recurring appointment errors, and helped reduce missing appointment details by 24%.',
+    '• Coordinated with drivers, warehouse staff, and customers to resolve scheduling changes and maintain accurate shipment documentation.',
+    'Customer Service Associate | Summit Outdoor Supply | Fayetteville, AR',
+    '• Assisted 40+ customers per shift with purchases, returns, and order questions.',
+    'PROJECTS',
+    'Freight Performance Dashboard | Supply Chain Analytics Capstone',
+    '• Analyzed 12,000 simulated shipment records using SQL and Power BI to compare on-time delivery, cost per mile, and carrier performance.',
+    '• Identified five lanes with recurring delays and proposed scheduling changes projected to lower late deliveries by 15%.',
+    'Warehouse Inventory Improvement | Operations Management Project',
+    '• Designed an ABC inventory analysis for a simulated warehouse with 800 SKUs, prioritizing cycle counts and reducing modeled stock discrepancies by 18%.',
+    'SKILLS AND LEADERSHIP',
+    'Technical: Excel, Power BI, SQL.',
+    'Leadership: Supply Chain Management Association event committee; coordinated three employer networking events serving 100+ students.'
+  ].join('\n');
+  const alexParsed = TIQ.ai.extractResumeData(alexResume);
+  assert(JSON.stringify(TIQ.views._selectCaptureFacts('Assisted 40+ customers per shift with purchases, returns, and order questions.', 2)) ===
+    JSON.stringify(['Assisted 40+ customers per shift.']), 'Customer Service contribution is narrowed to a complete supported claim');
+  assert(wordCount('Assisted 40+ customers per shift.') <= 10, 'Customer Service claim uses the exact plain-text word count');
+  assert(alexParsed.education[0].major === 'Supply Chain Management', 'the parser prefers the specific concentration after the general degree label');
+  assert(alexParsed.experience[0].title === 'Transportation Operations Intern', 'experience title keeps its leading words when employer metadata follows');
+  assert(alexParsed.experience[0].company === 'Ozark Freight Solutions', 'experience employer is separated from location metadata');
+  assert(alexParsed.experience[0].location === 'Springdale, AR', 'experience location is extracted from the source header');
+  const alex = TIQ.intake.buildCandidate({firstName:'Alex', lastName:'Morgan'});
+  alex.university = 'University of Arkansas'; alex.major = 'Business Administration';
+  alex.resumeUpload = {name:'alex.pdf', parsedAt:'2026-10-04'};
+  alex.parsedResume = alexParsed;
+  const alexEntries = TIQ.views._captureVisualEntries(alex);
+  const alexProjects = alexEntries.filter(function(entry) { return entry.category === 'Project'; });
+  const alexExperienceEntries = alexEntries.filter(function(entry) { return entry.category === 'Experience'; });
+  assert(alexExperienceEntries.length === 2, 'displayed experience count includes every supported parsed role');
+  assert(alexExperienceEntries.some(entry => entry.name === 'Customer Service Associate' && entry.facts.includes('Assisted 40+ customers per shift.')),
+    'Customer Service Associate remains visible with a concise source-backed contribution');
+  alexEntries.forEach(entry => entry.facts.forEach(fact => assert(wordCount(fact) <= 10,
+    'Capture fact stays within ten whitespace-separated words: ' + fact)));
+  assert(alexProjects.length === 2, 'the card keeps one entry for each distinct project');
+  alexProjects.forEach(function(entry) {
+    assert(new Set(entry.facts.map(function(fact) { return fact.toLowerCase().replace(/[.!?;]+$/, ''); })).size === entry.facts.length,
+      'project facts are deduplicated within ' + entry.name);
+  });
+  const freight = alexProjects.filter(function(entry) { return /Freight Performance Dashboard/.test(entry.name); })[0];
+  assert(freight && freight.facts.length === 2 && freight.facts.some(fact => /12,000 simulated shipment records/.test(fact)), 'Freight dashboard retains its distinct simulation and scheduling facts');
+  assert(freight.facts.some(fact => /proposed scheduling changes projected to lower late deliveries by 15%/i.test(fact)), 'projected results remain clearly proposed rather than achieved');
+  const leadership = alexEntries.filter(function(entry) { return entry.category === 'Leadership'; })[0];
+  assert(leadership && leadership.facts.some(function(fact) { return /three employer networking events serving 100\+ students/i.test(fact); }),
+    'the leadership highlight preserves its quantified event and student impact');
+  assert(leadership.facts.length === 1 && leadership.facts[0] === 'Coordinated three employer networking events serving 100+ students.',
+    'leadership shows the quantified event achievement, not the internship coordination bullet');
+  assert(!leadership.facts.some(function(fact) { return /drivers, warehouse staff, and customers/i.test(fact); }),
+    'internship coordination is not misattributed as leadership');
+  assert(alexEntries.filter(function(entry) { return entry.category === 'Leadership'; }).length === 1,
+    'source leadership details join into one leadership card item rather than duplicating the category');
+  const alexExperience = alexEntries.filter(function(entry) { return entry.category === 'Experience'; })[0];
+  assert(alexExperience.facts.length === 2, 'experience highlights select two complete source-backed bullets');
+  assert(alexExperience.facts.some(function(fact) { return /reduced weekly reporting preparation from 3 hours to 45 minutes\./i.test(fact); }),
+    'the selected experience facts retain the complete reporting-time result in a concise complete claim');
+  assert(alexExperience.facts.some(function(fact) { return /helped reduce missing appointment details by 24%\./i.test(fact); }),
+    'the other selected experience fact prioritizes a distinct supported improvement');
+  assert(!alexExperience.facts.some(function(fact) { return /Tracked 50-70 daily shipments/.test(fact); }),
+    'routine shipment volume does not displace stronger outcome evidence');
+  assert(alexExperience.name === 'Transportation Operations Intern' && alexExperience.organization === 'Ozark Freight Solutions' && alexExperience.location === 'Springdale, AR' && alexExperience.dates === 'May 2025 - August 2025',
+    'experience metadata is readable and keeps employer, location, and dates separate');
+  const alexHtml = TIQ.views._resumeHighlightsHtml(alex);
+  assert(alexHtml.includes('Transportation Operations Intern') && alexHtml.includes('Ozark Freight Solutions') && alexHtml.includes('Springdale, AR') && alexHtml.includes('May 2025 - August 2025'),
+    'candidate card renders the full role header, employer, location, and dates');
+  assert(alexHtml.includes('Experience · 2'), 'the experience group count matches the roles shown');
+  assert(alexProjects[0].facts.length === 2 && /12,000 simulated shipment records/.test(alexProjects[0].facts[0]) && /projected to lower late deliveries by 15%/.test(alexProjects[0].facts[1]),
+    'the freight project keeps concise distinct facts and qualifiers');
+  assert(alexProjects[1].facts.length === 1 && /simulated warehouse/.test(alexProjects[1].facts[0]) && /modeled stock discrepancies by 18%/i.test(alexProjects[1].facts[0]),
+    'the inventory project retains its source-backed outcome and modeled qualifier');
+  assert((TIQ.views._resumeHighlightsHtml(alex).match(/resume-highlights__category[^>]*>Projects · 2</g) || []).length === 1,
+    'the card uses one Projects group heading rather than repeating it per project');
+  const alexCard = TIQ.views._buildCardHtml(alex, true);
+  assert(alexCard.includes('Projects · 2'), 'the shared Projects heading shows the project count once');
+  assert(alexCard.includes('University of Arkansas &middot; Business Administration'),
+    'a recruiter-entered major remains authoritative over a different parsed major');
+  assert(alexHtml.includes('Ozark Freight Solutions · Springdale, AR') && /May 2025 - August 2025/.test(alexHtml),
+    'internship subtitle shows employer and location, with dates separately');
+  assert(alexCard.replace(/<[^>]+>/g, '').includes('three employer networking events serving 100+') && /overflow-y:\s*auto/.test(fs.readFileSync('styles.css','utf8')),
+    'all leadership evidence remains reachable in the scrollable highlights area');
 
   /* ---- work authorization ---- */
   assert(TIQ.ai._extractWorkAuthorization('U.S. Citizen. Eligible to work in the US.') === 'US Citizen', 'work auth: U.S. Citizen');
@@ -176,6 +308,9 @@ function main() {
   const splitCert = TIQ.ai.extractResumeData('Certifications/Training: Microsoft Office Specialist (Excel, PowerPoint, Word); IT Specialist in\nComputational Thinking.\nSKILLS \nPython \n');
   assert(splitCert.certifications.indexOf('IT Specialist in Computational Thinking.') !== -1, 'certs: an entry broken by a pdf EOL is continued onto the next line');
   assert(splitCert.certifications.indexOf('Microsoft Office Specialist (Excel, PowerPoint, Word)') !== -1, 'certs: the intact preceding entry is untouched');
+
+  const providerCert = TIQ.ai.extractResumeData('CERTIFICATIONS\nAWS Certified Cloud Practitioner\nSKILLS\nPython');
+  assert(Array.from(providerCert.certifications).join('|') === 'AWS Certified Cloud Practitioner', 'provider-prefixed credentials are not duplicated by the generic Certified pattern');
 
   /* ---- address institution guard ---- */
   assert(TIQ.ai._extractAddress('Bentonville High School   Bentonville, AR') === 'Bentonville, AR', 'address: a school name in the header never becomes the city');

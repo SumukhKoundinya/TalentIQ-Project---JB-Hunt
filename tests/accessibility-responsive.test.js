@@ -38,3 +38,5 @@ assert(/@media \(max-width: 480px\)[\s\S]*\.kiosk-col-left[\s\S]*max-width:\s*10
 assert(/\.breadcrumb-link[\s\S]*color:\s*#334155/.test(styles), 'breadcrumb text uses contrast-safe color');
 assert(/\.recruiter-label[\s\S]*color:\s*#334155/.test(styles), 'recruiter label uses contrast-safe color');
 assert(/<h2 class="candidate-name">/.test(views), 'capture card candidate name does not skip heading levels');
+assert(/\.kiosk-workspace\s*{[^}]*width:\s*100%[^}]*max-width:\s*none/s.test(styles), 'Booth Setup uses the available page width on large screens');
+assert(/<canvas[^>]*id="kiosk-qr-canvas"[^>]*role="img"[^>]*aria-label="QR code for candidate profile"/.test(views), 'Booth Setup QR canvas has an accessible name');

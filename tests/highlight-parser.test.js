@@ -95,11 +95,27 @@ function main() {
   };
   assert(TIQ.highlightsAreStale(freshC) === false, 'a verbatim quote from the resume is not stale');
 
+  const overlongStored = {
+    parsedResume: { rawText: REAL_RESUME },
+    accomplishments: [{ text: 'Developed "CropIntel AR," an web application designed to assist in agricultural monitoring and data visualization of rice, soybeans, and cotton across 6 Arkansas counties', source: 'resume' }]
+  };
+  assert(TIQ.highlightsAreStale(overlongStored) === true, 'a generated resume highlight over the word limit is stale even when source-backed');
+
   const convC = {
     parsedResume: { rawText: REAL_RESUME },
     accomplishments: [{ text: 'something the recruiter heard', source: 'conversation' }]
   };
   assert(TIQ.highlightsAreStale(convC) === false, 'conversation highlights are exempt from the check');
+
+  const correctedAndStale = TIQ.normalizeCandidate({
+    parsedResume: TIQ.ai.extractResumeData(REAL_RESUME),
+    accomplishments: [
+      { text: 'Developed a web application designed to assist in agricultural monitoring and data visualization of rice, soybeans, and cotton across 6 Arkansas counties.', source: 'resume' },
+      { text: 'Recruiter correction: candidate contributed to the deployment.', source: 'conversation', reviewed: true }
+    ]
+  });
+  assert(correctedAndStale.accomplishments.some(function(a) { return a.text === 'Recruiter correction: candidate contributed to the deployment.'; }),
+    'regenerating stale resume highlights preserves recruiter-owned corrections');
 
   const rebuilt = TIQ.normalizeCandidate({
     parsedResume: TIQ.ai.extractResumeData(REAL_RESUME),

@@ -4,23 +4,7 @@ All notable changes to TalentIQ will be documented in this file.
 
 ## [Unreleased]
 
-### Changed
-- Tightened Set Up spacing while keeping the side-by-side desktop layout: 32px poster inset, 40px column gap, 280px on-screen QR in a white quiet zone, larger print QR, compact 120px footer logo, and corrected 1–3 step badges (`styles.css`, `index.html`, `tests/booth-setup.test.js`).
-- Reworked Set Up as a printable event poster with editable event details in the top-right header, numbered candidate instructions, a footer brand mark, and Copy link before Print poster (`views.js`, `styles.css`, `index.html`, `tests/booth-setup.test.js`).
-
 ### Added
-- Revised Set Up for candidate check-in: event name leads the booth card, concise instructions and separate J.B. Hunt branding replace metadata, and an enlarged QR remains paired with Print/Copy (`views.js`, `styles.css`, `index.html`, `tests/booth-setup.test.js`).
-- Refined Set Up to match the requested layout: Check In matches the event title size, the Open Capture button is removed, and the logo spans the instructions card while retaining its aspect ratio (`views.js`, `styles.css`, `tests/booth-setup.test.js`).
-- Combined the Event Booth details and candidate instructions into one dark booth card, sized the card/logo column to align with the QR, and stack the layout at narrower widths (`views.js`, `styles.css`, `tests/booth-setup.test.js`).
-- TalentIQ now opens on a demo-only recruiter chooser, then shows the redesigned Set Up screen with a prominent booth QR, event details, and an Open Capture action; the demo does not use real authentication or collect credentials, and the camera preview is omitted (`views.js`, `app.js`, `styles.css`, `index.html`, `tests/booth-setup.test.js`).
-- Capture résumé-backed claims use an underline only on existing bold metrics to open and highlight their uniquely mapped source passage in the existing Resume pane; claims without bold emphasis or reliable sources remain unlinked (`views.js`, `styles.css`, `tests/resume-evidence.test.js`).
-
-### Fixed
-- Capture résumé highlights retain every parsed experience role and summarize quantified `with …` clauses as complete, source-supported bullets within ten words; regression tests use the callable harness assertion API (`views.js`, `tests/resume-parser.test.js`).
-
-### Added
-- Booth Setup now fills the available desktop width, allows grid columns to shrink without overflow, and exposes the QR canvas with an accessible name (`styles.css`, `views.js`, `index.html`, `tests/accessibility-responsive.test.js`).
-- Capture spacing regression coverage and shared Resume/Voice/Notes padding; removed the redundant Evidence/file-action header, gently increased résumé section spacing and line-height, and styled Recruiter Notes without changing the approved card frame or animation (`views.js`, `styles.css`, `index.html`, `tests/capture-spacing.test.js`).
 - Capture-only source-fact regressions for title/tool contamination, fragments, ownership, qualifiers, inline awards, and shared presentation; cohesive outline icons, item metadata, distinct award callouts, quieter flags, and a centered résumé document with “Open original résumé” (`views.js`, `styles.css`, `index.html`, `tests/capture-polish.test.js`).
 - Seven explicitly fictional J.B. Hunt-relevant candidate cards with matching PDF résumés (`demo-candidates.js`, `demo-resumes/`, `scripts/generate-demo-resumes.py`, `tests/demo-candidates.test.js`).
 - Reference-style Capture presentation with source-owned one-fact-per-bullet highlights, decorative dotted leaders and counts, documented project-award priority, compact flags/swipe footer, and a single Evidence workspace with print-style résumé and accessible tabs; preserved stable frames, Voice/Notes, and current animation (`views.js`, `styles.css`, `index.html`, `tests/capture-visual.test.js`).
@@ -68,13 +52,7 @@ All notable changes to TalentIQ will be documented in this file.
 - `tests/resume-card.test.js`: resume state normalizer, provenance stamping, citation attribution, resume-bar states, band content/caps/expander, card section order, detail-panel Resume section, drawer Structured/Raw toggle
 
 ### Fixed
-- Capture highlights now select concise, source-backed accomplishment facts, prioritize measured outcomes over routine volume, emphasize complete metrics, and retain wrapped project/role details across varied résumé layouts (`data.js`, `views.js`, `tests/resume-highlight-summary.test.js`, `tests/resume-parser.test.js`).
-- Capture now joins safe wrapped leadership continuations before fact extraction and prioritizes quantified outcomes over routine volume, while preserving complete source bullets and recruiter-entered education corrections (`views.js`, `index.html`, `tests/candidate-card-fidelity.test.js`, `tests/resume-parser.test.js`).
-- Candidate-card highlights now use source-owned complete facts and independently parsed role metadata, group visible entries with accurate counts, preserve recruiter corrections, and remain keyboard-scrollable with actions reachable across screen sizes (`data.js`, `views.js`, `styles.css`, `index.html`, `tests/candidate-card-fidelity.test.js`).
-- Capture highlights now scroll within their card without hiding content; project count appears once, role metadata wraps into subtitle/date lines, and the dashboard summary and specific major are shown (`data.js`, `views.js`, `styles.css`, `index.html`, `tests/resume-parser.test.js`, `tests/capture-spacing.test.js`).
-- Capture now keeps experience and project highlights source-accurate and concise, parses role metadata without clipping, removes excess blank spacing, and improves the readability of card actions (`data.js`, `views.js`, `styles.css`, `index.html`, `tests/resume-parser.test.js`, `tests/capture-spacing.test.js`).
-- Capture project highlights now use bounded source facts once each, group consecutive projects under one heading, and retain quantified leadership achievements from labeled resume sections (`views.js`, `tests/resume-parser.test.js`).
-- Rejoined lowercase PDF soft-wrapped lines inside project descriptions instead of treating them as phantom project titles; Capture reparses saved raw resume text so existing cards recover the complete source sentence without requiring a re-upload (`data.js`, `views.js`, `index.html`, `tests/resume-parser.test.js`).
+- Booth "Copy QR link" no longer throws an uncaught clipboard rejection when the document is unfocused; it falls back to the legacy copy path and always confirms with a toast (`views.js`).
 - Capture content guards reject dates, locations, organizations, and awards as inferred tools; shorten source-backed project facts, preserve explicit award years without duplication, retain leadership accomplishments separately from role counts, and deduplicate Evidence dates/metadata (`views.js`, `tests/capture-content.test.js`).
 - Saved candidate submissions now offer “View my recruiter card,” opening the exact record without reordering the deck; upload progress clarifies that review and consent are required to create the card (`candidate-form.html`, `candidate-intake.js`, `app.js`, `views.js`, `index.html`).
 - Removed filename/demo/degree fallbacks from real candidate data; résumé replacement clears obsolete machine values and prevents late scans from overwriting newer uploads or other candidates, with varied-layout and failure regression tests (`data.js`, `views.js`, `index.html`, `tests/resume-flow.test.js`, `tests/resume-highlights.test.js`).
@@ -106,8 +84,7 @@ All notable changes to TalentIQ will be documented in this file.
 - Capture card no longer silently discards skills: anything hidden by the 3-group cap or the `methods` filter now appears on a trailing "ADDITIONAL SKILLS" row as a `+N` chip whose hover tooltip lists every leftover skill, while overflow inside a visible group still shows as that row's own `+N` (`views.js`)
 
 ### Changed
-- Standardized visible copy (including older saved resume text) on “resume”, enlarged/spaced capture-card highlights to use the available card height, removed the redundant Candidate records instruction row, and refreshed view/style cache keys (`views.js`, `candidate-intake.js`, `candidate-form.html`, `demo-candidates.js`, `styles.css`, `index.html`, tests).
-- Polished shared spacing, sidebar hierarchy and the Booth, Capture, Review and Results workflows with clearer action labels, better evidence navigation, and more scannable metric panels; combined Capture voice recording and recruiter notes in one Notes tab while preserving recording behavior (`views.js`, `styles.css`, `index.html`, tests).
+- Booth Setup rebuilt as a self-explanatory booth poster a recruiter can leave on screen: black masthead band (logo, event, date, location), large candidate-facing headline and QR framed in ink, a 3-step scan-to-recruiter sequence, visible form destination URL, and a quiet right rail with labelled controls (Copy QR link, Print poster, Open form, Edit event details / Edit form destination) replacing the cryptic corner ⓘ buttons; duplicated "Scan to Submit Profile" copy and the Mode row removed (`views.js`, `styles.css`)
 - Made the fictional candidate deck the main website’s default, with the user-authorized one-time removal of previous TalentIQ candidates, notes, recordings, metrics, and alternate demo storage; new data survives subsequent reloads and intake uses the same dataset (`demo-candidates.js`, `app.js`, `candidate-intake.js`, `index.html`, `candidate-form.html`).
 - AI Review detail now uses four accessible, persistent tabs; tab changes preserve draft edits, and the duplicate “Decision Hub” kicker is removed (`components.js`, `views.js`, `styles.css`, `index.html`)
 - Cache busters: `styles.css` to `?v=26`, `workflow.js` and `app.js` to `?v=21` (`index.html`)
@@ -163,7 +140,6 @@ All notable changes to TalentIQ will be documented in this file.
 - Accessible capture drawers with focus-visible + aria-selected (styles.css, views.js)
 
 ### Removed
-- Removed the capture-card “From resume” badge and Candidate records’ raw resume text disclosure and original-file link (`views.js`, tests).
 - **Capture-card header actions**: the scan-status pill (`NO RESUME` / `SCANNED` / `ON FILE` / `SCAN FAILED`) and the 📄 jump-to-resume button are gone — the header is now avatar + name/school/grad only, and `TIQ.views._resumeStateBadgeHtml` was deleted with them (`views.js`, `styles.css`)
 - **"No Resume Attached" card block**: the dashed `NO RESUME ATTACHED · Scan ▸` / "Form entries only — nothing verified" bar no longer renders — a candidate without a resume simply has no resume bar, so the header leads the card (`views.js`, `styles.css`)
 - **Resume Intake panel**: the right-column "Resume Intake" card (`Import Resumes (PDF)` / `Add Manually` + hidden file input) is gone along with its handlers; bulk import remains on the empty-state button and per-candidate scanning on the drawer dropzone (`views.js`, `styles.css`)

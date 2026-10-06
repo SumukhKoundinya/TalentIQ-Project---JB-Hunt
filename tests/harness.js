@@ -17,8 +17,7 @@ function makeStubs(overrides) {
   const FileReader = function() {
     this.readAsArrayBuffer = function(file) {
       var text = String((file && file.text) || '');
-      var buf = new Uint8Array(text.length);
-      for (var i = 0; i < text.length; i++) buf[i] = text.charCodeAt(i) & 0xff;
+      var buf = new TextEncoder().encode(text);
       this.result = buf;
       if (typeof this.onload === 'function') this.onload();
     };
