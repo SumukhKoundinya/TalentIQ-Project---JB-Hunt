@@ -10,9 +10,9 @@ TIQ.CONFIG = {
   company: "J.B. Hunt",
 
   // --- Event ---
-  eventName: "Logistics & Technology Fair 2026",
+  eventName: "HogHacks 2026",
   eventDate: "Sep 14, 2026",
-  eventLocation: "Nashville, TN",
+  eventLocation: "Bentonville, Arkansas",
 
   // --- Candidate ID Generation ---
   idPrefix: "TQ-",

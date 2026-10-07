@@ -5,6 +5,14 @@ All notable changes to TalentIQ will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- Centered Set Up’s event title and date/location group across the card while keeping the event info control at the far-right edge (`styles.css`, `index.html`, `tests/check-in-visual.cjs`).
+- Slightly darkened Set Up’s dotted footer leader and raised the inline branding by 24px on roomy desktops or 16px on shorter laptops, retaining bottom breathing room, existing type/QR/logo sizing, column alignment, and mobile spacing (`styles.css`, `index.html`, `tests/check-in-visual.cjs`).
+- Replaced Set Up’s padded, divided footer bar with an inline logo–dotted leader–motto row using 20px gaps, preserved responsive branding sizes and aspect ratio, and hid the decorative leader when branding stacks on narrow screens (`views.js`, `styles.css`, `index.html`, `tests/check-in-layout.test.js`, `tests/check-in-visual.cjs`).
+- Enlarged Set Up footer branding to a responsive 240–280px logo and 22–24px motto on roomy desktops, scaling down on smaller screens while preserving aspect ratio, centered alignment, shared side insets, and laptop-height fit (`styles.css`, `index.html`, `tests/check-in-visual.cjs`).
+- Polished Set Up’s event/check-in type hierarchy, enlarged footer branding by 45% with centered 16–18px motto and 20–22px padding, expanded sidebar event details, balanced instruction wrapping, and tightened QR actions while retaining painted-top alignment and laptop-height fit (`styles.css`, `index.html`, `tests/check-in-visual.cjs`).
+- Centered Set Up’s check-in instructions and large QR in an inset two-column group with a 64px gap, enlarged the copy, and aligned the painted heading/QR with the far-right info control using font metrics and QR pixels; added screenshot-pixel regression checks (`views.js`, `styles.css`, `index.html`, `tests/check-in-layout.test.js`, `tests/check-in-visual.cjs`).
+- Renamed the demo event to HogHacks 2026, retained the reference date/location, and refined Set Up’s responsive card, typography, QR/buttons, and top-aligned far-right info controls (`config.js`, `demo-candidates.js`, `views.js`, `styles.css`).
+- Enlarged Set Up check-in text and QR for roomy screens, aligned the visible pattern and lower info button with the heading, and removed vertical centering (`views.js`, `styles.css`).
 - Ignored the local-only `.openchamber/` and `skill-observations/` directories so they no longer show up as uncommitted changes (`.gitignore`).
 - Changed the Capture “Mark as reviewed” button to neutral grey and bumped the stylesheet cache key (`styles.css`, `index.html`).
 - Tightened Set Up spacing while keeping the side-by-side desktop layout: 32px poster inset, 40px column gap, 280px on-screen QR in a white quiet zone, larger print QR, compact 120px footer logo, and corrected 1–3 step badges (`styles.css`, `index.html`, `tests/booth-setup.test.js`).

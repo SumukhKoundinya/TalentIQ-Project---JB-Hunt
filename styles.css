@@ -251,7 +251,7 @@ a { color: inherit; text-decoration: none; }
 .brand-title { font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -0.04em; }
 .brand-subtitle { font-size: 12px; font-weight: 600; color: #F4F1D8; }
 
-.sidebar-nav { display: flex; flex-direction: column; gap: 6px; }
+.sidebar-nav { display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow-y: auto; }
 .sidebar-nav > .nav-label:nth-of-type(2) { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--sidebar-hairline); }
 .nav-label {
   font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.55); margin-bottom: 8px;
@@ -279,16 +279,19 @@ a { color: inherit; text-decoration: none; }
    lifted from 3.87:1 (rgba .4) to 5.9:1 (rgba .55) so they clear AA as text. */
 .sidebar-card {
   border-top: 1px solid var(--sidebar-hairline);
-  padding-top: 16px;
-  margin: auto 0 16px 0;
+  padding: 20px 0;
+  margin: auto 0 0;
+  flex-shrink: 0;
 }
 .sidebar-card__label { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.55); }
-.sidebar-card__event { font-size: 14px; font-weight: 600; color: #fff; margin-top: 6px; line-height: 1.4; }
-.sidebar-card__meta { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; font-weight: 500; color: #D1CECE; margin-top: 10px; }
+.sidebar-card__event { font-size: 17px; font-weight: 600; color: #fff; margin-top: 8px; line-height: 1.4; }
+.sidebar-card__meta { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; font-size: 14px; font-weight: 500; color: #D1CECE; margin-top: 10px; }
+.sidebar-card__meta .meta-divider { display: none; }
 .meta-divider { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
 
 .sidebar-footer {
   display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
   padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08);
 }
 
@@ -695,10 +698,14 @@ a { color: inherit; text-decoration: none; }
 
 /* Set Up poster follows the printable event handout wireframe. */
 .kiosk-poster {
-  width: min(100%, 1120px);
-  margin: 0 auto;
-  padding: 32px;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: clamp(24px, 2vw, 32px);
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   background: #fff;
   border: 1px solid var(--line-soft);
   border-radius: var(--radius-lg);
@@ -706,6 +713,7 @@ a { color: inherit; text-decoration: none; }
   color: var(--text);
 }
 .kiosk-poster__header {
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -713,37 +721,78 @@ a { color: inherit; text-decoration: none; }
   padding-bottom: 16px;
   border-bottom: 1px solid var(--line-soft);
 }
-.kiosk-poster__event { min-width: 0; }
+.kiosk-poster__event { flex: 1; min-width: 0; padding-inline: 60px; text-align: center; }
+.kiosk-poster .kiosk-poster__header .kiosk-info-btn { position: absolute; top: 0; right: 0; }
 .kiosk-poster__header .kiosk-event-card__title {
-  --kiosk-title-size: clamp(25px, 2.3vw, 34px);
+  --kiosk-title-size: clamp(40px, 3vw, 48px);
   margin: 0;
   padding: 0;
   color: var(--text);
   line-height: 1.2;
 }
-.kiosk-poster__metadata { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 8px; color: var(--text-soft); font-size: 15px; }
-.kiosk-poster__body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 40px; padding: 24px 0 0; }
-.kiosk-poster .kiosk-instructions { margin: 0; padding: 0; border: 0; }
-.kiosk-poster .kiosk-instructions__title { margin: 0 0 12px; color: var(--text); font-size: 24px; }
-.kiosk-instructions__intro { max-width: 420px; margin: 0 0 25px; color: var(--text-soft); font-size: 16px; line-height: 1.55; }
-.kiosk-poster .kiosk-instructions__steps { padding: 0; list-style: none; counter-reset: kiosk-step 0; gap: 12px; color: var(--text); font-size: 16px; }
-.kiosk-poster .kiosk-instructions__steps li { display: flex; align-items: center; gap: 14px; counter-increment: kiosk-step; }
-.kiosk-poster .kiosk-instructions__steps li::before { display: grid; flex: 0 0 38px; width: 38px; height: 38px; place-items: center; border-radius: 50%; background: var(--jbh-yellow-accent); color: #211f20; font-weight: 800; content: counter(kiosk-step); }
-.kiosk-poster .kiosk-qr-panel { padding: 0; border: 0; box-shadow: none; background: transparent; }
-.kiosk-poster .kiosk-qr-panel .kiosk-info-btn { position: absolute; top: 0; right: 0; }
-.kiosk-poster .kiosk-qr-panel { align-items: center; }
-.kiosk-poster .kiosk-qr-container { width: min(100%, 300px); margin: 0; padding: 10px; box-sizing: border-box; background: #fff; border: 0; }
-.kiosk-poster .kiosk-qr-container canvas { width: min(100%, 280px); max-width: 280px; aspect-ratio: 1; height: auto; }
-.kiosk-poster .kiosk-qr-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(100%, 300px); margin-top: 16px; }
-.kiosk-poster__footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line-soft); color: var(--text-soft); font-size: 12px; }
-.kiosk-poster .kiosk-brand-logo { width: 120px; height: auto; margin: 0; }
+.kiosk-poster__metadata { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 24px; margin-top: 8px; color: var(--text-soft); font-size: clamp(16px, 1.2vw, 18px); }
+.kiosk-poster__body { position: relative; flex: 1 1 auto; min-height: 0; width: 100%; padding: 40px 0 24px; }
+.kiosk-poster__columns { width: min(calc(100% - 112px), 1100px); margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); align-items: start; gap: 64px; }
+.kiosk-poster .kiosk-instructions { grid-column: 1; grid-row: 1; min-width: 0; margin: 0; padding: 0; border: 0; position: relative; top: calc(-1 * var(--kiosk-heading-ink-offset, 9px)); }
+.kiosk-poster .kiosk-instructions__title { margin: 0 0 16px; color: var(--text); font-size: clamp(32px, 2.4vw, 36px); line-height: 1.2; }
+.kiosk-instructions__intro { max-width: 100%; margin: 0 0 32px; color: var(--text-soft); font-size: clamp(22px, 1.65vw, 26px); line-height: 1.45; text-wrap: balance; }
+.kiosk-poster .kiosk-instructions__steps { padding: 0; list-style: none; counter-reset: kiosk-step 0; gap: clamp(20px, min(2vw, 2.8vh), 28px); color: var(--text); font-size: clamp(26px, 2vw, 30px); line-height: 1.4; }
+.kiosk-poster .kiosk-instructions__steps li { display: flex; align-items: center; gap: clamp(20px, min(2vw, 2.8vh), 28px); counter-increment: kiosk-step; }
+.kiosk-poster .kiosk-instructions__steps li::before { display: grid; flex: 0 0 clamp(48px, min(4vw, 6vh), 56px); width: clamp(48px, min(4vw, 6vh), 56px); height: clamp(48px, min(4vw, 6vh), 56px); place-items: center; border-radius: 50%; background: var(--jbh-yellow-accent); color: #211f20; font-weight: 800; content: counter(kiosk-step); }
+.kiosk-poster .kiosk-qr-panel { --kiosk-qr-frame: min(100%, 420px, max(180px, calc(100dvh - 508px))); position: relative; top: calc(-1 * var(--kiosk-qr-ink-offset, 34px)); display: flex; flex-direction: column; grid-column: 2; grid-row: 1; align-items: center; justify-content: flex-start; gap: 12px; width: 100%; height: max-content; min-height: 0; align-self: start; padding: 0; border: 0; box-shadow: none; background: transparent; }
+.kiosk-poster .kiosk-qr-container { width: var(--kiosk-qr-frame); aspect-ratio: 1; margin: 0; padding: 12px; box-sizing: border-box; background: #fff; border: 0; }
+.kiosk-poster .kiosk-qr-container canvas { display: block; width: 100%; height: 100%; max-width: none; aspect-ratio: 1; image-rendering: auto; }
+.kiosk-poster .kiosk-qr-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(100%, max(320px, calc(var(--kiosk-qr-frame) - 24px))); margin: 0; gap: 12px; }
+.kiosk-poster .kiosk-qr-actions .kiosk-action-btn { min-height: 48px; padding-inline: clamp(12px, 1.4vw, 20px); font-size: clamp(16px, 1.05vw, 18px); }
+.kiosk-poster__qr-info { position: absolute; top: 40px; right: 0; display: flex; justify-content: flex-end; height: 40px; margin: 0; }
+.kiosk-poster__qr-info .kiosk-info-btn { position: static; }
+.kiosk-poster__footer { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; padding: 0; border: 0; color: var(--text-soft); font-size: clamp(22px, 1.65vw, 24px); }
+.kiosk-poster .kiosk-brand-logo { flex-shrink: 0; width: clamp(240px, 18vw, 280px); max-width: 100%; height: auto; margin: 0; }
+.kiosk-poster__leader { flex: 1 1 0; min-width: 24px; border-bottom: 1px dotted var(--text-muted); opacity: .7; }
+.kiosk-poster__motto { flex-shrink: 0; }
 .kiosk-poster .kiosk-info-btn { position: static; flex: 0 0 40px; }
 
+@media (max-width: 1350px) {
+  .kiosk-poster .kiosk-brand-logo { width: clamp(174px, 16vw, 216px); }
+  .kiosk-poster__footer { font-size: clamp(18px, 1.5vw, 20px); }
+}
+
+@media (max-width: 1100px) {
+  .kiosk-poster__footer { margin-bottom: 0; }
+  .kiosk-poster { flex: 0 0 auto; min-height: auto; }
+  .kiosk-poster__body { flex: 0 0 auto; padding-top: 24px; }
+  .kiosk-poster__qr-info { top: 24px; }
+  .kiosk-poster__columns { width: 100%; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .kiosk-poster .kiosk-instructions { grid-column: 1; grid-row: auto; padding-right: 48px; }
+  .kiosk-poster .kiosk-qr-panel { --kiosk-qr-frame: min(100%, 300px); top: 0; grid-column: 1; grid-row: auto; margin-top: 0; gap: 12px; }
+  .kiosk-poster__header .kiosk-event-card__title { font-size: clamp(32px, 7.5vw, 36px); }
+  .kiosk-poster .kiosk-instructions__title { font-size: clamp(28px, 8vw, 32px); }
+  .kiosk-instructions__intro { margin-bottom: 20px; }
+  .kiosk-poster .kiosk-qr-container { height: auto; }
+  .kiosk-poster .kiosk-qr-container canvas { height: auto; }
+  .kiosk-poster .kiosk-qr-actions { margin-top: 0; }
+}
+
 @media (max-width: 760px) {
-  .kiosk-poster__body { grid-template-columns: minmax(0, 1fr); gap: 24px; }
-  .kiosk-poster__header .kiosk-event-card__title { font-size: 25px; }
-  .kiosk-poster .kiosk-qr-container, .kiosk-poster .kiosk-qr-actions { width: min(100%, 300px); }
-  .kiosk-poster__footer { align-items: flex-start; flex-direction: column; }
+  .kiosk-poster__footer { align-items: flex-start; flex-direction: column; gap: 16px; }
+  .kiosk-poster__leader { display: none; }
+}
+
+@media (max-height: 820px) and (min-width: 761px) {
+  .sidebar { padding-block: 20px; }
+  .brand { padding-bottom: 12px; }
+  .kiosk-poster { padding-block: 22px; }
+  .kiosk-poster__header { padding-bottom: 12px; }
+  .kiosk-poster__body { padding-bottom: 14px; }
+  .kiosk-poster__header .kiosk-event-card__title { --kiosk-title-size: 36px; }
+  .kiosk-poster .kiosk-instructions__title { font-size: clamp(32px, 2.4vw, 36px); margin-bottom: 8px; }
+  .kiosk-instructions__intro { font-size: 20px; margin-bottom: 16px; }
+  .kiosk-poster .kiosk-instructions__steps { gap: 18px; font-size: 22px; }
+  .kiosk-poster .kiosk-instructions__steps li::before { width: 48px; height: 48px; flex-basis: 48px; }
+}
+
+@media (max-height: 820px) and (min-width: 1101px) {
+  .kiosk-poster__footer { margin-bottom: 16px; }
 }
 
 /* Demo-only account chooser; intentionally unrelated to any real identity provider. */

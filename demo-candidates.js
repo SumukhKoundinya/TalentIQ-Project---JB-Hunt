@@ -215,7 +215,8 @@ FICTIONAL DEMO: all people, employers, accomplishments, and metrics in this resu
       var fixtureName=String(c.id || '').replace('JBH-DEMO-','')+'.pdf';
       if (c.isFictionalDemo && c.resumeUpload && typeof c.resumeUpload==='object' && c.resumeUpload.name===fixtureName) c.resumeUpload.sourceUrl='demo-resumes/'+fixtureName;
     });
-    TIQ.state.event.name='Fictional J.B. Hunt recruiting demo';
+    TIQ.state.event.name='HogHacks 2026';
+    TIQ.state.event.location='Bentonville, Arkansas';
     if (needsReset) {
       TIQ.saveState();
       localStorage.setItem(resetKey,datasetVersion);

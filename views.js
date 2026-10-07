@@ -160,13 +160,13 @@ TIQ.views.renderKiosk = function() {
         '<button type="button" class="kiosk-info-btn" id="kioskEditEvent" aria-label="Edit event details" title="Edit event details">' + TIQ.views._kioskInfoIcon + '</button>' +
       '</header>' +
       '<div class="kiosk-poster__body">' +
+        '<div class="kiosk-poster__columns">' +
         '<section class="kiosk-instructions" aria-labelledby="kioskInstructionsTitle">' +
           '<h2 class="kiosk-instructions__title" id="kioskInstructionsTitle">Candidate check-in</h2>' +
           '<p class="kiosk-instructions__intro">Scan to complete your profile before meeting a recruiter.</p>' +
           '<ol class="kiosk-instructions__steps"><li>Scan the QR code</li><li>Complete your profile</li><li>Meet a recruiter</li></ol>' +
         '</section>' +
         '<section class="kiosk-qr-panel" id="kioskQrPanel" aria-label="Candidate check-in QR code">' +
-          '<button type="button" class="kiosk-info-btn" id="kioskEditQr" aria-label="Edit booth QR and intake settings" title="Edit booth QR &amp; intake settings">' + TIQ.views._kioskInfoIcon + '</button>' +
           '<div class="kiosk-qr-container" id="kioskQrContainer">' +
             '<canvas id="kiosk-qr-canvas" width="200" height="200" role="img" aria-label="QR code for candidate profile"></canvas>' +
           '</div>' +
@@ -180,11 +180,39 @@ TIQ.views.renderKiosk = function() {
               'Print poster' +
             '</button>' +
           '</div>' +
-        '</section>' +
+        '</section></div>' +
+        '<div class="kiosk-poster__qr-info"><button type="button" class="kiosk-info-btn" id="kioskEditQr" aria-label="Edit booth QR and intake settings" title="Edit booth QR &amp; intake settings">' + TIQ.views._kioskInfoIcon + '</button></div>' +
       '</div>' +
-      '<footer class="kiosk-poster__footer"><img class="kiosk-brand-logo" src="' + TIQ.escapeAttr(cfg.logoPath) + '" alt="J.B. Hunt" /><span>People Moving America Forward℠</span></footer>' +
+      '<footer class="kiosk-poster__footer"><img class="kiosk-brand-logo" src="' + TIQ.escapeAttr(cfg.logoPath) + '" alt="J.B. Hunt" /><span class="kiosk-poster__leader" aria-hidden="true"></span><span class="kiosk-poster__motto">People Moving America Forward℠</span></footer>' +
     '</section>' +
   '</div>';
+};
+
+/* Align painted glyphs/modules, not their line boxes or white QR frame. */
+TIQ.views._alignKioskInk = function() {
+  var heading = document.getElementById('kioskInstructionsTitle');
+  var canvas = document.getElementById('kiosk-qr-canvas');
+  var body = document.querySelector('.kiosk-poster__body');
+  if (!heading || !canvas || !body) return;
+  var style = window.getComputedStyle(heading);
+  var context = document.createElement('canvas').getContext('2d');
+  context.font = style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily;
+  var metrics = context.measureText(heading.textContent);
+  var ascent = metrics.fontBoundingBoxAscent;
+  var descent = metrics.fontBoundingBoxDescent;
+  var inkOffset = (parseFloat(style.lineHeight) - ascent - descent) / 2 + ascent - metrics.actualBoundingBoxAscent;
+  if (Number.isFinite(inkOffset)) body.style.setProperty('--kiosk-heading-ink-offset', inkOffset + 'px');
+  var pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+  for (var y = 0; y < canvas.height; y++) {
+    for (var x = 0; x < canvas.width; x++) {
+      if (pixels[(y * canvas.width + x) * 4] < 128) {
+        var padding = parseFloat(window.getComputedStyle(canvas.parentElement).paddingTop);
+        var quietZone = y * canvas.getBoundingClientRect().height / canvas.height;
+        body.style.setProperty('--kiosk-qr-ink-offset', (padding + quietZone) + 'px');
+        return;
+      }
+    }
+  }
 };
 
 TIQ.views.initKioskForm = function() {
@@ -199,10 +227,16 @@ TIQ.views.initKioskForm = function() {
     var canvas = document.getElementById("kiosk-qr-canvas");
     if (!canvas) return;
     TIQ.qr.renderTo(url, canvas, { margin: 2 });
+    requestAnimationFrame(TIQ.views._alignKioskInk);
   };
   TIQ.views._kioskRenderQR = renderQR;
 
   renderQR();
+  if (document.fonts) document.fonts.ready.then(TIQ.views._alignKioskInk);
+  if (!TIQ.views._kioskInkResizeBound) {
+    window.addEventListener('resize', TIQ.views._alignKioskInk);
+    TIQ.views._kioskInkResizeBound = true;
+  }
 
   if (printBtn) {
     printBtn.addEventListener("click", function() { window.print(); });
