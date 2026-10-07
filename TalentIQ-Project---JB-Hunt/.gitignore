@@ -1,0 +1,24 @@
+# OS and editor artifacts
+.DS_Store
+Thumbs.db
+*.log
+
+# Dependency and local runtime folders
+node_modules/
+venv/
+venv 2/
+
+# Environment files
+.env
+.env.local
+
+# Temporary output
+*.tmp
+*.swp
+
+# PDFs and images (keep local)
+*.pdf
+JBHUNT_LOGO.png
+
+# Unrelated project files
+hydro_config.py

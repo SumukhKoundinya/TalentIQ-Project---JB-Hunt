@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="TalentIQ — J.B. Hunt career fair candidate capture and triage" />
+  <title>TalentIQ | J.B. Hunt</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" id="fontsLink" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <a class="brand-link" href="#" data-nav="overview" aria-label="TalentIQ home">
+          <div class="brand-logo-wrap">
+            <img src="JBHUNT_LOGO.png" alt="J.B. Hunt" class="brand-logo-img" />
+          </div>
+        </a>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Main navigation">
+        <div class="nav-label">Workspace</div>
+        <a class="nav-link active" href="#" data-nav="overview">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h8l4-8 3 14 2-6h4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          <span>Overview</span>
+        </a>
+        <a class="nav-link" href="#" data-nav="candidate-intake">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5h7l3 3h6v11H4z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          <span>Candidate Intake</span>
+        </a>
+        <a class="nav-link" href="#" data-nav="recruiter-capture">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 12h8M12 8v8" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          <span>Recruiter Capture</span>
+        </a>
+        <a class="nav-link" href="#" data-nav="ai-review">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 14s3-4 7-4 7 4 7 4-3 4-7 4-7-4-7-4z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="14" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          <span>AI Summary</span>
+        </a>
+        <a class="nav-link" href="#" data-nav="candidate-review">
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          <span>Review Dashboard</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-card">
+        <div class="sidebar-card__label">Event</div>
+        <div class="sidebar-card__event" id="sidebarEventName">Logistics & Technology Fair</div>
+        <div class="sidebar-card__meta">
+          <span class="meta-date" id="sidebarEventDate">Sep 14, 2026</span>
+          <span class="meta-divider"></span>
+          <span class="meta-location" id="sidebarEventLocation">Nashville, TN</span>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="icon-button" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" class="nav-icon" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7.5 0 10h12c3-2.5 0-3 0-10z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 21h4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          <span class="badge-dot"></span>
+        </button>
+        <button class="icon-button" aria-label="Settings">
+          <svg viewBox="0 0 24 24" class="nav-icon" aria-hidden="true"><path d="M12 3v3M12 18v3M4.7 4.7l2.1 2.1M17.1 17.1l2.1 2.1M3 12h3M18 12h3M4.7 19.3l2.1-2.1M17.1 6.9l2.1-2.1" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <section class="topbar">
+        <div class="topbar-left">
+          <div class="breadcrumb">
+            <span class="breadcrumb-link">J.B. Hunt</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-link">TalentIQ</span>
+          </div>
+          <h1 id="pageTitle">Event Overview</h1>
+        </div>
+        <div class="topbar-actions">
+          <label class="recruiter-picker" title="Active recruiter">
+            <span class="recruiter-label">Logged in as</span>
+            <select id="recruiterSelect" aria-label="Active recruiter">
+              <option value="">Select recruiter</option>
+            </select>
+          </label>
+          <div class="search-inline" id="globalSearchWrap">
+            <svg viewBox="0 0 24 24" class="search-icon" aria-hidden="true"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" fill="none" stroke="currentColor" stroke-width="2"/><path d="m21 21-4.2-4.2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            <input id="globalSearch" type="search" placeholder="Search candidates..." autocomplete="off" />
+          </div>
+        </div>
+      </section>
+
+      <div id="viewContainer"></div>
+    </main>
+  </div>
+
+  <div id="compareBar" class="compare-bar" hidden></div>
+
+  <div id="compareModal" class="compare-modal" hidden>
+    <div class="compare-modal__backdrop" data-compare-close></div>
+    <div class="compare-modal__dialog" role="dialog" aria-modal="true" aria-label="Candidate comparison">
+      <div class="compare-modal__head">
+        <div>
+          <span class="section-kicker">Candidate Comparison</span>
+          <h2>Side-by-Side</h2>
+        </div>
+        <button class="icon-button small-icon" data-compare-close aria-label="Close">Close</button>
+      </div>
+      <div class="compare-modal__body" id="compareBody"></div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="data.js"></script>
+  <script src="components.js"></script>
+  <script src="views.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
