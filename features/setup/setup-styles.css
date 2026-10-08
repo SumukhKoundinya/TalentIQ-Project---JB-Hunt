@@ -1,0 +1,398 @@
+/* ============================================
+   TalentIQ — Set Up (Kiosk) Styles
+   Drop into another version via <link> or @import
+   ============================================ */
+
+/* ---- Kiosk QR Poster Layout ---- */
+.kiosk-workspace {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 20px;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 8px 24px 24px;
+  box-sizing: border-box;
+  align-items: stretch;
+}
+.kiosk-col-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  width: 100%;
+}
+.kiosk-qr-panel {
+  width: 100%;
+  background-color: var(--surface);
+  border-radius: 12px;
+  padding: 12px 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 0;
+  border: 1px solid var(--line-soft);
+  box-shadow: 0 6px 18px var(--shadow-soft);
+  position: relative;
+}
+.kiosk-qr-kicker {
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 2px;
+  padding: 0 34px;
+}
+.kiosk-qr-subtitle {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--brand);
+  text-align: center;
+  margin-bottom: 8px;
+}
+.kiosk-qr-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  margin-bottom: 10px;
+}
+.kiosk-qr-container canvas {
+  display: block;
+  width: 360px;
+  max-width: min(360px, 100%);
+  aspect-ratio: 1 / 1;
+  height: auto;
+  border-radius: 8px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.kiosk-qr-label {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+  text-align: center;
+  margin-bottom: 2px;
+}
+.kiosk-qr-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 8px;
+}
+.kiosk-qr-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+.kiosk-action-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Kiosk Left Column Cards */
+.kiosk-event-card {
+  background: linear-gradient(180deg, var(--black), #2b2a2d);
+  color: #fff;
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: 0 16px 36px rgba(0,0,0,0.18);
+  position: relative;
+  flex-shrink: 0;
+}
+.kiosk-event-card__eyebrow { font-size: 10px; font-weight: 900; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+.kiosk-event-card__title { font-size: clamp(26px, 3vw, 34px); font-weight: 900; letter-spacing: -0.04em; margin-top: 8px; line-height: 1.1; }
+.kiosk-event-card__meta { font-size: 14px; font-weight: 700; margin-top: 4px; color: var(--accent); }
+.kiosk-event-card__line { height: 1px; background: rgba(255,255,255,0.14); margin: 16px 0; }
+.kiosk-event-card__copy { margin: 0; color: rgba(255,255,255,0.75); font-size: 13px; line-height: 1.7; }
+
+.kiosk-location-card {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  padding: 14px 16px;
+  flex-shrink: 0;
+}
+.kiosk-location-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 12px;
+}
+.kiosk-location-row--last { border-bottom: none; }
+.kiosk-location-label { color: var(--text-muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; }
+.kiosk-location-value { color: var(--text); font-weight: 800; text-align: right; font-size: 13px; }
+
+/* Corner info buttons on booth + QR cards */
+.kiosk-info-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  cursor: pointer;
+  z-index: 2;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+.kiosk-info-btn svg { width: 15px; height: 15px; display: block; }
+.kiosk-info-btn:hover { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); transform: scale(1.06); }
+.kiosk-info-btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.kiosk-info-btn--dark {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.22);
+  color: rgba(255,255,255,0.85);
+}
+.kiosk-info-btn--dark:hover {
+  background: rgba(255,255,255,0.18);
+  border-color: rgba(255,255,255,0.5);
+  color: #fff;
+}
+.kiosk-modal-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* ---- Set Up booth camera (fills space below Location / Date / Mode) ---- */
+.kiosk-camera-panel {
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 12px;
+  border: 1px solid var(--line-soft);
+  box-shadow: 0 6px 18px var(--shadow-soft);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 220px;
+}
+.kiosk-camera-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.kiosk-camera-panel__kicker {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.kiosk-camera-panel__title {
+  margin-top: 2px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.kiosk-camera-panel__tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.kiosk-camera-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.kiosk-camera-size { display: none; }
+.kiosk-camera-tool {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.kiosk-camera-tool:hover:not(:disabled) {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.kiosk-camera-tool:disabled { opacity: 0.4; cursor: default; }
+.kiosk-camera-tool svg { width: 15px; height: 15px; }
+.kiosk-camera-open-capture {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.kiosk-camera-stage {
+  position: relative;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 160px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0f1115;
+  border: 1px solid rgba(33, 31, 32, 0.16);
+}
+.kiosk-camera-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #000;
+  transform: scaleX(-1);
+}
+.kiosk-camera-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+  background: radial-gradient(circle at center, rgba(33,31,32,0.15), rgba(15,17,21,0.96));
+  color: #fff;
+}
+.kiosk-camera-placeholder[hidden] { display: none !important; }
+.kiosk-camera-placeholder__icon {
+  width: 36px;
+  height: 36px;
+  color: rgba(255,255,255,0.78);
+}
+.kiosk-camera-placeholder__icon svg { width: 100%; height: 100%; }
+.kiosk-camera-placeholder__title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+}
+.kiosk-camera-placeholder__copy {
+  font-size: 12px;
+  color: rgba(255,255,255,0.62);
+  max-width: 28ch;
+  line-height: 1.4;
+}
+.kiosk-camera-status {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.kiosk-camera-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34,197,94,0.25);
+}
+.kiosk-camera-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
+  flex: 1;
+  min-width: 0;
+}
+.kiosk-camera-stage:fullscreen,
+.kiosk-camera-stage:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  max-height: none;
+  aspect-ratio: auto;
+  border-radius: 0;
+  background: #000;
+}
+.kiosk-camera-stage:fullscreen .kiosk-camera-preview,
+.kiosk-camera-stage:-webkit-full-screen .kiosk-camera-preview {
+  object-fit: contain;
+}
+
+/* ---- Setup responsive ---- */
+@media (max-width: 1024px) {
+  .kiosk-workspace {
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+    max-width: none;
+    align-items: start;
+  }
+  .kiosk-col-left { width: 100%; }
+  .kiosk-qr-panel { height: auto; min-height: 0; width: 100%; min-width: 0; max-width: none; }
+  .kiosk-camera-panel { min-height: 200px; }
+}
+
+@media (max-width: 768px) {
+  .kiosk-col-left { order: 2; width: 100%; }
+  .kiosk-qr-panel { order: 1; width: 100%; max-width: none; }
+  .kiosk-workspace { padding: 8px 0 24px; gap: 12px; }
+  .kiosk-camera-panel { min-height: 180px; }
+}
+
+@media (max-width: 480px) {
+  .kiosk-event-card__title { font-size: 22px; }
+  .kiosk-qr-container canvas {
+    width: min(320px, 78vw);
+    max-width: min(320px, 78vw);
+    height: auto;
+  }
+}
+
+/* ---- Print Poster ---- */
+@media print {
+  body * { visibility: hidden; }
+  .kiosk-qr-panel, .kiosk-qr-panel * { visibility: visible; }
+  .kiosk-qr-panel {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 6in;
+    max-width: none;
+    border: none;
+    box-shadow: none;
+    padding: 0.5in;
+  }
+  .kiosk-qr-actions { display: none; }
+  .kiosk-info-btn { display: none !important; }
+}
