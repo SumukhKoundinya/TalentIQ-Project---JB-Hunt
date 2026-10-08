@@ -8,6 +8,8 @@ c.parsedResume = TIQ.ai.extractResumeData(raw);
 TIQ.ai.applyParsedData(c, c.parsedResume, {refresh:true});
 c.resumeUpload = {name:'fixture.pdf',parsedAt:new Date().toISOString()};
 c.skills = ['Python','Java','JavaScript','HTML','CSS','Excel','Data Visualization','Operations','Logistics','Leadership','PowerPoint','Word','Computational Thinking'];
+TIQ.state.candidates = [c];
+TIQ.views._captureIndex = 0;
 const card = TIQ.views._buildCardHtml(c, true);
 assert(!card.includes('card-more'), 'summary card removes the obsolete More disclosure');
 assert(!card.includes('audioRecordBtn'), 'recording belongs in evidence, not the decision card');

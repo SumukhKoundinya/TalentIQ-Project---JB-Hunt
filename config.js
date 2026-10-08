@@ -147,13 +147,20 @@ TIQ.CONFIG = {
   ],
 
   // --- View Titles ---
-  viewTitles: { kiosk: "Set Up" },
+  viewTitles: {
+    kiosk: "Set Up",
+    capture: "Capture",
+    review: "End-of-Day Review",
+    analytics: "Event Results",
+    metrics: "Research Metrics"
+  },
   workflow: [
     {key: 'kiosk', step: 1, label: 'Set Up', when: 'Before the fair', title: 'Set Up'},
     {key: 'capture', step: 2, label: 'Capture', when: 'During the conversation', title: 'Capture'},
-    {key: 'review', step: 3, label: 'Review', when: 'After the conversation', title: 'Review'}
+    {key: 'review', step: 3, label: 'Review', when: 'End of day', title: 'End-of-Day Review'},
+    {key: 'analytics', step: 4, label: 'Event Results', when: 'After the fair', title: 'Event Results'}
   ],
-  study: [],
+  study: [{key: 'metrics', label: 'Research Metrics', when: 'Controlled study', title: 'Research Metrics'}],
 
   // --- Default View ---
   defaultView: "capture",

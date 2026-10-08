@@ -11,14 +11,13 @@ TIQ.router = {
     var route = this.routes.find(function(r) { return r.key === viewName; });
     if (!route) return;
     if (viewName !== 'kiosk' && TIQ.views._stopKioskCamera) TIQ.views._stopKioskCamera();
-    if (this.currentView === 'review' && TIQ.views.snapshotReview) TIQ.views.snapshotReview();
+    if (viewName !== 'capture' && TIQ.views._stopCaptureCamera) TIQ.views._stopCaptureCamera();
     this.currentView = viewName;
 
     document.querySelectorAll(".nav-link").forEach(function(link) {
       link.classList.toggle("active", link.dataset.nav === viewName);
     });
 
-    var recruiterSelect = document.getElementById("recruiterSelect");
     var container = document.getElementById("viewContainer");
     if (!container) return;
 
@@ -26,6 +25,14 @@ TIQ.router = {
     document.removeEventListener("keydown", TIQ.views._captureKeyHandler);
 
     switch (viewName) {
+      case "analytics":
+        container.innerHTML = TIQ.skeleton.overlay("overview");
+        requestAnimationFrame(function() {
+          if (TIQ.router.currentView !== "analytics") return;
+          container.innerHTML = TIQ.views.renderAnalytics();
+          TIQ.views.initAnalyticsEvents();
+        });
+        break;
       case "kiosk":
         container.innerHTML = TIQ.views.renderKiosk();
         TIQ.views.initKioskForm();
@@ -35,8 +42,16 @@ TIQ.router = {
         TIQ.views.initCaptureEvents();
         break;
       case "review":
-        container.innerHTML = TIQ.views.renderReview();
-        TIQ.views.initReviewEvents();
+        container.innerHTML = TIQ.skeleton.overlay("list");
+        requestAnimationFrame(function() {
+          if (TIQ.router.currentView !== "review") return;
+          container.innerHTML = TIQ.views.renderReview();
+          TIQ.views.initReviewEvents();
+        });
+        break;
+      case "metrics":
+        container.innerHTML = TIQ.views.renderMetrics();
+        TIQ.views.initMetricsEvents();
         break;
     }
 
@@ -109,7 +124,7 @@ TIQ.app = {
 
       // ? to show keyboard shortcuts
       if (e.key === "?") {
-        TIQ.showToast("1 Set Up · 2 Capture · 3 Review · Esc Close");
+        TIQ.showToast("1 Set Up · 2 Capture · 3 Review · 4 Event Results · Esc Close");
       }
     });
 
@@ -117,7 +132,7 @@ TIQ.app = {
     var newBtn = document.querySelector(".create-button");
     if (newBtn) newBtn.addEventListener("click", function() { TIQ.router.navigateTo("capture"); });
 
-    // Start with a local, demo-only recruiter chooser. This is not authentication.
+    // Start with a local demo sign-in homepage. This is not authentication.
     var candidateId = new URLSearchParams(window.location.search).get('candidate');
     var found = candidateId && TIQ.views.selectCaptureCandidate(candidateId);
     var loginRoot = document.getElementById("demoLoginRoot");
@@ -128,8 +143,9 @@ TIQ.app = {
       if (appShell) appShell.hidden = true;
       if (skipLink) skipLink.hidden = true;
       TIQ.views.initDemoLoginEvents(function(recruiterId) {
-        TIQ.state.activeRecruiterId = recruiterId;
-        if (sel) sel.value = recruiterId;
+        var id = recruiterId || (TIQ.RECRUITERS[0] && TIQ.RECRUITERS[0].id) || "";
+        TIQ.state.activeRecruiterId = id;
+        if (sel) sel.value = id;
         TIQ.saveState();
         loginRoot.innerHTML = "";
         if (appShell) appShell.hidden = false;

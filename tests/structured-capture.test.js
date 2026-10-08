@@ -41,6 +41,8 @@ if (fs.existsSync(helperPath)) {
   assert(/prioriti/i.test(C.prompts('Product Owner').join(' ')), 'product prompts ask about observed prioritization rather than personality');
   assert(C.shortcutsBlocked({ closest: () => ({}) }) && !C.shortcutsBlocked({ closest: () => null }), 'shortcuts defer to interactive and editable targets');
   assert(!C.canRecord(null) && !C.canRecord({ checked: false }) && C.canRecord({ checked: true }), 'recording requires an explicit per-recording permission acknowledgement');
+  assert(C.recordingAllowed({}) && C.recordingAllowed(null) && !C.recordingAllowed({ consent: { audio: false } }) && C.recordingAllowed({ consent: { audio: true } }), 'intake recording decline blocks capture recording');
+  assert(!C.canRecord({ checked: true }, { consent: { audio: false } }), 'declined intake consent blocks audio even with recruiter permission');
 }
 
 const rendered = loadApp(['capture-workflow.js', 'views.js']);

@@ -36,5 +36,5 @@ W.cancelDraft(c);
 assert.equal(W.draft(c).summary,c.summary);
 assert(!W.dirty(c));
 assert(T.CONFIG.workflow.some(x=>x.key==='review'));
-assert(!T.CONFIG.workflow.some(x=>x.key==='analytics'));
+assert(T.CONFIG.workflow.some(x=>x.key==='analytics'), 'Event Results remains available beside Review');
 console.log('PASS simplified Review scope, shared card, independent status, retained drafts and cancel');

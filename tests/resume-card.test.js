@@ -185,6 +185,8 @@ function main() {
   assert(cardHtml.indexOf('alert-banner__summary') >= 0, 'alert banner collapses into a footer summary');
 
   /* ---- candidate records remain in the capture right column ---- */
+  TIQ.state.candidates = [scanned];
+  TIQ.views._captureIndex = 0;
   const captureHtml = TIQ.views.renderRecruiterCapture();
   const colRightIdx = captureHtml.indexOf('capture-col-right');
   const recordsIdx = captureHtml.indexOf('capture-evidence-toolbar');

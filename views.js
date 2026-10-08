@@ -37,7 +37,7 @@ TIQ.views.renderOverview = function() {
     '<h1 class="view-title">Event Results</h1>' +
     '<p class="results-intro">Operational information only. These measures describe records, not candidate quality.</p>' +
     '<label class="results-scope"><span>Record scope</span><select id="resultsEvent" aria-label="Choose which event records to show">' + [{id:'all',label:'All records on this device'},{id:'unassigned',label:'Unassigned / legacy records'}].concat(ids.map(function(id) { return {id:id,label:id === TIQ.currentEventId() ? TIQ.eventInfo().name + ' (current event)' : id}; })).map(function(e) { return '<option value="' + TIQ.escapeAttr(e.id) + '"' + (scope === e.id ? ' selected' : '') + '>' + h(e.label) + '</option>'; }).join('') + '</select></label>' +
-    (!cands.length ? '<div class="results-empty"><h2>No records in this population</h2><p>Capture someone at the booth or import a submission to begin testing with your own data.</p><button class="primary-button" data-go="capture">Start capturing</button></div>' : '') +
+    (!cands.length ? '<div class="results-empty"><h2>No records in this population</h2><p>Capture someone at the booth, import a submission, or load sample events to explore the workflow.</p><button class="primary-button" data-go="capture">Start capturing</button> <button class="secondary-button" data-demo-load>Load sample events</button></div>' : '') +
     '<div class="results-metrics">' + A.metricDescriptors(cands).map(function(d) {
       return '<article class="result-metric" data-metric="' + TIQ.escapeAttr(d.key) + '"><h2>' + h(d.label) + '</h2><strong class="result-value">' + (d.value === null ? '—' : d.value + (d.unit === '%' ? '%' : '')) + '</strong><p>' + d.numerator + ' / ' + d.denominator + (d.unit === '%' ? ' tracked checks' : ' records') + '</p><details><summary>Definition &amp; next action</summary><p>' + h(d.definition) + '</p><p>' + h(d.whyItMatters) + '</p><p>' + h(d.caveat) + '</p><small>' + h(d.source) + '</small></details></article>';
     }).join('') + '</div>' +
@@ -95,48 +95,89 @@ TIQ.views.initAnalyticsEvents = function() {
   };
 };
 
+/* ---- Event Info (QR Poster + Configurator) ---- */
+TIQ.views._kioskFormUrl = TIQ.views._kioskFormUrl || (((window.location && window.location.origin) || "") + "/candidate-form.html");
+TIQ.views._kioskIntakeMethod = TIQ.views._kioskIntakeMethod || "google-form";
+TIQ.views._kioskRenderQR = null;
+
+TIQ.views._kioskInfoIcon =
+  '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+  '<circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 7.7v.1"></path></svg>';
 
 TIQ.views.renderDemoLogin = function() {
+  var company = (TIQ.CONFIG && TIQ.CONFIG.company) || "J.B. Hunt";
+  var googleIcon =
+    '<svg class="demo-login__google-icon" viewBox="0 0 24 24" aria-hidden="true">' +
+      '<path fill="#EA4335" d="M12 10.2v3.6h5.1c-.2 1.2-.9 2.2-1.9 2.9l3.1 2.4c1.8-1.7 2.8-4.1 2.8-7 0-.7-.1-1.3-.2-1.9H12z"/>' +
+      '<path fill="#34A853" d="M6.6 14.3l-.7.5-2.4 1.9C5.3 19.5 8.4 21.5 12 21.5c2.4 0 4.4-.8 5.9-2.1l-3.1-2.4c-.8.6-1.9.9-2.8.9-2.2 0-4-1.5-4.7-3.5z"/>' +
+      '<path fill="#4A90E2" d="M3.5 7.3C2.9 8.5 2.5 9.9 2.5 11.5s.4 3 1 4.2l3.1-2.4c-.2-.6-.3-1.2-.3-1.8s.1-1.2.3-1.8L3.5 7.3z"/>' +
+      '<path fill="#FBBC05" d="M12 5.1c1.3 0 2.5.5 3.4 1.3l2.6-2.6C16.4 2.3 14.4 1.5 12 1.5 8.4 1.5 5.3 3.5 3.5 7.3l3.1 2.4C8 7 9.8 5.1 12 5.1z"/>' +
+    '</svg>';
   return '<main class="demo-login" id="demoLogin" aria-labelledby="demoLoginTitle">' +
-    '<section class="demo-login__card">' +
-      '<div class="demo-login__brand"><span class="demo-login__mark" aria-hidden="true">T</span><span>TalentIQ <span>Demo</span></span></div>' +
-      '<h1 id="demoLoginTitle">Sign in to continue</h1>' +
-      '<p class="demo-login__intro">Choose a demo recruiter to open the booth workspace.</p>' +
-      '<div class="demo-login__choices" role="group" aria-label="Choose a demo recruiter">' +
-        TIQ.RECRUITERS.map(function(recruiter, index) {
-          var initial = recruiter.name.split(/\s+/).map(function(part) { return part.charAt(0); }).join("").slice(0, 2);
-          return '<button type="button" class="demo-login__choice" data-demo-recruiter="' + TIQ.escapeAttr(recruiter.id) + '" aria-pressed="false">' +
-            '<span class="demo-login__avatar" aria-hidden="true">' + TIQ.escapeHtml(initial) + '</span>' +
-            '<span class="demo-login__identity"><strong>' + TIQ.escapeHtml(recruiter.name) + '</strong><small>' + TIQ.escapeHtml(recruiter.name.toLowerCase().replace(/\s+/g, ".")) + '@demo.talentiq.local</small></span>' +
-            '<span class="demo-login__radio" aria-hidden="true"></span>' +
-          '</button>';
-        }).join("") +
-      '</div>' +
-      '<button type="button" class="demo-login__continue" data-demo-continue disabled>Continue</button>' +
-      '<p class="demo-login__disclosure">Demo sign-in only. No account or password is required.</p>' +
-    '</section>' +
+    '<div class="demo-login__stage">' +
+      '<section class="demo-login__hero" aria-hidden="true">' +
+        '<img class="demo-login__hero-photo" src="assets/jbhunt-campus-cinematic.jpg" alt="" />' +
+        '<div class="demo-login__hero-scrim"></div>' +
+        '<div class="demo-login__hero-copy">' +
+          '<p class="demo-login__eyebrow">' + TIQ.escapeHtml(company) + '</p>' +
+          '<p class="demo-login__wordmark">Talent<span class="demo-login__wordmark-iq">IQ</span></p>' +
+          '<p class="demo-login__tagline">Capture career fair conversations. Review later with confidence.</p>' +
+        '</div>' +
+      '</section>' +
+      '<section class="demo-login__panel">' +
+        '<div class="demo-login__panel-inner">' +
+          '<header class="demo-login__header">' +
+            '<p class="demo-login__mobile-brand">Talent<span>IQ</span></p>' +
+            '<h1 id="demoLoginTitle">Log in</h1>' +
+            '<p class="demo-login__intro">Use Google or your username and password to open the booth.</p>' +
+          '</header>' +
+          '<button type="button" class="demo-login__google" data-demo-google>' +
+            googleIcon +
+            '<span>Continue with Google</span>' +
+          '</button>' +
+          '<div class="demo-login__divider" role="separator"><span>or</span></div>' +
+          '<form class="demo-login__form" id="demoLoginForm" novalidate>' +
+            '<div class="demo-login__field-wrap">' +
+              '<label class="demo-login__field" for="demoLoginEmail">Username</label>' +
+              '<input class="demo-login__input" id="demoLoginEmail" name="username" type="text" autocomplete="username" placeholder="you@jbhunt.com" enterkeyhint="next" />' +
+            '</div>' +
+            '<div class="demo-login__field-wrap">' +
+              '<label class="demo-login__field" for="demoLoginPassword">Password</label>' +
+              '<input class="demo-login__input" id="demoLoginPassword" name="password" type="password" autocomplete="current-password" placeholder="Enter password" enterkeyhint="go" />' +
+            '</div>' +
+            '<button type="submit" class="demo-login__continue" data-demo-continue>Log in</button>' +
+          '</form>' +
+          '<p class="demo-login__disclosure">Demo login only. Any username and password work, and Google continues locally.</p>' +
+        '</div>' +
+      '</section>' +
+    '</div>' +
   '</main>';
 };
 
 TIQ.views.initDemoLoginEvents = function(onContinue) {
-  var selectedId = "";
-  var continueButton = document.querySelector("[data-demo-continue]");
-  var choices = document.querySelectorAll("[data-demo-recruiter]");
-  choices.forEach(function(choice) {
-    choice.addEventListener("click", function() {
-      selectedId = choice.dataset.demoRecruiter;
-      choices.forEach(function(item) {
-        var selected = item === choice;
-        item.setAttribute("aria-pressed", selected ? "true" : "false");
-      });
-      if (continueButton) continueButton.disabled = !selectedId;
+  var form = document.getElementById("demoLoginForm");
+  var emailInput = document.getElementById("demoLoginEmail");
+  var googleBtn = document.querySelector("[data-demo-google]");
+  var defaultRecruiter = (TIQ.RECRUITERS && TIQ.RECRUITERS[0] && TIQ.RECRUITERS[0].id) ||
+    (TIQ.state && TIQ.state.activeRecruiterId) || "";
+
+  function finish() {
+    if (typeof onContinue !== "function") return;
+    onContinue(defaultRecruiter);
+  }
+
+  if (form) {
+    form.addEventListener("submit", function(e) {
+      e.preventDefault();
+      finish();
     });
-  });
-  if (continueButton) continueButton.addEventListener("click", function() {
-    if (selectedId && typeof onContinue === "function") onContinue(selectedId);
-  });
-  var firstChoice = document.querySelector("[data-demo-recruiter]");
-  if (firstChoice) firstChoice.focus();
+  }
+  if (googleBtn) {
+    googleBtn.addEventListener("click", function() {
+      finish();
+    });
+  }
+  if (emailInput) emailInput.focus();
 };
 
 /* ---- Recruiter Capture View ---- */
@@ -1292,6 +1333,408 @@ TIQ.views._resumeHighlightsHtml = function(c) {
     '</section>';
 };
 
+/* Prefer grounded conversation accomplishments; otherwise surface useful
+   transcript sentences so recording content still lands on the card. */
+TIQ.views._conversationAiPoints = function(c) {
+  var points = [];
+  var seen = {};
+  function push(text, source, speaker) {
+    var clean = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!clean || clean.length < 18) return;
+    var key = clean.toLowerCase();
+    if (seen[key]) return;
+    seen[key] = true;
+    points.push({
+      text: clean.slice(0, 180),
+      source: source || 'conversation',
+      speaker: speaker || ''
+    });
+  }
+  (c.accomplishments || []).forEach(function(a) {
+    if (a && a.source === 'conversation' && a.text) {
+      push(a.text, 'conversation', a.speaker || a.contextLabel || '');
+    }
+  });
+  if (c.voiceIsolation && c.voiceIsolation.turns) {
+    c.voiceIsolation.turns.forEach(function(turn) {
+      if (turn && turn.role === 'candidate') push(turn.text, 'isolated', turn.speaker);
+    });
+  }
+  if (!points.length) {
+    (c.audioNotes || []).forEach(function(note) {
+      String(note && note.transcript || '')
+        .split(/[.!?\n]+/)
+        .forEach(function(line) { push(line, 'transcript'); });
+    });
+  }
+  if (!points.length && c.notes) {
+    String(c.notes)
+      .replace(/Unverified transcript \(speaker not established\):\s*/gi, '')
+      .replace(/Isolated booth transcript[\s\S]*?:\s*/gi, '')
+      .replace(/Voice-only transcript[\s\S]*?:\s*/gi, '')
+      .split(/[.!?\n]+/)
+      .forEach(function(line) { push(line.replace(/^[A-Z][^:]{0,40}:\s*/, ''), 'notes'); });
+  }
+  return points.slice(0, 4);
+};
+
+TIQ.views._aiSummaryHtml = function(c) {
+  var points = TIQ.views._conversationAiPoints(c).slice(0, 3);
+  if (!points.length) return '';
+  return '<section class="ai-summary-card" role="region" aria-label="AI summary from recording">' +
+    '<h3 class="ai-summary-card__title">AI Summary</h3>' +
+    '<ul class="ai-summary-card__list">' + points.map(function(p) {
+      return '<li class="ai-summary-card__item">' +
+        (p.speaker ? '<span class="ai-summary-card__speaker">' + TIQ.escapeHtml(p.speaker) + '</span> ' : '') +
+        TIQ.escapeHtml(p.text) + '</li>';
+    }).join('') + '</ul>' +
+  '</section>';
+};
+
+TIQ.views._personDisplayName = function(c) {
+  if (!c) return '';
+  return [c.firstName, c.lastName].filter(Boolean).join(' ').trim() || c.email || c.id || 'Unnamed';
+};
+
+TIQ.views._scenePeopleNameOptions = function(c) {
+  var options = [];
+  var seen = {};
+  function add(opt) {
+    if (!opt || !opt.name) return;
+    var key = String(opt.refId || opt.name).toLowerCase();
+    if (seen[key]) return;
+    seen[key] = true;
+    options.push(opt);
+  }
+  if (c) add({ name: TIQ.views._personDisplayName(c), role: 'candidate', refId: c.id });
+  (TIQ.RECRUITERS || []).forEach(function(r) {
+    add({ name: r.name || r.id, role: 'recruiter', refId: r.id });
+  });
+  (TIQ.state.candidates || []).forEach(function(other) {
+    if (!other || (c && other.id === c.id)) return;
+    add({ name: TIQ.views._personDisplayName(other), role: 'candidate', refId: other.id });
+  });
+  add({ name: 'Guest / Unknown', role: 'unknown', refId: 'guest' });
+  return options;
+};
+
+TIQ.views._captureCameraHtml = function(c) {
+  var allowed = !(TIQ.captureWorkflow && TIQ.captureWorkflow.recordingAllowed) || TIQ.captureWorkflow.recordingAllowed(c);
+  var people = (c && c.scenePeople) || [];
+  var markers = people.map(function(p) {
+    return '<button type="button" class="capture-person-marker" data-person-id="' + TIQ.escapeAttr(p.id) + '" style="left:' + Number(p.xPct || 50) + '%;top:' + Number(p.yPct || 50) + '%" title="Edit name">' +
+      '<span class="capture-person-marker__dot" aria-hidden="true"></span>' +
+      '<span class="capture-person-marker__name">' + TIQ.escapeHtml(p.name || 'Name…') + '</span>' +
+    '</button>';
+  }).join('');
+  return '<details class="capture-camera" id="captureCameraPanel" data-recording-allowed="' + (allowed ? 'true' : 'false') + '" data-candidate-id="' + TIQ.escapeAttr(c && c.id || '') + '">' +
+    '<summary class="capture-camera__summary">' +
+      '<span class="capture-camera__summary-copy">' +
+        '<span class="capture-camera__kicker">Booth camera</span>' +
+        '<span class="capture-camera__title">' + (allowed ? 'Preview &amp; name people' : 'Privacy blur on') + '</span>' +
+      '</span>' +
+      '<span class="capture-camera__summary-meta">' + (people.length ? people.length + ' tagged' : 'Optional') + '</span>' +
+    '</summary>' +
+    '<div class="capture-camera__body">' +
+      '<div class="capture-camera__head">' +
+        '<p class="capture-camera__hint" id="captureCameraHint">Click someone in the frame to name them.</p>' +
+        '<button type="button" class="capture-camera__enable" id="captureCamEnable">Allow camera</button>' +
+      '</div>' +
+      '<div class="capture-camera__stage" id="captureCameraStage">' +
+        '<video id="captureCameraPreview" class="capture-camera__preview' + (allowed ? '' : ' capture-camera__preview--blurred') + '" playsinline muted autoplay></video>' +
+        '<div class="capture-person-layer" id="capturePersonLayer" aria-label="Named people in frame">' + markers + '</div>' +
+        (allowed ? '' : '<div class="capture-camera__privacy" id="captureCameraPrivacy">Recording declined — camera blurred, audio off</div>') +
+        '<div class="capture-camera__placeholder" id="captureCameraPlaceholder">' +
+          '<span>Camera stays on this device. Preview only.</span>' +
+        '</div>' +
+        '<div class="capture-person-picker" id="capturePersonPicker" hidden>' +
+          '<div class="capture-person-picker__title">Who is this?</div>' +
+          '<div class="capture-person-picker__list" id="capturePersonPickerList"></div>' +
+          '<label class="capture-person-picker__custom" for="capturePersonCustomName">Or type a name</label>' +
+          '<div class="capture-person-picker__custom-row">' +
+            '<input id="capturePersonCustomName" type="text" autocomplete="off" placeholder="Enter name" />' +
+            '<button type="button" class="capture-person-picker__save" id="capturePersonCustomSave">Save</button>' +
+          '</div>' +
+          '<div class="capture-person-picker__actions">' +
+            '<button type="button" class="capture-person-picker__remove" id="capturePersonRemove">Remove tag</button>' +
+            '<button type="button" class="capture-person-picker__cancel" id="capturePersonCancel">Cancel</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+  '</details>';
+};
+
+TIQ.views._stopCaptureCamera = function() {
+  var video = document.getElementById("captureCameraPreview");
+  if (video) {
+    try { video.srcObject = null; } catch (_) {}
+  }
+  if (TIQ.views._captureCamera) {
+    try {
+      if (TIQ.views._captureCamera.cancel) TIQ.views._captureCamera.cancel();
+      else if (TIQ.views._captureCamera.stream) {
+        TIQ.views._captureCamera.stream.getTracks().forEach(function(t) { try { t.stop(); } catch (e) {} });
+      }
+    } catch (_) {}
+    TIQ.views._captureCamera = null;
+  }
+};
+
+TIQ.views._syncCaptureCameraPrivacy = function() {
+  var panel = document.getElementById("captureCameraPanel");
+  var video = document.getElementById("captureCameraPreview");
+  if (!panel || !video) return;
+  var allowed = panel.getAttribute("data-recording-allowed") !== "false";
+  video.classList.toggle("capture-camera__preview--blurred", !allowed);
+  panel.classList.toggle("is-private", !allowed);
+};
+
+TIQ.views._activeCaptureCandidate = function() {
+  var panel = document.getElementById("captureCameraPanel");
+  var id = panel && panel.getAttribute("data-candidate-id");
+  if (id) {
+    var found = (TIQ.state.candidates || []).find(function(c) { return c.id === id; });
+    if (found) return found;
+  }
+  return (TIQ.state.candidates || [])[TIQ.views._captureIndex] || null;
+};
+
+TIQ.views._renderScenePeopleMarkers = function(c) {
+  var layer = document.getElementById("capturePersonLayer");
+  if (!layer) return;
+  var people = (c && c.scenePeople) || [];
+  layer.innerHTML = people.map(function(p) {
+    return '<button type="button" class="capture-person-marker" data-person-id="' + TIQ.escapeAttr(p.id) + '" style="left:' + Number(p.xPct || 50) + '%;top:' + Number(p.yPct || 50) + '%" title="Edit name">' +
+      '<span class="capture-person-marker__dot" aria-hidden="true"></span>' +
+      '<span class="capture-person-marker__name">' + TIQ.escapeHtml(p.name || 'Name…') + '</span>' +
+    '</button>';
+  }).join('');
+};
+
+TIQ.views._closePersonPicker = function() {
+  var picker = document.getElementById("capturePersonPicker");
+  if (picker) picker.hidden = true;
+  TIQ.views._personTagDraft = null;
+  var custom = document.getElementById("capturePersonCustomName");
+  if (custom) custom.value = "";
+};
+
+TIQ.views._openPersonPicker = function(draft, anchorEl) {
+  var picker = document.getElementById("capturePersonPicker");
+  var list = document.getElementById("capturePersonPickerList");
+  var stage = document.getElementById("captureCameraStage");
+  if (!picker || !stage || !draft) return;
+  TIQ.views._personTagDraft = draft;
+  var c = TIQ.views._activeCaptureCandidate();
+  if (list) {
+    list.innerHTML = TIQ.views._scenePeopleNameOptions(c).slice(0, 12).map(function(opt) {
+      return '<button type="button" class="capture-person-picker__choice" data-person-name="' + TIQ.escapeAttr(opt.name) + '" data-person-role="' + TIQ.escapeAttr(opt.role || '') + '" data-person-ref="' + TIQ.escapeAttr(opt.refId || '') + '">' +
+        '<span>' + TIQ.escapeHtml(opt.name) + '</span>' +
+        '<small>' + TIQ.escapeHtml(opt.role === 'recruiter' ? 'Recruiter' : opt.role === 'candidate' ? 'Candidate' : 'Other') + '</small>' +
+      '</button>';
+    }).join('');
+  }
+  picker.hidden = false;
+  var left = Math.max(8, Math.min(stage.clientWidth - 240, (draft.xPct / 100) * stage.clientWidth - 110));
+  var top = Math.max(8, Math.min(stage.clientHeight - 220, (draft.yPct / 100) * stage.clientHeight + 18));
+  picker.style.left = left + "px";
+  picker.style.top = top + "px";
+  if (anchorEl && draft.name) {
+    var custom = document.getElementById("capturePersonCustomName");
+    if (custom) custom.value = draft.name === "Name…" ? "" : draft.name;
+  }
+  var customInput = document.getElementById("capturePersonCustomName");
+  if (customInput) setTimeout(function() { customInput.focus(); }, 0);
+};
+
+TIQ.views._savePersonTag = function(name, role, refId) {
+  var c = TIQ.views._activeCaptureCandidate();
+  var draft = TIQ.views._personTagDraft;
+  if (!c || !draft || !name) return;
+  c.scenePeople = Array.isArray(c.scenePeople) ? c.scenePeople : [];
+  var existing = c.scenePeople.find(function(p) { return p.id === draft.id; });
+  var entry = {
+    id: draft.id,
+    name: String(name).trim(),
+    role: role || "custom",
+    refId: refId || "",
+    xPct: Math.round(Number(draft.xPct) * 10) / 10,
+    yPct: Math.round(Number(draft.yPct) * 10) / 10,
+    namedAt: TIQ.nowISO()
+  };
+  if (existing) {
+    existing.name = entry.name;
+    existing.role = entry.role;
+    existing.refId = entry.refId;
+    existing.xPct = entry.xPct;
+    existing.yPct = entry.yPct;
+    existing.namedAt = entry.namedAt;
+  } else {
+    c.scenePeople.push(entry);
+  }
+  TIQ.addAuditEntry(c, "SCENE_PERSON_NAMED", "Named person in booth camera: " + entry.name);
+  TIQ.saveState();
+  TIQ.views._renderScenePeopleMarkers(c);
+  TIQ.views._closePersonPicker();
+  TIQ.showToast("Named " + entry.name);
+};
+
+TIQ.views._removePersonTag = function() {
+  var c = TIQ.views._activeCaptureCandidate();
+  var draft = TIQ.views._personTagDraft;
+  if (!c || !draft) return;
+  c.scenePeople = (c.scenePeople || []).filter(function(p) { return p.id !== draft.id; });
+  TIQ.addAuditEntry(c, "SCENE_PERSON_REMOVED", "Removed named person tag from booth camera");
+  TIQ.saveState();
+  TIQ.views._renderScenePeopleMarkers(c);
+  TIQ.views._closePersonPicker();
+};
+
+TIQ.views._initCaptureCamera = function() {
+  var panel = document.getElementById("captureCameraPanel");
+  var video = document.getElementById("captureCameraPreview");
+  var placeholder = document.getElementById("captureCameraPlaceholder");
+  var enableBtn = document.getElementById("captureCamEnable");
+  var stage = document.getElementById("captureCameraStage");
+  var layer = document.getElementById("capturePersonLayer");
+  var picker = document.getElementById("capturePersonPicker");
+  if (!panel || !video) return;
+
+  function setLive(on) {
+    if (placeholder) placeholder.hidden = !!on;
+    if (enableBtn) enableBtn.hidden = !!on;
+    panel.classList.toggle("is-live", !!on);
+    TIQ.views._syncCaptureCameraPrivacy();
+  }
+
+  function attachStream(stream) {
+    video.srcObject = stream;
+    video.muted = true;
+    var play = video.play();
+    if (play && play.catch) play.catch(function() {});
+    setLive(true);
+  }
+
+  if (TIQ.views._captureCamera && TIQ.views._captureCamera.stream) {
+    attachStream(TIQ.views._captureCamera.stream);
+  } else {
+    setLive(false);
+  }
+
+  if (enableBtn) {
+    enableBtn.addEventListener("click", function() {
+      if (!TIQ.views._captureCamera) {
+        TIQ.views._captureCamera = TIQ.views._createKioskPreview
+          ? TIQ.views._createKioskPreview()
+          : {
+              stream: null,
+              cancel: function() {
+                if (this.stream) this.stream.getTracks().forEach(function(t) { t.stop(); });
+                this.stream = null;
+              },
+              openCamera: function(options) {
+                this.cancel();
+                var self = this;
+                return navigator.mediaDevices.getUserMedia({ video: { facingMode: (options && options.facingMode) || "user" }, audio: false }).then(function(stream) {
+                  self.stream = stream;
+                  return stream;
+                });
+              }
+            };
+      }
+      TIQ.views._captureCamera.openCamera({ facingMode: "user", audio: false }).then(function(stream) {
+        attachStream(stream);
+      }).catch(function(err) {
+        setLive(false);
+        TIQ.showToast((err && err.message) || "Camera permission denied.");
+      });
+    });
+  }
+
+  if (stage) {
+    stage.addEventListener("click", function(e) {
+      if (!panel.classList.contains("is-live")) return;
+      if (panel.getAttribute("data-recording-allowed") === "false") {
+        TIQ.showToast("Recording declined — people tagging is paused while the camera is blurred.");
+        return;
+      }
+      if (e.target.closest(".capture-person-picker")) return;
+      if (e.target.closest(".capture-person-marker")) {
+        var marker = e.target.closest(".capture-person-marker");
+        var c = TIQ.views._activeCaptureCandidate();
+        var person = ((c && c.scenePeople) || []).find(function(p) { return p.id === marker.getAttribute("data-person-id"); });
+        if (!person) return;
+        TIQ.views._openPersonPicker({
+          id: person.id,
+          name: person.name,
+          xPct: person.xPct,
+          yPct: person.yPct
+        }, marker);
+        return;
+      }
+      if (e.target.closest(".capture-camera__privacy") || e.target.closest(".capture-camera__placeholder")) return;
+      var rect = stage.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      var xPct = ((e.clientX - rect.left) / rect.width) * 100;
+      var yPct = ((e.clientY - rect.top) / rect.height) * 100;
+      xPct = Math.max(4, Math.min(96, xPct));
+      yPct = Math.max(8, Math.min(92, yPct));
+      TIQ.views._openPersonPicker({
+        id: "person_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+        name: "",
+        xPct: xPct,
+        yPct: yPct
+      });
+    });
+  }
+
+  if (picker) {
+    picker.addEventListener("click", function(e) {
+      e.stopPropagation();
+      var choice = e.target.closest(".capture-person-picker__choice");
+      if (choice) {
+        TIQ.views._savePersonTag(
+          choice.getAttribute("data-person-name"),
+          choice.getAttribute("data-person-role"),
+          choice.getAttribute("data-person-ref")
+        );
+        return;
+      }
+      if (e.target.id === "capturePersonCustomSave" || e.target.closest("#capturePersonCustomSave")) {
+        var custom = document.getElementById("capturePersonCustomName");
+        var value = custom && custom.value.trim();
+        if (!value) {
+          TIQ.showToast("Enter a name first.");
+          if (custom) custom.focus();
+          return;
+        }
+        TIQ.views._savePersonTag(value, "custom", "");
+        return;
+      }
+      if (e.target.id === "capturePersonRemove" || e.target.closest("#capturePersonRemove")) {
+        TIQ.views._removePersonTag();
+        return;
+      }
+      if (e.target.id === "capturePersonCancel" || e.target.closest("#capturePersonCancel")) {
+        TIQ.views._closePersonPicker();
+      }
+    });
+    var customInput = document.getElementById("capturePersonCustomName");
+    if (customInput) {
+      customInput.addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          var value = customInput.value.trim();
+          if (value) TIQ.views._savePersonTag(value, "custom", "");
+        } else if (e.key === "Escape") {
+          TIQ.views._closePersonPicker();
+        }
+      });
+    }
+  }
+};
+
 TIQ.views._resumeConflictsHtml = function(c) {
   var conflicts = c.resumeConflicts || [];
   if (!conflicts.length) return '';
@@ -1352,7 +1795,7 @@ TIQ.views._buildCardHtml = function(c, isFront) {
     : '';
 
   return '<div class="capture-summary">' +
-    headerHtml + skillsHtml + TIQ.views._resumeHighlightsHtml(c) +
+    headerHtml + skillsHtml + TIQ.views._aiSummaryHtml(c) + TIQ.views._resumeHighlightsHtml(c) +
   '</div>' +
   '<div class="capture-card-footer">' + TIQ.views._flagChipsHtml(flags) + hintHtml + '</div>';
 };
@@ -1381,8 +1824,17 @@ TIQ.views._captureStructuredNotesHtml = function(c) {
 };
 
 TIQ.views._captureVoiceHtml = function(c) {
+  var allowed = !(TIQ.captureWorkflow && TIQ.captureWorkflow.recordingAllowed) || TIQ.captureWorkflow.recordingAllowed(c);
+  if (!allowed) {
+    return '<div class="capture-recording-blocked" role="status">' +
+      '<p class="capture-recording-hint" id="captureRecordingHint">This candidate declined recording on the intake form. Camera stays blurred and audio recording is disabled.</p>' +
+      '<div class="capture-notes-footer"><button type="button" id="audioRecordBtn" class="voice-btn btn-toggle" title="Recording declined" aria-label="Recording declined" aria-describedby="captureRecordingHint" aria-pressed="false" disabled>&#9679;</button></div>' +
+    '</div>';
+  }
+  var voiceOnly = !!(c && c.captureVoiceOnly);
   return '<label class="capture-recording-permission"><input type="checkbox" id="captureRecordingPermission"> I have permission from everyone who may be recorded, or I am recording a private recruiter-only memo.</label>' +
-    '<p class="capture-recording-hint" id="captureRecordingHint">Audio stays in this browser. Transcripts are unverified; speakers are not identified. Permission is needed for each recording.</p>' +
+    '<label class="capture-voice-only"><input type="checkbox" id="captureVoiceOnly"' + (voiceOnly ? ' checked' : '') + '> Voice-only isolation (keep camera off; tag speakers from audio)</label>' +
+    '<p class="capture-recording-hint" id="captureRecordingHint">Audio stays in this browser. Named people and labeled turns feed the card AI Summary. Permission is needed for each recording.</p>' +
     '<div class="capture-notes-footer"><button type="button" id="audioRecordBtn" class="voice-btn btn-toggle" title="Start voice note" aria-label="Start voice note" aria-describedby="captureRecordingHint" aria-pressed="false">&#9679;</button></div>' +
     '<div id="liveTranscriptPreview" class="live-transcript-preview" style="display:none"><span class="live-transcript-dot"></span><span class="live-transcript-text"></span></div>';
 };
@@ -1599,6 +2051,7 @@ TIQ.views.renderRecruiterCapture = function() {
     '<div id="capture-panel-notes" class="drawer-panel" role="tabpanel" aria-labelledby="capture-tab-notes" data-drawer-panel="notes">' +
       '<div class="capture-notes-flow">' +
         TIQ.views._captureNotesFlagsHtml(flags) +
+        TIQ.views._captureCameraHtml(sel) +
         TIQ.views._captureStructuredNotesHtml(sel) +
         '<label for="captureNotes" class="capture-section-title">Recruiter Notes</label>' +
         '<textarea id="captureNotes" class="capture-textarea capture-textarea--inline" rows="6" placeholder="Add notes about this candidate...">' + TIQ.escapeHtml(sel.notes) + '</textarea>' +
@@ -2335,7 +2788,17 @@ TIQ.views.initCaptureEvents = function() {
             if (!c) { saveInFlight = false; return; }
 
             var blobId = "audio_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
-            var note = { id: Date.now(), blobId: blobId, duration: result.duration, createdAt: TIQ.nowISO(), offlinePending: !navigator.onLine, transcript: voskTranscript || "" };
+            var note = {
+              id: Date.now(),
+              blobId: blobId,
+              duration: result.duration,
+              createdAt: TIQ.nowISO(),
+              offlinePending: !navigator.onLine,
+              transcript: voskTranscript || "",
+              people: (c.scenePeople || []).map(function(p) {
+                return { id: p.id, name: p.name, role: p.role, refId: p.refId || "", xPct: p.xPct, yPct: p.yPct };
+              })
+            };
             c.audioNotes.push(note);
             TIQ.addAuditEntry(c, "AUDIO_ADDED", "Voice note recorded (" + result.duration + "s)");
             TIQ.saveState();
@@ -2345,18 +2808,28 @@ TIQ.views.initCaptureEvents = function() {
 
             var applyTranscript = function(text) {
               note.transcript = text || "";
-              if (text) {
+              var txt = (text || '').trim();
+              var voiceOnly = !!(c.captureVoiceOnly || (document.getElementById('captureVoiceOnly') || {}).checked);
+              if (txt && TIQ.voiceIsolation && TIQ.voiceIsolation.applyToCandidate) {
+                var isolated = TIQ.voiceIsolation.applyToCandidate(c, txt, {
+                  people: note.people || c.scenePeople || [],
+                  voiceOnly: voiceOnly
+                });
+                note.speakers = (isolated.turns || []).map(function(t) {
+                  return { speaker: t.speaker, role: t.role, text: t.text };
+                });
+                TIQ.showToast(voiceOnly
+                  ? "Voice-only note isolated (" + result.duration + "s) → card AI Summary."
+                  : "Voice note isolated (" + result.duration + "s) → card AI Summary.");
+              } else if (txt) {
                 c.notes = (c.notes ? c.notes + "\n\n" : "") + "Unverified transcript (speaker not established): " + text;
+                var hydrate = TIQ.ai.hydrateTranscript(c, txt);
+                if (hydrate.skillsAdded.length || hydrate.notesUpdated) TIQ.saveState();
+                if (TIQ.ai && TIQ.ai.updateCandidateSummary) TIQ.ai.updateCandidateSummary(c);
                 TIQ.showToast("Voice note saved + transcribed (" + result.duration + "s).");
               } else {
                 TIQ.showToast("Voice note saved (" + result.duration + "s).");
               }
-              var txt = (text || '').trim();
-              if (txt) {
-                var hydrate = TIQ.ai.hydrateTranscript(c, txt);
-                if (hydrate.skillsAdded.length || hydrate.notesUpdated) TIQ.saveState();
-              }
-              if (TIQ.ai && TIQ.ai.updateCandidateSummary) TIQ.ai.updateCandidateSummary(c);
               TIQ.saveState();
               saveInFlight = false;
               if (TIQ.views._finishActiveRecording === finishRecording) TIQ.views._finishActiveRecording = null;
@@ -2405,8 +2878,13 @@ TIQ.views.initCaptureEvents = function() {
         }
 
         targetCandidate = TIQ.state.candidates[TIQ.views._captureIndex] || null;
+        if (!targetCandidate) return;
+        if (!TIQ.captureWorkflow.recordingAllowed(targetCandidate)) {
+          TIQ.showToast('This candidate declined recording. Camera stays blurred and audio is off.');
+          return;
+        }
         var permission = document.getElementById('captureRecordingPermission');
-        if (!targetCandidate || !TIQ.captureWorkflow.canRecord(permission)) {
+        if (!TIQ.captureWorkflow.canRecord(permission, targetCandidate)) {
           TIQ.showToast('Confirm recording permission before using the microphone.');
           if (permission) permission.focus();
           return;
@@ -2454,8 +2932,28 @@ TIQ.views.initCaptureEvents = function() {
       });
     }
 
+    var voiceOnlyToggle = document.getElementById("captureVoiceOnly");
+    if (voiceOnlyToggle) {
+      voiceOnlyToggle.addEventListener("change", function() {
+        var c = TIQ.state.candidates[TIQ.views._captureIndex];
+        if (!c) return;
+        c.captureVoiceOnly = !!voiceOnlyToggle.checked;
+        if (c.captureVoiceOnly && TIQ.views._stopCaptureCamera) TIQ.views._stopCaptureCamera();
+        TIQ.saveState();
+        var panel = document.getElementById("captureCameraPanel");
+        if (panel) {
+          panel.classList.toggle("is-voice-only", !!c.captureVoiceOnly);
+          var title = panel.querySelector(".capture-camera__title");
+          if (title) title.textContent = c.captureVoiceOnly ? "Voice-only mode" : "Preview & name people";
+        }
+        TIQ.showToast(c.captureVoiceOnly ? "Voice-only isolation on — camera stays off." : "Camera preview available again.");
+      });
+    }
+
     document.addEventListener("keydown", TIQ.views._captureKeyHandler);
   TIQ.views.initSwipeEngine();
+  var active = TIQ.state.candidates[TIQ.views._captureIndex];
+  if (!(active && active.captureVoiceOnly)) TIQ.views._initCaptureCamera();
 };
 
 /* ---- Swipe Engine ---- */

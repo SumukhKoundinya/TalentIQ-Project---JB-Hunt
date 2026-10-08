@@ -75,7 +75,7 @@ TIQ.views.renderKiosk = function() {
         '<div class="kiosk-qr-kicker">Booth QR Code &amp; Candidate Intake Config</div>' +
         '<div class="kiosk-qr-subtitle">Scan to Submit Profile</div>' +
         '<div class="kiosk-qr-container" id="kioskQrContainer">' +
-          '<canvas id="kiosk-qr-canvas" width="360" height="360"></canvas>' +
+          '<canvas id="kiosk-qr-canvas" width="400" height="400" role="img" aria-label="QR code for candidate profile"></canvas>' +
         '</div>' +
         '<div class="kiosk-qr-label">Scan to Submit Profile</div>' +
         '<div class="kiosk-qr-hint">Point your phone camera at the code above</div>' +

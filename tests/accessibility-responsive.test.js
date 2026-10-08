@@ -6,7 +6,9 @@ const root = path.join(__dirname, '..');
 const candidateForm = fs.readFileSync(path.join(root, 'candidate-form.html'), 'utf8');
 const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const styles = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
+const setupStyles = fs.readFileSync(path.join(root, 'features/setup/setup-styles.css'), 'utf8');
 const views = fs.readFileSync(path.join(root, 'views.js'), 'utf8');
+const setupViews = fs.readFileSync(path.join(root, 'features/setup/setup-views.js'), 'utf8');
 
 assert(!/user-scalable\s*=\s*no|maximum-scale\s*=\s*1(?:\.0)?/.test(candidateForm), 'candidate intake does not disable mobile zoom');
 assert(/<main\b[^>]*id="formPage"/.test(candidateForm), 'candidate intake page exposes a main landmark');
@@ -34,9 +36,9 @@ assert(!/id="workflowStage"/.test(index), 'repeated step banner is removed from 
 assert(!/renderStage\s*\(/.test(fs.readFileSync(path.join(root, 'app.js'), 'utf8')), 'router does not inject a repeated step banner on every screen');
 assert(!/\.stage-banner/.test(styles), 'obsolete stage-banner styling is removed');
 assert(/\.skip-link:focus-visible/.test(styles), 'skip link has visible focus styling');
-assert(/@media \(max-width: 480px\)[\s\S]*\.kiosk-col-left[\s\S]*max-width:\s*100%/.test(styles), 'kiosk event card is constrained on small phones');
+assert(/@media \(max-width: 480px\)[\s\S]*\.kiosk-col-left[\s\S]*max-width:\s*100%/.test(setupStyles), 'kiosk event card is constrained on small phones');
 assert(!/class="breadcrumb"/.test(index), 'shared page breadcrumb is removed');
 assert(/\.recruiter-label[\s\S]*color:\s*rgba\(255,255,255,0\.7\)/.test(styles), 'sidebar recruiter label uses contrast-safe color');
 assert(/<h2 class="candidate-name">/.test(views), 'capture card candidate name does not skip heading levels');
-assert(/\.kiosk-workspace\s*{[^}]*width:\s*100%[^}]*max-width:\s*none/s.test(styles), 'Booth Setup uses the available page width on large screens');
-assert(/<canvas[^>]*id="kiosk-qr-canvas"[^>]*role="img"[^>]*aria-label="QR code for candidate profile"/.test(views), 'Booth Setup QR canvas has an accessible name');
+assert(/\.kiosk-workspace\s*{[^}]*width:\s*100%[^}]*max-width:\s*none/s.test(setupStyles), 'Booth Setup uses the available page width on large screens');
+assert(/<canvas[^>]*id="kiosk-qr-canvas"[^>]*role="img"[^>]*aria-label="QR code for candidate profile"/.test(setupViews), 'Booth Setup QR canvas has an accessible name');

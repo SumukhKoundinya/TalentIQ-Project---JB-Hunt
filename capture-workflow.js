@@ -35,6 +35,15 @@ TIQ.captureWorkflow = (function() {
   function shortcutsBlocked(target) {
     return !!(target && target.closest && target.closest('input, textarea, select, button, a, summary, audio, video, [role="tab"], [role="button"], [contenteditable]:not([contenteditable="false"])'));
   }
+  /* Intake stores consent.audio=false when the candidate declines recording.
+     Candidates without a consent object (manual add) can still be recorded
+     with an explicit recruiter permission check. */
+  function recordingAllowed(candidate) {
+    return !(candidate && candidate.consent && candidate.consent.audio === false);
+  }
   return { update: update, prompts: prompts, tags: tags, shortcutsBlocked: shortcutsBlocked,
-    canRecord: function(permission) { return !!(permission && permission.checked); } };
+    recordingAllowed: recordingAllowed,
+    canRecord: function(permission, candidate) {
+      return !!(permission && permission.checked) && recordingAllowed(candidate);
+    } };
 })();
