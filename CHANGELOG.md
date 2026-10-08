@@ -4,11 +4,18 @@ All notable changes to TalentIQ will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- Align the interview schedule labels beside their inputs with leader dots and restore consistent row spacing (`review-workspace.js`, `styles.css`).
+
 ### Changed
 - Imported only `features/setup/` from `origin/feature/setup-section` and made it the single source of kiosk rendering/styles, retaining the config-driven Set Up sidebar step (`index.html`, `views.js`, `styles.css`, config).
 
 ### Fixed
 - Adapted Set Up's Open Capture route, preserved event identity during edits, and added permission-on-click preview-only camera support with navigation teardown without importing Capture/recording changes (`features/setup/setup-views.js`, `app.js`, tests).
+- Restore saved event settings even when the candidate list is empty (`data.js`, matching page cache versions).
+
+### Added
+- Added Setup integration and isolated browser smoke tests for event persistence, QR edits/copy/print, permission-on-click camera teardown and mobile overflow (`tests/setup-integration.test.js`, `tests/setup-browser.cjs`).
 
 ### Documentation
 - Documented the isolated setup module, camera permissions and page-session QR settings; retained unused HogHacks source assets (`README.md`, `features/setup/README.md`).

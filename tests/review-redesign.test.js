@@ -1,4 +1,6 @@
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
 const {loadApp}=require('./harness');
 const T=loadApp(['analytics.js','components.js','skill-icons.js','views.js','review-contact.js','review-workspace.js']);
 const V=T.views;
@@ -13,6 +15,9 @@ assert(html.includes('Inspect card and evidence') && html.includes('Choose a nex
 assert(html.includes('data-review-action="compare-open"') && !html.includes('role="tab" id="review-tab-comparison"'));
 assert(html.includes('id="contact-date"') && html.includes('id="contact-body"'),'outreach is already expanded');
 assert.match(html, /class="review-interview-row"[\s\S]*id="contact-date"[\s\S]*id="contact-time"[\s\S]*id="contact-timezone"[\s\S]*id="contact-duration"/, 'interview date, time, timezone, and duration share one wireframe row');
+assert.equal((html.match(/class="review-interview-field"/g) || []).length, 4, 'each schedule label is grouped with its input for leader alignment');
+const styles=fs.readFileSync(path.join(__dirname,'..','styles.css'),'utf8');
+assert.match(styles,/\.review-simplified \.review-interview-row \{[^}]*margin-block:\s*12px/, 'schedule controls have breathing room from adjacent outreach fields');
 assert(!html.includes('contact-sent-confirm') && !html.includes('data-review-action="contact-sent"') && !html.includes('Hide outreach') && !html.includes('Contact history'),'remove the controls in image 1');
 assert(html.includes('<details open id="reviewNextSteps"><summary>Choose a next step</summary>'),'next steps open by default');
 assert.equal(JSON.stringify(T.state.candidates[1].contactHistory),history,'hidden historical data remains intact');

@@ -17,9 +17,11 @@ for (const id of ['kioskEventMeta', 'kiosk-qr-canvas', 'kioskCameraPanel', 'kios
 }
 assert.strictEqual(TIQ.CONFIG.viewTitles.kiosk, 'Set Up');
 TIQ.state.event = { name: 'Test fair', date: 'Oct 8', location: 'Booth A', id: 'keep-event-id' };
+TIQ.state.candidates = [];
 TIQ.saveState();
 assert.strictEqual(TIQ.eventInfo().name, 'Test fair');
 assert(Object.values(TIQ.__testStorageStore).some(value => value.includes('keep-event-id')));
+assert.strictEqual(TIQ.loadPersistedState().event.id, 'keep-event-id', 'event restores even before the first candidate');
 const container = { innerHTML: '' };
 let stopped = 0;
 TIQ.views._stopKioskCamera = () => { assert.strictEqual(container.innerHTML, 'old kiosk'); stopped++; };
