@@ -21,11 +21,11 @@ assert.strictEqual((capture.match(/data-drawer-tab=/g) || []).length, 2, 'Captur
 assert(capture.includes('data-drawer-tab="resume"') && capture.includes('data-drawer-tab="notes"') && !capture.includes('data-drawer-tab="voice"'), 'Capture tabs are Resume and Notes');
 const notesPanel = capture.slice(capture.indexOf('data-drawer-panel="notes"'), capture.indexOf("'</div>' +", capture.indexOf('data-drawer-panel="notes"')));
 const voiceRecorder = views.slice(views.indexOf('TIQ.views._captureVoiceHtml ='), views.indexOf('TIQ.views.renderRecruiterCapture ='));
-assert(notesPanel.includes('id="captureNotes"') && notesPanel.includes('TIQ.views._captureVoiceHtml(sel)') && notesPanel.includes('id="audioRecordings"') && voiceRecorder.includes('recordingConsent') && voiceRecorder.includes('audioRecordBtn'), 'Notes tab contains recruiter notes and the complete voice-recording UI');
-assert(capture.includes('Candidate records') && !capture.includes('capture-evidence-hint'), 'Capture evidence controls sit directly below the heading without redundant instruction copy');
+assert(notesPanel.includes('id="captureNotes"') && capture.includes('TIQ.views._captureNotesFlagsHtml(flags)') && capture.includes('id="audioRecordings"') && capture.includes('TIQ.views._captureVoiceHtml(sel)') && !capture.includes('capture-recording-section') && !capture.includes('recordingConsent') && voiceRecorder.includes('audioRecordBtn') && voiceRecorder.includes('capture-notes-footer'), 'Notes tab keeps notes, follow-up flags, saved recordings, and a compact recruiter recording control');
+assert(!capture.includes('Candidate records') && !capture.includes('capture-evidence-hint'), 'Capture evidence controls omit the redundant Candidate records label');
 assert(aiReview.includes('Filter candidates') && aiReview.includes('Select up to 3 to compare'), 'Review search and selection explain their scope and purpose');
 assert(overview.includes('Record scope') && overview.includes('Blue bars show the number of records missing each item.'), 'Results labels scope and missing-information bar meaning');
 assert(overview.includes('added a candidate record') && overview.includes('activityCandidate'), 'Results activity uses plain-language actions and candidate names');
-assert(/\.main-content\s*\{[^}]*padding:\s*20px\s+32px/s.test(css), 'Main pages share 32px horizontal padding');
-assert(/\.sidebar-footer[\s\S]*?\.icon-button::after/.test(css), 'Sidebar icon actions expose hover/focus text labels');
+assert(/\.main-content\s*\{[^}]*padding:\s*24px\s+var\(--app-gutter\)/s.test(css), 'Main pages share 24px vertical and responsive 24-32px horizontal padding');
+assert(!/\.sidebar-footer/.test(css) && !/badge-dot/.test(css), 'Sidebar ships no dead notification/settings icon buttons');
 console.log('UI polish contract: all checks passed');

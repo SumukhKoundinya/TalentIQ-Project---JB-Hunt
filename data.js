@@ -269,7 +269,7 @@ TIQ.loadPersistedState = function() {
     var raw = localStorage.getItem(TIQ.STORAGE_KEY);
     if (!raw) return null;
     var parsed = JSON.parse(raw);
-    if (Array.isArray(parsed.candidates) && parsed.candidates.length) {
+    if (Array.isArray(parsed.candidates)) {
       parsed.event = parsed.event || {};
       return parsed;
     }
@@ -516,6 +516,10 @@ TIQ.highlightsAreStale = function(c) {
 TIQ.normalizeCandidate = function(candidate, seedCandidate) {
   /* Persisted records are authoritative, even when an ID matches a demo. */
   var c = Object.assign({}, candidate || {});
+  if (!Array.isArray(c.technicalInterests)) c.technicalInterests = [];
+  ['candidateQuestions', 'followUpQuestions', 'nextStepNotes'].forEach(function(field) {
+    if (typeof c[field] !== 'string') c[field] = '';
+  });
   var stale = TIQ.highlightsAreStale(c);
   if (stale || !c.accomplishments || !c.accomplishments.length) {
     var fromSeed = !stale && candidate === seedCandidate && seedCandidate && seedCandidate.accomplishments && seedCandidate.accomplishments.length;
@@ -661,6 +665,12 @@ TIQ.AudioDB = (function() {
 
   return { saveBlob: saveBlob, getBlob: getBlob, deleteBlob: deleteBlob, deleteAll: deleteAll };
 })();
+
+/* Compatibility hook for older callers. Startup never deletes local work;
+   deletion belongs to explicit, confirmed user actions. */
+TIQ.clearSampleDataOnce = function() {
+  return Promise.resolve(false);
+};
 
 /* ---- Offline Sync ---- */
 window.addEventListener("online", function() {
@@ -888,9 +898,37 @@ TIQ.ai.SECTION_HEADERS = [
   "internships", "internship"
 ];
 
+TIQ.ai.PARSER_VERSION = 2;
+/* Physical PDF lines become source passages before any display transformation.
+   Offsets always address the original raw text, including repeated bullets. */
+TIQ.ai.resumeSection = function(line) {
+  var text = String(line || '').trim().replace(/:$/, '');
+  if (/^(?:experience|professional experience|work experience|earlier experience|employment|work history|internships?)$/i.test(text)) return 'experience';
+  if (/^(?:(?:additional technical|technical|personal|academic|capstone) )?projects$|^project (?:work|experience)$|^capstone$/i.test(text)) return 'projects';
+   if (/^(?:education|academic background|academic qualifications|skills(?:, certifications or awards| and leadership)?|technical skills|certifications(?:\/training)?|licenses|references|awards|honors|hobbies|leadership(?: experience|\s*(?:&|and)\s*(?:activities|additional information))?|activities|extracurricular(?: activities)?|volunteer(?:ing| experience)?|community involvement|publications|(?:professional )?summary|objective|professional development|architecture and delivery contributions|work authorization)$/i.test(text)) return 'other';
+  return '';
+};
+TIQ.ai.resumePassages = function(text) {
+  var raw = String(text || ''), passages = [], expression = /[^\r\n]+/g, match;
+  while ((match = expression.exec(raw))) {
+    var line = match[0].trim();
+    if (!line) continue;
+    var bullet = /^[•●○▪*-]\s*/.test(line), previous = passages[passages.length - 1];
+    var header = TIQ.ai.resumeSection(line) || /\s\|\s|^Project\s*:/i.test(line) || /^(?:19|20)\d{2}(?:\s*[-–—]|$)/.test(line);
+    if (!bullet && !header && previous && previous.bullet && !/[.!?:]$/.test(previous.text)) {
+      previous.text += ' ' + line; previous.end = match.index + match[0].length;
+    } else passages.push({text:line.replace(/^[•●○▪*-]\s*/, ''), bullet:bullet,
+      offset:match.index, end:match.index + match[0].length});
+  }
+  return passages;
+};
+TIQ.ai._resumeLines = function(text) {
+  return TIQ.ai.resumePassages(text).map(function(p) { return (p.bullet ? '• ' : '') + p.text; });
+};
 TIQ.ai.extractResumeData = function(text) {
   if (!text) return null;
   return {
+    parserVersion: TIQ.ai.PARSER_VERSION,
     skills: TIQ.ai._extractSkills(text),
     experience: TIQ.ai._extractExperience(text),
     projects: TIQ.ai._extractProjects(text),
@@ -935,20 +973,18 @@ TIQ.ai._extractSkills = function(text) {
 
 TIQ.ai._extractExperience = function(text) {
   var experiences = [];
-  var lines = text.split("\n");
+  var passages = TIQ.ai.resumePassages(text);
+  var lines = TIQ.ai._resumeLines(text);
   var inSection = false;
-  var explicitProject = false;
   var current = null;
-  var expPattern = /^(?:experience|professional experience|work experience|employment|work history|internships?)\s*:?(?:\s*)$/i;
-  var nextSectionPattern = /^(?:education|projects|project work|project experience|skills|certifications|licenses|references|awards|hobbies|leadership|activities|volunteer|publications|summary|objective|technical skills)\b/i;
   var month = '(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
   var state = '(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West Virginia|Wisconsin|Wyoming)';
-  var datePattern = new RegExp('(?:' + month + '\\s+)?(?:19|20)\\d{2}\\s*(?:[-–—]|to)\\s*(?:(?:' + month + '\\s+)?(?:19|20)\\d{2}|[Pp]resent|[Cc]urrent)');
+  var datePattern = new RegExp('(?:' + month + '\\s+(?:(?:19|20)\\d{2})?|(?:19|20)\\d{2})\\s*(?:[-–—]|to)\\s*(?:(?:' + month + '\\s+)?(?:19|20)\\d{2}|[Pp]resent|[Cc]urrent)');
   var dateOnlyPattern = new RegExp('^(?:' + month + '\\s+)?(?:19|20)\\d{2}\\s*(?:[-–—]|to)\\s*(?:(?:' + month + '\\s+)?(?:19|20)\\d{2}|[Pp]resent|[Cc]urrent)$');
   var bulletPattern = /^[•●○▪*-]\s*/;
 
   function isRoleHeader(line, next) {
-    if (!line || bulletPattern.test(line) || nextSectionPattern.test(line) || /:$/.test(line) ||
+    if (!line || bulletPattern.test(line) || TIQ.ai.resumeSection(line) || /:$/.test(line) ||
         /^project\s*:/i.test(line) || /^(?:winner|award|awarded|received|won|recognized|recognition|finalist|place)\b/i.test(line) ||
         /^(?:19|20)\d{2}$/.test(line) || /^[a-z]/.test(line)) return false;
     if (line.length > 220 || /[.!?]$/.test(line)) return false;
@@ -997,8 +1033,10 @@ TIQ.ai._extractExperience = function(text) {
 
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i].trim();
-    if (expPattern.test(line)) { inSection = true; continue; }
-    if (inSection && nextSectionPattern.test(line)) break;
+    if (TIQ.ai.resumeSection(line)) {
+      if (current && current.title) experiences.push(current);
+      current = null; inSection = TIQ.ai.resumeSection(line) === 'experience'; continue;
+    }
     if (inSection && line.length > 0) {
       if (current && dateOnlyPattern.test(line)) {
         if (!current.dates) {
@@ -1019,7 +1057,7 @@ TIQ.ai._extractExperience = function(text) {
           /* Additive sibling: `dates` stays the display string every existing
              render site depends on, `duration` adds the machine-readable form. */
           duration: TIQ.ai._normalizeDateRange(datesRaw),
-          description: ""
+          description: "", bullets: []
         };
       } else if (current) {
       var loc = line.match(new RegExp('^(.+?)[, ]+(' + state + '(?:\\s+\\d{5}(?:-\\d{4})?)?)$', 'i'));
@@ -1029,6 +1067,7 @@ TIQ.ai._extractExperience = function(text) {
           current.company = line;
         } else {
           current.description += (current.description ? " " : "") + line;
+          if (passages[i].bullet) current.bullets.push(passages[i]);
         }
       }
     }
@@ -1039,12 +1078,11 @@ TIQ.ai._extractExperience = function(text) {
 
 TIQ.ai._extractProjects = function(text) {
   var projects = [];
-  var lines = text.split("\n");
+  var passages = TIQ.ai.resumePassages(text);
+  var lines = TIQ.ai._resumeLines(text);
   var inSection = false;
   var explicitProject = false;
   var current = null;
-  var projPattern = /^(?:projects|project work|project experience|personal projects|capstone|capstone projects|academic projects)\s*:?$/i;
-  var nextSectionPattern = /^(?:education|experience|work|leadership|activities|skills|certifications|references|awards|hobbies|extracurricular)/i;
 
   var pushCurrent = function() {
     if (current && current.name) projects.push(current);
@@ -1057,11 +1095,13 @@ TIQ.ai._extractProjects = function(text) {
     if (prefix) cleaned = prefix[1].trim();
     if (!cleaned) return null;
 
-    var parts = cleaned.split(/\s*[|—–]\s*|\s+-\s+/).filter(function(part) { return part && part.trim().length; });
+    var parts = cleaned.split(cleaned.indexOf('|') >= 0 ? /\s*\|\s*/ : /\s*[—–]\s*|\s+-\s+/).filter(function(part) { return part && part.trim().length; });
     var name = parts.length ? parts[0].trim() : cleaned;
     var description = parts.length > 1 ? parts.slice(1).join(' ').trim() : '';
     if (!name) return null;
-    return { name: name, description: description };
+    var metadata = parts.slice(1);
+    var dates = metadata.find(function(part) { return /^(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|(?:19|20)\d{2})\b/i.test(part) && /\b(?:19|20)\d{2}\b/.test(part); }) || '';
+    return { name: name, description: description, metadata: metadata, dates: dates, bullets: [] };
   };
 
   var projectMonth = '(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
@@ -1077,10 +1117,8 @@ TIQ.ai._extractProjects = function(text) {
     var line = lines[i].trim();
     if (!line) continue;
 
-    if (projPattern.test(line)) { inSection = true; explicitProject = false; continue; }
-    if (nextSectionPattern.test(line)) {
-      if (explicitProject) { pushCurrent(); explicitProject = false; }
-      if (inSection) { pushCurrent(); break; }
+    if (TIQ.ai.resumeSection(line)) {
+      pushCurrent(); inSection = TIQ.ai.resumeSection(line) === 'projects'; explicitProject = false; continue;
     }
 
     /* Outside a PROJECTS heading only explicit "Project: X" lines count —
@@ -1107,12 +1145,14 @@ TIQ.ai._extractProjects = function(text) {
     var actionLine = /^(?:Built|Developed|Designed|Created|Implemented|Led|Used|Utilized|Reduced|Increased|Achieved|Deployed|Analyzed|Analysed|Researched|Identified|Proposed|Improved|Delivered|Tracked|Managed|Reviewed|Automated|Tested|Organized|Coordinated)\b/i.test(line);
     if (inSection && current && (isBullet || actionLine)) {
       current.description += (current.description ? ' ' : '') + line;
+      if (passages[i].bullet) current.bullets.push(passages[i]);
       continue;
     }
     if (explicitProject && current) {
       if (dateLine.test(line) || /^[A-Z][A-Za-z .'-]+,\s*(?:[A-Z]{2}|[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)$/.test(line)) continue;
       if (isBullet || actionLine || /^[a-z(,;]/.test(line) || !/^[A-Z][A-Za-z .'-]+\s+[|—–]/.test(line)) {
         current.description += (current.description ? ' ' : '') + line;
+        if (passages[i].bullet) current.bullets.push(passages[i]);
         continue;
       }
     }
@@ -1186,7 +1226,7 @@ TIQ.ai._extractEducation = function(text) {
       /* "University of Tennessee — BS Data Science" states the major as bare
          trailing words after the abbreviation, with no "in"/"of" to key off. */
       if (!major && degreeMatch) {
-        var tail = degreeTail.match(/^([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)*)\s*$/);
+        var tail = degreeTail.split(/[|;()–—]/)[0].trim().match(/^([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)*)\s*$/);
         if (tail) major = tail[1].trim();
       }
       var norm = TIQ.ai._normalizeDegree(degreeMatch ? degreeMatch[0] : "", major);
@@ -1608,7 +1648,8 @@ TIQ.ai.generateSummary = function(c) {
     var eduStr = name + " is";
     if (school && major) {
       eduStr += " a " + major + " student at " + school;
-      trace.push("Education: " + school + " " + major + " — " + schoolSrc);
+      if (schoolSrc === majorSrc) trace.push("Education: " + school + " " + major + " — " + schoolSrc);
+      else { trace.push("School: " + school + " — " + schoolSrc); trace.push("Major: " + major + " — " + majorSrc); }
     } else if (school) {
       eduStr += " a student at " + school;
       trace.push("School: " + school + " — " + schoolSrc);
@@ -1630,9 +1671,9 @@ TIQ.ai.generateSummary = function(c) {
   var allSkills = (c.skills && c.skills.length) ? c.skills : (resume && resume.skills) || [];
   if (allSkills.length) {
     var skillList = allSkills.length <= 3 ? allSkills.join(", ") : allSkills.slice(0, 3).join(", ") + " and " + allSkills.slice(3).join(", ");
-    var skillSource = (c.skills && c.skills.length) ? " — recruiter input" : " — resume";
+    var skillSource = " — " + ((c.skills && c.skills.length) ? TIQ.citeSource(c, "skills") : "resume");
     parts.push(skillSource.indexOf("resume") >= 0
-      ? "Their resume highlights proficiency in " + skillList + "."
+      ? "Their resume lists " + skillList + "."
       : "Skills captured include " + skillList + ".");
     trace.push("Skills: " + skillList + skillSource);
   } else {
@@ -1932,9 +1973,11 @@ TIQ.generateAccomplishments = function(c) {
 
 TIQ.refreshParsedCandidate = function(candidate) {
   if (!candidate || !candidate.parsedResume || !candidate.parsedResume.rawText) return false;
+  if (candidate.parsedResume.parserVersion === TIQ.ai.PARSER_VERSION || TIQ.ai.isStaleParse(candidate.parsedResume)) return false;
   var parsed = TIQ.ai.extractResumeData(candidate.parsedResume.rawText);
   candidate.parsedResume = parsed;
-  TIQ.ai.applyParsedData(candidate, parsed);
+  TIQ.ai.applyParsedData(candidate, parsed, {refresh:true});
+  if (TIQ.invalidateApproval) TIQ.invalidateApproval(candidate);
 
   var summary = TIQ.ai.generateSummary(candidate);
   candidate.summary = summary.summary;

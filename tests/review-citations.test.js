@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict');
+const {loadApp}=require('./harness');
+const T=loadApp();
+const c={firstName:'Sample',university:'Example University',major:'Operations',skills:['SQL'],provenance:{university:'resume',major:'form',skills:'resume'},parsedResume:{skills:['SQL']}};
+const s=T.ai.generateSummary(c);
+assert.ok(s.traceability.some(t=>t==='Skills: SQL — resume'),'resume-derived profile skills cite the resume');
+assert.ok(s.traceability.some(t=>t==='School: Example University — resume'));
+assert.ok(s.traceability.some(t=>t==='Major: Operations — intake form'),'mixed-source education cannot inherit a school-only citation');
+assert.ok(!/proficiency/i.test(s.summary),'a supplied skill list is not proof of proficiency');
+console.log('PASS source-owned skill and mixed education citations without unsupported proficiency');

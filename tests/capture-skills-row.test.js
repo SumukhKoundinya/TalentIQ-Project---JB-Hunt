@@ -1,0 +1,18 @@
+const assert = require('node:assert/strict');
+const {loadApp} = require('./harness');
+const fs = require('node:fs');
+const T = loadApp(['components.js','skill-icons.js','views.js']);
+const skills = ['Python','Java','JavaScript','TypeScript','SQL'];
+const html = T.views._topSkillsHtml({skills});
+assert.match(html, /Top skills<\/h3><span class="capture-skills-leader" aria-hidden="true">/);
+assert.equal((html.match(/data-skill-index="\d+"(?! hidden)/g)||[]).length, 3);
+assert.match(html, /data-skill-index="3" hidden/);
+assert.match(html, />\+2<\/button>/);
+assert.match(html, /aria-label="2 additional skills"/);
+assert(html.indexOf('Python')<html.indexOf('JavaScript'), 'preserve extraction order');
+const short = T.views._topSkillsHtml({skills:['Python','Java']});
+assert.match(short, /data-capture-skills hidden/);
+assert.equal(T.views._topSkillsHtml({skills:[]}), '');
+assert(T.views._topSkillsHtml({skills:['Python','python','Java','SQL','Excel']}).includes('+1</button>'), 'overflow count uses unique skills');
+assert(/\.capture-skills-leader \{[^}]*border-bottom:1px dotted var\(--ink-muted\)/.test(fs.readFileSync('styles.css','utf8')), 'skills leader uses a distinct muted-ink stroke');
+console.log('PASS three-chip skills row, leader, overflow count, empty and short lists');

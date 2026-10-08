@@ -32,7 +32,7 @@ function main() {
      regenerates from resume artefacts instead of trusting stored state. */
   assert(html.indexOf('No highlights yet') === -1, 'source-backed highlights are regenerated from the parsed resume');
   assert(html.indexOf('Optimization Model') >= 0, 'the generated highlight names a real artefact');
-  assert(html.includes('reduced processing time by ') && html.includes('>18%</strong>'), 'the source-backed result and emphasis are retained');
+  assert(/reduced processing time by /i.test(html) && html.includes('>18%</strong>'), 'the source-backed result and emphasis are retained');
 
   const nothing = Object.assign({}, card, { accomplishments: [], parsedResume: null, summary: '' });
   assert(TIQ.views._buildCardHtml(nothing, true).indexOf('No highlights yet') >= 0,

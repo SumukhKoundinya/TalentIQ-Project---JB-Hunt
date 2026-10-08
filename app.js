@@ -10,59 +10,33 @@ TIQ.router = {
   navigateTo: function(viewName) {
     var route = this.routes.find(function(r) { return r.key === viewName; });
     if (!route) return;
+    if (viewName !== 'kiosk' && TIQ.views._stopKioskCamera) TIQ.views._stopKioskCamera();
+    if (this.currentView === 'review' && TIQ.views.snapshotReview) TIQ.views.snapshotReview();
     this.currentView = viewName;
 
     document.querySelectorAll(".nav-link").forEach(function(link) {
       link.classList.toggle("active", link.dataset.nav === viewName);
     });
 
-    var title = document.getElementById("pageTitle");
-    if (title) title.textContent = viewName === "kiosk" ? "Set Up" : route.title;
-    var recruiterLabel = document.querySelector(".recruiter-label");
     var recruiterSelect = document.getElementById("recruiterSelect");
-    var recruiterPrompt = viewName === "kiosk" ? "Logged in as" : "Active recruiter";
-    if (recruiterLabel) recruiterLabel.textContent = recruiterPrompt;
-    if (recruiterSelect) recruiterSelect.setAttribute("aria-label", recruiterPrompt);
     var container = document.getElementById("viewContainer");
-    var searchWrap = document.getElementById("globalSearchWrap");
     if (!container) return;
 
     // Remove old capture keydown listener
     document.removeEventListener("keydown", TIQ.views._captureKeyHandler);
 
     switch (viewName) {
-      case "analytics":
-        if (searchWrap) searchWrap.style.display = "none";
-        container.innerHTML = TIQ.skeleton.overlay("overview");
-        requestAnimationFrame(function() {
-          if (TIQ.router.currentView !== 'analytics') return;
-          container.innerHTML = TIQ.views.renderAnalytics();
-          TIQ.views.initAnalyticsEvents();
-        });
-        break;
       case "kiosk":
-        if (searchWrap) searchWrap.style.display = "none";
         container.innerHTML = TIQ.views.renderKiosk();
         TIQ.views.initKioskForm();
         break;
       case "capture":
-        if (searchWrap) searchWrap.style.display = "none";
         container.innerHTML = TIQ.views.renderCapture();
         TIQ.views.initCaptureEvents();
         break;
       case "review":
-        if (searchWrap) searchWrap.style.display = "";
-        container.innerHTML = TIQ.skeleton.overlay("list");
-        requestAnimationFrame(function() {
-          if (TIQ.router.currentView !== 'review') return;
-          container.innerHTML = TIQ.views.renderReview();
-          TIQ.views.initReviewEvents();
-        });
-        break;
-      case "metrics":
-        if (searchWrap) searchWrap.style.display = "none";
-        container.innerHTML = TIQ.views.renderMetrics();
-        TIQ.views.initMetricsEvents();
+        container.innerHTML = TIQ.views.renderReview();
+        TIQ.views.initReviewEvents();
         break;
     }
 
@@ -72,7 +46,7 @@ TIQ.router = {
 
 TIQ.app = {
   init: async function() {
-    if (TIQ.prepareFictionalDemo) await TIQ.prepareFictionalDemo();
+    if (TIQ.clearSampleDataOnce) await TIQ.clearSampleDataOnce();
     TIQ.initWorkflow();
     // Update sidebar event info
     var sidebarEvent = document.getElementById("sidebarEventName");
@@ -125,26 +99,17 @@ TIQ.app = {
       if (e.key === "Escape" && modal && !modal.hidden) modal.hidden = true;
       if (document.getElementById("demoLogin")) return;
 
-      // Global keyboard shortcuts (ignore if inside input/textarea/select)
-      var tag = e.target.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      // Native controls and editable content own their keyboard interaction.
+      if (TIQ.captureWorkflow.shortcutsBlocked(e.target)) return;
 
-      // Number keys 1-4 for view navigation
+      // Number keys follow the currently available workflow steps
       var viewMap = {};
       TIQ.CONFIG.workflow.forEach(function(s) { viewMap[String(s.step)] = s.key; });
       if (viewMap[e.key]) { e.preventDefault(); TIQ.router.navigateTo(viewMap[e.key]); return; }
 
-      // / to focus search
-      if (e.key === "/") {
-        e.preventDefault();
-        var searchInput = document.getElementById("aiSearch") || document.getElementById("reviewSearch") || document.getElementById("globalSearch");
-        if (searchInput) searchInput.focus();
-        return;
-      }
-
       // ? to show keyboard shortcuts
       if (e.key === "?") {
-        TIQ.showToast("1 Set Up · 2 Capture · 3 Review · 4 Event Results · / Search · Esc Close");
+        TIQ.showToast("1 Set Up · 2 Capture · 3 Review · Esc Close");
       }
     });
 

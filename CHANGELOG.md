@@ -5,6 +5,91 @@ All notable changes to TalentIQ will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- Imported only `features/setup/` from `origin/feature/setup-section` and made it the single source of kiosk rendering/styles, retaining the config-driven Set Up sidebar step (`index.html`, `views.js`, `styles.css`, config).
+
+### Fixed
+- Adapted Set Up's Open Capture route, preserved event identity during edits, and added permission-on-click preview-only camera support with navigation teardown without importing Capture/recording changes (`features/setup/setup-views.js`, `app.js`, tests).
+
+### Documentation
+- Documented the isolated setup module, camera permissions and page-session QR settings; retained unused HogHacks source assets (`README.md`, `features/setup/README.md`).
+
+### Changed
+- Put interview date, start time, timezone, and duration on one responsive row in Contact (`review-workspace.js`, `styles.css`).
+
+### Changed
+- Expand Contact outreach and Choose a next step by default; remove invitation-sent controls, Hide outreach and visible contact history without deleting saved drafts/history (`review-workspace.js`, tests, `README.md`).
+
+### Changed
+- Moved the real candidate card above the recruiter recap on Review's left; replaced Profile with Resume/Notes/Contact and a separate comparison button while retaining the shell and Capture renderer (`review-workspace.js`, `styles.css`, tests).
+
+### Added
+- Added on-demand editable outreach with timezone-safe weekday-noon suggestions, Google Calendar/email-app handoffs, manual copy fallback and audited sent self-reports independent of recap certification/status (`review-contact.js`, Review, tests).
+- Added exactly-two current-event comparison with namespaced skill popovers, in-dialog Resume/Notes evidence, stale-source checks, narrow record switching and underlying draft/focus preservation (`review-workspace.js`, styles, browser tests).
+
+### Documentation
+- Recorded revised Review behavior, full test results, browser checks and remaining MVP/accessibility limits (`README.md`, `docs/review-redesign-evidence.md`).
+
+### Added
+- Connected simplified Review with readable recaps, the existing Profile card, Resume/Notes reference tabs and a current-event Reviewed/Follow-Up finder with all-status recovery (`review-workspace.js`, routing, styles, tests).
+
+### Fixed
+- Preserve candidate-specific edits, reference tabs and scroll positions across Review navigation; retain filter-changing records and keep status independent of verification (`review-workspace.js`, `workflow.js`, `app.js`, tests).
+- Keep Review navigation inside the measured viewport on tablet/mobile, and prevent loading Review from installing retained Event Results overrides (`styles.css`, `review-workspace.js`, browser tests).
+
+### Documentation
+- Recorded milestone 2 test/browser evidence, intentional retired-test updates and remaining recap/contact/accessibility work (`README.md`, `docs/mvp-milestone-2-evidence.md`, implementation plan).
+
+### Documentation
+- Recorded the incremental MVP plan and structured Capture evidence, baseline failures and remaining gates (`docs/superpowers/plans/2026-10-07-mvp-implementation.md`, `docs/mvp-milestone-1-evidence.md`, `README.md`).
+- Replaced the Set Up-only handoff with the approved complete MVP implementation scope, offline-first/shared-intake decision gates, verification and study acceptance criteria, and a new-session prompt (`HANDOFF.md`).
+
+### Removed
+- Hid Review, Event Results, and Research Metrics from the active routes, sidebar, and keyboard shortcuts while retaining their source modules and stored browser data for future planning (`config.js`, `workflow.js`, `app.js`, `index.html`).
+- Superseded the earlier post-event page proposal with a replanning brief that records open design decisions and constraints (`docs/superpowers/plans/2026-10-07-post-event-pages-replan.md`).
+
+### Changed
+- Replaced the sidebar J.B. Hunt image with the TalentIQ wordmark in the app’s IBM Plex Sans typeface, and restored Capture swipe setup after removing its stale shared-topbar resize observation (`index.html`, `styles.css`, `views.js`, tests).
+- Removed the shared page-title header, breadcrumb, global search, and divider across all app views; moved recruiter selection into the responsive sidebar, added compact content headings to Event Results and Research Metrics, and reclaimed header space in shared page padding and viewport sizing (`index.html`, `app.js`, `views.js`, `styles.css`).
+
+### Added
+- Added optional structured Notes fields, engineering/product prompts and neutral discussed-area tags with persisted recruiter provenance (`capture-workflow.js`, `views.js`, `styles.css`, tests).
+- Added purpose-driven Review with shared candidate cards, versioned source navigation, status piles, candidate-specific drafts, responsive queue drawer, and factual comparison (`review-workspace.js`, `workflow.js`, `styles.css`).
+- Added independently persisted synthetic Manual/TalentIQ study definitions, task-boundary timing, paired comparisons, human statement/edit/feedback observations, accessibility evidence, and dedicated raw CSV/JSON exports (`research-study.js`, `research-workspace.js`).
+- Added model, persistence, citation, rendering, and isolated-browser regressions for the post-event workflows (`tests/review-*.test.js`, `tests/research-*.test.js`, `tests/postevent-browser.cjs`).
+
+### Changed
+- Reworked Event Results around event-scoped verification work, all recruiting statuses, intake-required coverage separate from optional/processing gaps, and labeled handoff exports (`review-workspace.js`, `styles.css`).
+- Separated explicit draft certification from recruiting-status changes; preserve prior certification history, conservatively migrate unversioned approvals, and retain later audit evidence when undoing Capture sorting (`workflow.js`, `views.js`).
+- Updated workflow usage, study/export definitions, accessibility limitations, script responsibilities, and root serving instructions (`README.md`, `index.html`, `candidate-form.html`).
+
+### Fixed
+- Disabled destructive startup cleanup to preserve records, recordings, metrics and study data (`data.js`, tests).
+- Required fresh recording permission before microphone access and protected native controls/editable content from global/Capture shortcuts (`views.js`, `app.js`, tests).
+- Included structured content in recap fingerprints, kept current certificates stable across reloads, and synchronized changed asset versions (`workflow.js`, both HTML entry points, tests).
+- Keep Recruiter Notes exclusive to the Notes tab and connect the notes area to the full, current missing-information checklist with a dotted leader (`views.js`, `styles.css`, `index.html`, `tests/capture-spacing.test.js`).
+- Corrected mixed-source education and resume-derived skill citations and removed unsupported proficiency wording from generated drafts (`data.js`).
+- Preserve content-version approval after reload, explicit zero-error observations, and unsaved sibling assessment forms (`workflow.js`, `research-workspace.js`).
+- Connect shared Review missing-information controls to evidence and honest Capture correction guidance, with accessible card-scale styling (`review-workspace.js`, `styles.css`).
+
+### Changed
+- Removed the redundant “Candidate records” heading and gave Capture Notes a larger writing area with a recruiter voice-memo button at the lower right; removed the unnecessary candidate-consent/recording panel while keeping saved recordings available (`views.js`, `styles.css`, `index.html`, tests).
+- Darkened the Top skills dotted leader for clearer visibility without changing its weight or layout (`styles.css`, `index.html`).
+- Put Capture’s Top skills label, dotted leader, and three right-aligned skill chips on one row, preserving skill order and the remaining-skills +N popover with responsive wrapping (`views.js`, `styles.css`, `index.html`, `tests/capture-skills-row.test.js`, `tests/resume-fidelity-browser.cjs`, `README.md`).
+- Balanced Set Up’s check-in group’s visible space by folding each column’s ink offset into its layout box, matched the Copy link/Print poster row to the visible black QR pattern 20–24px below the quiet zone, and scaled the stacked button labels so they stay on one line on short laptops (`views.js`, `styles.css`, `index.html`, `tests/check-in-layout.test.js`, `tests/check-in-visual.cjs`).
+- Prioritize quantified outcomes before scope and methods in ten-word Capture bullets, retain qualified estimates and material operating quantities, and right-align dates beside titles with responsive dotted leaders (`views.js`, `styles.css`, `index.html`, `tests/capture-brief.test.js`, `tests/resume-*`).
+- Shortened Capture contributions to up to three source-linked, ten-word bullets per role/project, with bold quantities and full wording retained only in Resume; removed in-card contribution expansion (`views.js`, `index.html`, `tests/capture-brief.test.js`, `tests/resume-fidelity*`, `tests/resume-pdf-fidelity.cjs`, `README.md`).
+- Centered Set Up’s check-in group (heading, steps, QR, and actions) between the header rule and footer branding, moved the QR settings control to the card’s far-right edge under the event control, spanned the Copy/Print row across the QR block with equal-width one-line buttons, and darkened the header rule and footer leader (`views.js`, `styles.css`, `index.html`, `tests/check-in-layout.test.js`, `tests/check-in-visual.cjs`).
+- Preserve complete, source-owned résumé contributions with one default bullet per role/project and keyboard-accessible expansion; emphasize quantities and navigate to versioned original passages without permanent underlines (`views.js`, `styles.css`).
+- Join wrapped PDF bullets, recognize later sections, retain degree majors and item metadata, and refresh older usable parses once while preserving confirmed fields and renewing summary approval (`data.js`, `index.html`, `candidate-form.html`).
+- Add full-contribution, migration, ten-PDF pipeline, and rendered interaction regressions; update obsolete ten-word test contracts and usage documentation (`tests/resume-*`, `tests/candidate-card-fidelity.test.js`, `README.md`).
+- Preserved exact poster colors in print output, including branded fills and graphic artwork (`styles.css`, `index.html`, `tests/check-in-layout.test.js`).
+- Fixed poster printing to use a landscape page and preserve the wide two-column composition and inline footer instead of inheriting the narrow-screen stacked layout (`styles.css`, `index.html`, `tests/check-in-layout.test.js`).
+- Refined the Set Up check-in poster with an opaque header rule and footer connector, aligned QR actions to the quiet-zone edges, tightened instruction spacing, placed QR settings beside the heading, reduced the footer logo slightly, and kept print output focused on the poster (`views.js`, `styles.css`, `index.html`, `tests/check-in-layout.test.js`, `tests/check-in-visual.cjs`).
+- Removed sample candidates from new workspaces, clear existing local sample records once, and remove sample-data loading controls so recruiters can test with their own resumes (`config.js`, `data.js`, `app.js`, `views.js`, `index.html`, `candidate-form.html`).
+
+### Changed
+- Moved Set Up’s animated laptop beside the event title/metadata with a 24px gap, vertically centered the pair, and centered the combined group across the card while preserving the far-right info control and fixed animation footprint (`views.js`, `styles.css`, `index.html`, `tests/hoghacks-laptop*`, `tests/check-in-visual.cjs`, `assets/hoghacks/README.md`).
+- Removed the sidebar’s dead Notifications and Settings icon buttons (no handler was ever bound) so the Event card sits at the bottom of the rail, dropping their tooltip, badge-dot, and footer CSS (`index.html`, `styles.css`, `tests/ui-polish-contract.test.js`, `tests/check-in-visual.cjs`).
 - Centered Set Up’s event title and date/location group across the card while keeping the event info control at the far-right edge (`styles.css`, `index.html`, `tests/check-in-visual.cjs`).
 - Slightly darkened Set Up’s dotted footer leader and raised the inline branding by 24px on roomy desktops or 16px on shorter laptops, retaining bottom breathing room, existing type/QR/logo sizing, column alignment, and mobile spacing (`styles.css`, `index.html`, `tests/check-in-visual.cjs`).
 - Replaced Set Up’s padded, divided footer bar with an inline logo–dotted leader–motto row using 20px gaps, preserved responsive branding sizes and aspect ratio, and hid the decorative leader when branding stacks on narrow screens (`views.js`, `styles.css`, `index.html`, `tests/check-in-layout.test.js`, `tests/check-in-visual.cjs`).
@@ -19,6 +104,7 @@ All notable changes to TalentIQ will be documented in this file.
 - Reworked Set Up as a printable event poster with editable event details in the top-right header, numbered candidate instructions, a footer brand mark, and Copy link before Print poster (`views.js`, `styles.css`, `index.html`, `tests/booth-setup.test.js`).
 
 ### Added
+- Added the supplied transparent HogHacks pixel laptop to Set Up’s header with a fixed-base, hinge-only 7.2-second sprite loop, centered event details, mobile scaling, decorative semantics, and static open reduced-motion/print modes; included reproducible asset preparation and pixel/layout regression checks (`assets/hoghacks/`, `scripts/generate-hoghacks-laptop.py`, `views.js`, `styles.css`, `index.html`, `tests/hoghacks-*`, `README.md`).
 - Revised Set Up for candidate check-in: event name leads the booth card, concise instructions and separate J.B. Hunt branding replace metadata, and an enlarged QR remains paired with Print/Copy (`views.js`, `styles.css`, `index.html`, `tests/booth-setup.test.js`).
 - Refined Set Up to match the requested layout: Check In matches the event title size, the Open Capture button is removed, and the logo spans the instructions card while retaining its aspect ratio (`views.js`, `styles.css`, `tests/booth-setup.test.js`).
 - Combined the Event Booth details and candidate instructions into one dark booth card, sized the card/logo column to align with the QR, and stack the layout at narrower widths (`views.js`, `styles.css`, `tests/booth-setup.test.js`).

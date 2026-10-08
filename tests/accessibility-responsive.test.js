@@ -29,14 +29,14 @@ assert(/\.field input,\s*\n\s*\.field select\s*{[^}]*height:\s*44px/s.test(candi
 assert(/\.submit-btn\s*{[^}]*height:\s*44px/s.test(candidateForm), 'candidate intake submit buttons meet 44px touch target height');
 
 assert(/class="skip-link"/.test(index) && /id="mainContent"/.test(index), 'main app has a skip link target');
-assert(!/class="workflow-tools"/.test(index) && !/data-import-submission/.test(index), 'workflow utility strip is removed so content starts directly beneath the page header');
+assert(!/class="workflow-tools"/.test(index) && !/data-import-submission/.test(index), 'workflow utility strip is absent from the shared app shell');
 assert(!/id="workflowStage"/.test(index), 'repeated step banner is removed from the app shell');
 assert(!/renderStage\s*\(/.test(fs.readFileSync(path.join(root, 'app.js'), 'utf8')), 'router does not inject a repeated step banner on every screen');
 assert(!/\.stage-banner/.test(styles), 'obsolete stage-banner styling is removed');
 assert(/\.skip-link:focus-visible/.test(styles), 'skip link has visible focus styling');
 assert(/@media \(max-width: 480px\)[\s\S]*\.kiosk-col-left[\s\S]*max-width:\s*100%/.test(styles), 'kiosk event card is constrained on small phones');
-assert(/\.breadcrumb-link[\s\S]*color:\s*#334155/.test(styles), 'breadcrumb text uses contrast-safe color');
-assert(/\.recruiter-label[\s\S]*color:\s*#334155/.test(styles), 'recruiter label uses contrast-safe color');
+assert(!/class="breadcrumb"/.test(index), 'shared page breadcrumb is removed');
+assert(/\.recruiter-label[\s\S]*color:\s*rgba\(255,255,255,0\.7\)/.test(styles), 'sidebar recruiter label uses contrast-safe color');
 assert(/<h2 class="candidate-name">/.test(views), 'capture card candidate name does not skip heading levels');
 assert(/\.kiosk-workspace\s*{[^}]*width:\s*100%[^}]*max-width:\s*none/s.test(styles), 'Booth Setup uses the available page width on large screens');
 assert(/<canvas[^>]*id="kiosk-qr-canvas"[^>]*role="img"[^>]*aria-label="QR code for candidate profile"/.test(views), 'Booth Setup QR canvas has an accessible name');

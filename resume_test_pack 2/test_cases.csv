@@ -1,0 +1,11 @@
+file,candidate,target_role,test_case,pages,word_count
+01_avery_brooks.pdf,Avery Brooks,Software Engineering Intern,"Student software intern; multiple projects, metrics, GPA",1,445
+02_maya_patel.pdf,Maya Patel,Data Analytics Intern,Analytics intern; percentage-point metric and in-progress credential,1,400
+03_jordan_ellis.pdf,Jordan Ellis,Operations Management Trainee,Operations graduate; logistics rather than software,1,399
+04_sofia_nguyen.pdf,Sofia Nguyen,Software Engineer - Frontend,Experienced frontend; precise performance and accessibility evidence,1,419
+05_alexander_montgomery-rivera.pdf,Alexander Montgomery-Rivera,Software Engineering and Transportation Systems Research Intern,"Long name, long title, many skills, research achievements",1,416
+06_sam_taylor.pdf,Sam Taylor,Entry-Level Application Developer,Certificate graduate; transferable work experience; no GPA,1,401
+07_casey_morgan.pdf,Casey Morgan,Quality Assurance Analyst,Career changer; explicit employment gap; mixed transferable and technical evidence,1,397
+08_riley_chen.pdf,Riley Chen,Backend Engineering Intern,Missing email and phone; strong technical resume must not invent contact data,1,367
+09_taylor_reed.pdf,Taylor Reed,User Experience Design Intern,UX candidate; qualitative findings and small-sample metrics,1,388
+10_morgan_davis.pdf,Morgan Davis,Senior Software Engineer - Transportation Platforms,"Two-page senior resume; production scale, leadership, earlier employment",2,722

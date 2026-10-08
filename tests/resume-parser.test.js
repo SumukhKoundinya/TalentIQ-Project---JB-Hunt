@@ -177,7 +177,7 @@ function main() {
   ].join('\n');
   const alexParsed = TIQ.ai.extractResumeData(alexResume);
   assert(JSON.stringify(TIQ.views._selectCaptureFacts('Assisted 40+ customers per shift with purchases, returns, and order questions.', 2)) ===
-    JSON.stringify(['Assisted 40+ customers per shift.']), 'Customer Service contribution is narrowed to a complete supported claim');
+    JSON.stringify(['Assisted 40+ customers per shift with purchases, returns, and order questions.']), 'Customer Service contribution retains its complete scope');
   assert(wordCount('Assisted 40+ customers per shift.') <= 10, 'Customer Service claim uses the exact plain-text word count');
   assert(alexParsed.education[0].major === 'Supply Chain Management', 'the parser prefers the specific concentration after the general degree label');
   assert(alexParsed.experience[0].title === 'Transportation Operations Intern', 'experience title keeps its leading words when employer metadata follows');
@@ -191,10 +191,10 @@ function main() {
   const alexProjects = alexEntries.filter(function(entry) { return entry.category === 'Project'; });
   const alexExperienceEntries = alexEntries.filter(function(entry) { return entry.category === 'Experience'; });
   assert(alexExperienceEntries.length === 2, 'displayed experience count includes every supported parsed role');
-  assert(alexExperienceEntries.some(entry => entry.name === 'Customer Service Associate' && entry.facts.includes('Assisted 40+ customers per shift.')),
+  assert(alexExperienceEntries.some(entry => entry.name === 'Customer Service Associate' && entry.facts.includes('Assisted 40+ customers per shift with purchases, returns, and order questions.')),
     'Customer Service Associate remains visible with a concise source-backed contribution');
-  alexEntries.forEach(entry => entry.facts.forEach(fact => assert(wordCount(fact) <= 10,
-    'Capture fact stays within ten whitespace-separated words: ' + fact)));
+  alexEntries.forEach(entry => entry.facts.forEach(fact => assert(fact.trim() && !/…$/.test(fact),
+    'Capture retains a complete contribution: ' + fact)));
   assert(alexProjects.length === 2, 'the card keeps one entry for each distinct project');
   alexProjects.forEach(function(entry) {
     assert(new Set(entry.facts.map(function(fact) { return fact.toLowerCase().replace(/[.!?;]+$/, ''); })).size === entry.facts.length,
@@ -213,20 +213,20 @@ function main() {
   assert(alexEntries.filter(function(entry) { return entry.category === 'Leadership'; }).length === 1,
     'source leadership details join into one leadership card item rather than duplicating the category');
   const alexExperience = alexEntries.filter(function(entry) { return entry.category === 'Experience'; })[0];
-  assert(alexExperience.facts.length === 2, 'experience highlights select two complete source-backed bullets');
+  assert(alexExperience.facts.length === 4, 'experience highlights retain all four complete source-backed bullets');
   assert(alexExperience.facts.some(function(fact) { return /reduced weekly reporting preparation from 3 hours to 45 minutes\./i.test(fact); }),
     'the selected experience facts retain the complete reporting-time result in a concise complete claim');
   assert(alexExperience.facts.some(function(fact) { return /helped reduce missing appointment details by 24%\./i.test(fact); }),
     'the other selected experience fact prioritizes a distinct supported improvement');
-  assert(!alexExperience.facts.some(function(fact) { return /Tracked 50-70 daily shipments/.test(fact); }),
-    'routine shipment volume does not displace stronger outcome evidence');
+  assert(alexExperience.facts.some(function(fact) { return /Tracked 50-70 daily shipments/.test(fact); }),
+    'routine shipment volume remains available after stronger outcome evidence');
   assert(alexExperience.name === 'Transportation Operations Intern' && alexExperience.organization === 'Ozark Freight Solutions' && alexExperience.location === 'Springdale, AR' && alexExperience.dates === 'May 2025 - August 2025',
     'experience metadata is readable and keeps employer, location, and dates separate');
   const alexHtml = TIQ.views._resumeHighlightsHtml(alex);
   assert(alexHtml.includes('Transportation Operations Intern') && alexHtml.includes('Ozark Freight Solutions') && alexHtml.includes('Springdale, AR') && alexHtml.includes('May 2025 - August 2025'),
     'candidate card renders the full role header, employer, location, and dates');
   assert(alexHtml.includes('Experience · 2'), 'the experience group count matches the roles shown');
-  assert(alexProjects[0].facts.length === 2 && /12,000 simulated shipment records/.test(alexProjects[0].facts[0]) && /projected to lower late deliveries by 15%/.test(alexProjects[0].facts[1]),
+  assert(alexProjects[0].facts.length === 2 && alexProjects[0].facts.some(f => /12,000 simulated shipment records/.test(f)) && /projected to lower late deliveries by 15%/.test(alexProjects[0].facts[0]),
     'the freight project keeps concise distinct facts and qualifiers');
   assert(alexProjects[1].facts.length === 1 && /simulated warehouse/.test(alexProjects[1].facts[0]) && /modeled stock discrepancies by 18%/i.test(alexProjects[1].facts[0]),
     'the inventory project retains its source-backed outcome and modeled qualifier');

@@ -47,7 +47,8 @@ async function main() {
   assert.strictEqual(TIQ.views._displayName({resumeUpload:'invented_person.pdf'}), '', 'filename is not evidence of a name');
   const c = TIQ.intake.buildCandidate({});
   assert.strictEqual(c.degreeProgram, '', 'intake must not invent a degree without a resume');
-  const normalized = TIQ.normalizeCandidate({id:TIQ.seedCandidates[0].id,firstName:'Real'}, TIQ.seedCandidates[0]);
+  const seedFixture = {id:'fixture-seed', university:'Demo University', skills:['Demo Skill']};
+  const normalized = TIQ.normalizeCandidate({id:seedFixture.id,firstName:'Real'}, seedFixture);
   assert(!normalized.university && !normalized.skills, 'real stored records must not inherit demo fields by ID');
   const parsed = TIQ.ai.extractResumeData(fixtures.engineer);
   assert.strictEqual(parsed.education[0].school, 'Pacific University', 'separate degree line belongs to the same school');

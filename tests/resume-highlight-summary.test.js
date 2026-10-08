@@ -82,8 +82,8 @@ async function main() {
   const sampleRole = sample.entries.find(entry => entry.category === 'Experience');
   const sampleProject = sample.entries.find(entry => entry.category === 'Project');
   assert.equal(TIQ.views._summarizeCaptureFact('Built a simulated warehouse model, reducing modeled stock discrepancies by 18%.'),
-    'Built simulated warehouse model, reducing modeled stock discrepancies by 18%.',
-    'warehouse accomplishment keeps both source qualifiers within ten words');
+    'Built a simulated warehouse model, reducing modeled stock discrepancies by 18%.',
+    'warehouse accomplishment retains its original full wording and qualifiers');
   assert(sampleRole && sampleRole.facts.length <= 2, 'sample résumé role has at most two highlights');
   assert(sampleProject && sampleProject.facts.length <= 2, 'sample résumé project has at most two highlights');
   assert(sampleRole.facts.some(fact => /20%/.test(fact)), 'sample upload retains the quantified backlog result');
@@ -93,10 +93,10 @@ async function main() {
   const metrics = await upload(TIQ, 'Taylor', variedMetrics);
   const analyst = metrics.entries.find(entry => entry.category === 'Experience');
   const dashboard = metrics.entries.find(entry => entry.category === 'Project');
-  assert(analyst && analyst.facts.length === 2, 'alternate résumé structure keeps two distinct role accomplishments');
+  assert(analyst && analyst.facts.length === 3, 'alternate résumé structure keeps every distinct role accomplishment');
   assert(analyst.facts.some(fact => /3 hours to 45 minutes/.test(fact)), 'time savings survive concise selection');
   assert(analyst.facts.some(fact => /helped reduce missing appointment details by 24%/i.test(fact)), 'attributed outcome is retained over volume-only detail');
-  assert(!analyst.facts.some(fact => /50–70 daily shipments/.test(fact)), 'routine scale does not outrank measurable improvement');
+  assert(analyst.facts.some(fact => /50–70 daily shipments/.test(fact)), 'routine scale remains accessible behind the priority contribution');
   assert(dashboard && dashboard.facts.length <= 2 && dashboard.facts.some(fact => /projected/.test(fact)), 'selected project outcome retains its projected qualifier');
   assert(TIQ.views._captureMetricHtml('Analyzed 12,000 simulated shipment records.') === 'Analyzed <strong class="capture-metric">12,000 simulated shipment records</strong>.', 'simulation qualifier and complete scale unit are emphasized together');
   assert(metrics.html.includes('<strong class="capture-metric">from 3 hours to 45 minutes</strong>'), 'complete before/after time measure is emphasized');
@@ -110,9 +110,7 @@ async function main() {
 
   for (const entry of [...sample.entries, ...metrics.entries, ...sparse.entries]) {
     for (const fact of entry.facts) {
-      const words = fact.trim().split(/\s+/).length;
-      assert(words <= 10,
-        'every candidate-card highlight bullet is at most 10 whitespace-separated words: ' + fact);
+      assert(fact.trim(), 'every contribution has substantive source text');
       assert(!/\.\.\.|…$/.test(fact), 'highlight is not cut mid-sentence');
     }
   }

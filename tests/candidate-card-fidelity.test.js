@@ -95,10 +95,10 @@ function main() {
   assert(projects[0].facts.some(fact => /modeled forecast.*17%/i.test(fact)), 'a separate concise project fact preserves the modeled outcome');
   assert(projects[1].facts.some(fact => /320 storage locations/.test(fact)), 'warehouse project summary preserves its scale');
   assert(projects[1].facts.some(fact => /projected 11%/i.test(fact)), 'a separate concise warehouse fact preserves the projected outcome');
-  assert(projects[2].facts.some(fact => fact === 'Built a dashboard to compare service levels across 24 routes.'),
-    'dashboard highlight keeps its source action and route scope while dropping only the tool method');
-  assert([...experience, ...projects, ...leadership].flatMap(entry => entry.facts).every(fact => fact.trim().split(/\s+/).length <= 10),
-    'every rendered highlight fact is at most ten whitespace-separated words');
+  assert(projects[2].facts.some(fact => /Built a dashboard.*compare service levels across 24 routes/.test(fact) && /SQL|Power BI/.test(fact)),
+    'dashboard highlight retains the tool method as well as its source action and route scope');
+  assert([...experience, ...projects, ...leadership].flatMap(entry => entry.facts).every(fact => fact.trim() && !/…$/.test(fact)),
+    'complete source contributions are retained without a word-count cutoff');
   assert(c.parsedResume.rawText.includes('Analyzed 4,800 simulated orders using Python and SQL. The modeled forecast reduced inventory variance by 17%.'),
     'full project details remain accessible in the parsed résumé');
 
@@ -129,10 +129,10 @@ function main() {
   ].join('\n');
   const outcomeFacts = TIQ.views._captureVisualEntries(candidate(outcomeResume))
     .find(entry => entry.category === 'Experience').facts;
-  assert.equal(outcomeFacts.length, 2, 'role highlights stay concise');
+  assert.equal(outcomeFacts.length, 3, 'all role contributions remain available');
   assert(outcomeFacts.some(fact => /3 hours to 45 minutes/.test(fact)), 'the reporting-time outcome is retained');
   assert(outcomeFacts.some(fact => /helped reduce missing delivery-status entries by 24%/i.test(fact)), 'a distinct improvement outranks routine volume metrics');
-  assert(!outcomeFacts.some(fact => /50–70 daily shipments/.test(fact)), 'routine scale does not displace distinct outcomes');
+  assert(outcomeFacts.some(fact => /50–70 daily shipments/.test(fact)), 'routine scale remains available without displacing the default outcome');
 
   const html = TIQ.views._resumeHighlightsHtml(c);
   const cardHtml = TIQ.views._buildCardHtml(c, true);

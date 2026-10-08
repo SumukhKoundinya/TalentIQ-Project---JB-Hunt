@@ -16,6 +16,12 @@ assert(html.includes('Open original résumé') && html.includes('href="blob:fixt
 assert(!html.includes('Original résumé text') && !html.includes('drawer-raw'), 'workspace omits the raw resume text disclosure');
 assert(html.includes('data-capture-details-back'), 'mobile back navigation remains');
 assert(html.includes('<label for="captureNotes" class="capture-section-title">Recruiter Notes</label>'));
+assert(html.includes('capture-notes-followup') && html.includes('Address before handoff') && html.includes('Work Auth Unspecified'), 'Notes tab connects the recruiter note field to the candidate’s outstanding flags');
+const resumePanel = html.slice(html.indexOf('data-drawer-panel="resume"'), html.indexOf('data-drawer-panel="notes"'));
+assert(!resumePanel.includes('captureNotes') && !resumePanel.includes('Recruiter Notes'), 'recruiter notes are only present in the Notes panel');
+assert(!html.includes('Candidate records'), 'evidence drawer omits the redundant Candidate records heading');
+assert(!html.includes('capture-recording-section') && !html.includes('recordingConsent'), 'recruiter voice memo has no separate panel or candidate-consent checkbox');
+assert(html.includes('capture-notes-footer') && html.includes('id="audioRecordBtn"'), 'record control sits in the notes footer');
 assert(html.includes('Own candidate draft'));
 for(const tab of ['resume','notes']) assert(html.includes('id="capture-panel-'+tab+'"'));
 assert(!html.includes('id="capture-panel-voice"'), 'voice controls live in Notes rather than a third tab');
@@ -28,6 +34,8 @@ assert(/#view-capture \.resume-highlights \{[^}]*flex:\s*1 1 0;[^}]*overflow-y:\
 assert(css.includes('#view-capture .resume-highlights__list { flex: 0 0 auto; justify-content: flex-start;'), 'highlight groups stack naturally without large distributed gaps');
 assert(css.includes('#view-capture .resume-highlights__entry .capture-facts li { font-size: 16px;'), 'candidate evidence text is large enough to read');
 assert(css.includes('#view-capture #captureNotes'));
+assert(!css.includes('#view-capture #capture-panel-notes { display: flex;'), 'inactive Notes panel does not override the drawer hidden state');
+assert(css.includes('#view-capture #capture-panel-notes.is-active { display: flex;'), 'active Notes panel uses the notes column layout');
 assert(/#view-capture \.capture-card__swipe-hint \{ font-size:\s*14px;/.test(css), 'review and follow-up actions are legible at card scale');
 assert(/#view-capture \.resume-highlights \{[^}]*flex:\s*1 1 0;[^}]*overflow-y:\s*auto;/.test(css), 'highlights consume available card height and scroll without hiding lower entries');
 console.log('PASS Capture workspace spacing, header removal, and unchanged tab/notes structure');

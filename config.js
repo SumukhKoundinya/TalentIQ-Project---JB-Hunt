@@ -147,20 +147,22 @@ TIQ.CONFIG = {
   ],
 
   // --- View Titles ---
+  viewTitles: { kiosk: "Set Up" },
   workflow: [
-    {key: 'kiosk', step: 1, label: 'Set Up', when: 'Before the fair', title: 'Booth Setup'},
+    {key: 'kiosk', step: 1, label: 'Set Up', when: 'Before the fair', title: 'Set Up'},
     {key: 'capture', step: 2, label: 'Capture', when: 'During the conversation', title: 'Capture'},
-    {key: 'review', step: 3, label: 'Review', when: 'End of day', title: 'End-of-Day Review'},
-    {key: 'analytics', step: 4, label: 'Event Results', when: 'After the fair', title: 'Event Results'}
+    {key: 'review', step: 3, label: 'Review', when: 'After the conversation', title: 'Review'}
   ],
-  study: [{key: 'metrics', label: 'Research Metrics', when: 'Controlled study', title: 'Research Metrics'}],
+  study: [],
 
   // --- Default View ---
   defaultView: "capture",
 
   // --- Seed Candidates ---
-  // Replace with your own test data
-  seedCandidates: [
+  // Start with an empty workspace; add candidates through Capture or Intake.
+  seedCandidates: [],
+  /* Retained below as the historical sample dataset reference; it is not loaded. */
+  /* seedCandidates: [
     {
       id: "TQ-2401", firstName: "Mia", lastName: "Williams", email: "mia.williams@student.edu",
       phone: "", university: "Nashville State University", degreeProgram: "Bachelor of Science",
@@ -392,5 +394,5 @@ TIQ.CONFIG = {
       ],
       reviewTimeMs: 0, noteEdits: 0
     }
-  ]
+  ] */
 };

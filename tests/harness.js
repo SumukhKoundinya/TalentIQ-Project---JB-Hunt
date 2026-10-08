@@ -58,7 +58,8 @@ function loadApp(extraFiles, overrides) {
   loadInto(stubs, path.join(__dirname, '..', 'config.js'));
   loadInto(stubs, path.join(__dirname, '..', 'data.js'));
   loadInto(stubs, path.join(__dirname, '..', 'workflow.js'));
-  for (const f of extraFiles) if (f !== 'workflow.js') loadInto(stubs, path.join(__dirname, '..', f));
+  loadInto(stubs, path.join(__dirname, '..', 'capture-workflow.js'));
+  for (const f of extraFiles) if (f !== 'workflow.js' && f !== 'capture-workflow.js') loadInto(stubs, path.join(__dirname, '..', f));
   const TIQ = stubs.window.TIQ;
   TIQ.__testStorage = stubs.localStorage;
   TIQ.__testStorageStore = stubs.store;

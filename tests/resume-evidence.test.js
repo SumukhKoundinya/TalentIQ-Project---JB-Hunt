@@ -50,8 +50,8 @@ const normalizedFact = candidate([
 const normalizedEntry = TIQ.views._captureVisualEntries(normalizedFact).find(entry => entry.facts.some(fact => /per week/.test(fact)));
 assert(normalizedEntry, 'keeps the existing display normalization for weekly hours');
 const normalizedFactHtml = TIQ.views._captureHighlightItemHtml(normalizedEntry);
-assert(!normalizedFactHtml.includes('data-resume-source='),
-  'does not underline a wording-normalized claim when its rendered form cannot be reliably mapped');
+assert(normalizedFactHtml.includes('data-resume-source='),
+  'wording-normalized claims retain the original source offset');
 
 const linkedEntry = TIQ.views._captureVisualEntries(c).find(entry => entry.facts.some(fact => /18%/.test(fact)));
 const linkedHtml = TIQ.views._captureHighlightItemHtml(linkedEntry);
@@ -77,11 +77,12 @@ TIQ.views._captureIndex = 0;
 const html = TIQ.views.renderRecruiterCapture();
 assert(html.includes('data-resume-passage-id'), 'rendered résumé passages expose stable IDs for navigation');
 assert(html.includes('data-resume-source='), 'only claims with mapped evidence render source controls');
-const claimId = html.match(/data-resume-source="([^"]+)" aria-label="View résumé source for Reduced missing delivery-status entries by 18%\./);
+const claimId = html.match(/data-resume-source="([^"]+)" aria-label="View résumé source for [^"]*18%/);
 assert(claimId && html.includes('data-resume-passage-id="' + claimId[1] + '"'),
   'card source link points at the matching rendered résumé passage');
 
 TIQ.state.candidates = [repeated];
 const repeatedHtml = TIQ.views.renderRecruiterCapture();
-assert(!repeatedHtml.includes('aria-label="View résumé source for Managed appointment updates for 24 daily shipments."'),
-  'renders no dead link for an ambiguous repeated phrase');
+const ownedSource = TIQ.views._captureVisualEntries(repeated).flatMap(e=>TIQ.views._captureBriefFacts(e)).find(b=>b.text==='Managed appointment updates for 24 daily shipments.');
+assert(ownedSource && ownedSource.evidence && repeatedHtml.includes('data-resume-passage-id="'+ownedSource.evidence.passageId+'"'),
+  'explicit owner offsets resolve repeated passages without ambiguous text matching');

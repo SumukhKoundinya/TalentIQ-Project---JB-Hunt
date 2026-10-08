@@ -27,6 +27,9 @@ mixed.parsedResume = {rawText:'Teaching Assistant\nSupported 14 students and exe
 assert(!TIQ.views._resumeHighlightEntries(mixed).some(e => e.category === 'Experience'), 'content outside a recognized section is omitted rather than promoted to a role');
 const css = fs.readFileSync('styles.css','utf8');
 assert(css.includes('--capture-available-height'), 'frame derives from measured available viewport');
+const viewsSource = fs.readFileSync('views.js','utf8');
+assert(!/\.observe\(document\.querySelector\(['"]\.topbar['"]\)\)/.test(viewsSource), 'Capture setup does not observe the removed shared topbar');
+assert(/TIQ\.views\.initCaptureEvents\s*=\s*function\s*\(\)[\s\S]*?TIQ\.views\.initSwipeEngine\(\)/.test(viewsSource), 'Capture event setup reaches the swipe engine');
 assert(!/#view-capture \.capture-metric \{ color: var\(--brand\)/.test(css), 'noninteractive metrics are not blue');
 const empty = TIQ.views._resumeHighlightsHtml(TIQ.intake.buildCandidate({firstName:'Andre'}));
 assert(empty.includes('No highlights yet'), 'sparse state is understated rather than a stretched placeholder');

@@ -27,9 +27,9 @@ TIQ.state.candidates = [c, TIQ.intake.buildCandidate({firstName:'Sam',lastName:'
 const html = TIQ.views._buildCardHtml(c, true);
 assert(!html.includes('resume-bar'), 'identity leads without scan banner');
 const top = TIQ.views._topSkillsHtml(c);
-assert.strictEqual((top.match(/class="skill-pill"/g)||[]).length,13, 'all skill chips are present for viewport fitting');
-assert(top.includes('data-capture-skills') && top.includes('aria-label="Additional skills"'), 'overflow has an accessible popover control');
-assert(!top.includes('skill-group__leader'), 'no dotted leaders in triage');
+assert.strictEqual((top.match(/class="skill-pill"/g)||[]).length,13, 'all skill values remain available with overflow hidden');
+assert(top.includes('data-capture-skills') && top.includes('aria-label="10 additional skills"'), 'overflow has an accessible counted popover control');
+assert(top.includes('capture-skills-leader') && (top.match(/data-skill-index="\d+"(?! hidden)/g)||[]).length===3, 'skills use a leader and three visible chips');
 const expanded = TIQ.views._allSkillsHtml(c);
 c.skills.forEach(s => assert(expanded.includes(s), 'all skills retained: '+s));
 assert(expanded.includes('All skills') && expanded.includes('skill-group__label'));
@@ -46,7 +46,7 @@ assert(beforeDisclosure.indexOf('data-flag-key="Work Authorization"') < beforeDi
 assert.strictEqual((flags.split('alert-banner__body')[1].match(/data-flag-key=/g)||[]).length,TIQ.getMissingFlags(c).length, 'all flags stay actionable');
 const capture = TIQ.views.renderRecruiterCapture();
 assert(capture.includes('View resume &amp; evidence') && capture.includes('data-capture-details-back'));
-assert(capture.includes('Candidate records') && capture.includes('Alex Rivera'));
+assert(!capture.includes('Candidate records') && capture.includes('Alex Rivera'), 'candidate evidence omits the redundant records heading');
 const css = fs.readFileSync('styles.css','utf8');
 assert(css.includes('#view-capture .capture-workspace') && /minmax\(0, 38fr\) minmax\(0, 62fr\)/.test(css));
 assert(css.includes('data-details-open') && !css.includes('-webkit-line-clamp: 2'), 'content is scrollable rather than clipped by a line clamp');

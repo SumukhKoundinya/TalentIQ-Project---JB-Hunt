@@ -34,9 +34,10 @@ TIQ.views.renderOverview = function() {
   var caption = cands.length + ' local records · ' + (scope === 'all' ? 'all events, including unassigned' : scope === 'unassigned' ? 'unassigned event' : scope) + ' · all stored dates';
   var feed = A.activityFeed(cands);
   return '<div class="view" id="view-overview">' +
+    '<h1 class="view-title">Event Results</h1>' +
     '<p class="results-intro">Operational information only. These measures describe records, not candidate quality.</p>' +
     '<label class="results-scope"><span>Record scope</span><select id="resultsEvent" aria-label="Choose which event records to show">' + [{id:'all',label:'All records on this device'},{id:'unassigned',label:'Unassigned / legacy records'}].concat(ids.map(function(id) { return {id:id,label:id === TIQ.currentEventId() ? TIQ.eventInfo().name + ' (current event)' : id}; })).map(function(e) { return '<option value="' + TIQ.escapeAttr(e.id) + '"' + (scope === e.id ? ' selected' : '') + '>' + h(e.label) + '</option>'; }).join('') + '</select></label>' +
-    (!cands.length ? '<div class="results-empty"><h2>No records in this population</h2><p>Capture someone at the booth, import a submission, or load sample events to explore the workflow.</p><button class="primary-button" data-go="capture">Start capturing</button> <button class="secondary-button" data-demo-load>Load sample events</button></div>' : '') +
+    (!cands.length ? '<div class="results-empty"><h2>No records in this population</h2><p>Capture someone at the booth or import a submission to begin testing with your own data.</p><button class="primary-button" data-go="capture">Start capturing</button></div>' : '') +
     '<div class="results-metrics">' + A.metricDescriptors(cands).map(function(d) {
       return '<article class="result-metric" data-metric="' + TIQ.escapeAttr(d.key) + '"><h2>' + h(d.label) + '</h2><strong class="result-value">' + (d.value === null ? '—' : d.value + (d.unit === '%' ? '%' : '')) + '</strong><p>' + d.numerator + ' / ' + d.denominator + (d.unit === '%' ? ' tracked checks' : ' records') + '</p><details><summary>Definition &amp; next action</summary><p>' + h(d.definition) + '</p><p>' + h(d.whyItMatters) + '</p><p>' + h(d.caveat) + '</p><small>' + h(d.source) + '</small></details></article>';
     }).join('') + '</div>' +
@@ -94,14 +95,6 @@ TIQ.views.initAnalyticsEvents = function() {
   };
 };
 
-/* ---- Event Info (QR Poster + Configurator) ---- */
-TIQ.views._kioskFormUrl = TIQ.views._kioskFormUrl || (((window.location && window.location.origin) || "") + "/candidate-form.html");
-TIQ.views._kioskIntakeMethod = TIQ.views._kioskIntakeMethod || "google-form";
-TIQ.views._kioskRenderQR = null;
-
-TIQ.views._kioskInfoIcon =
-  '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-  '<circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 7.7v.1"></path></svg>';
 
 TIQ.views.renderDemoLogin = function() {
   return '<main class="demo-login" id="demoLogin" aria-labelledby="demoLoginTitle">' +
@@ -144,226 +137,6 @@ TIQ.views.initDemoLoginEvents = function(onContinue) {
   });
   var firstChoice = document.querySelector("[data-demo-recruiter]");
   if (firstChoice) firstChoice.focus();
-};
-
-TIQ.views.renderKiosk = function() {
-  var cfg = TIQ.CONFIG;
-  var ev = TIQ.eventInfo();
-
-  return '<div class="view" id="view-intake">' +
-    '<section class="kiosk-poster" aria-label="Career fair check-in poster">' +
-      '<header class="kiosk-poster__header">' +
-        '<div class="kiosk-poster__event">' +
-          '<h1 class="kiosk-event-card__title" id="kioskEventMeta">' + TIQ.escapeHtml(ev.name) + '</h1>' +
-          '<div class="kiosk-poster__metadata"><span id="kioskEventDate">' + TIQ.escapeHtml(ev.date) + '</span><span id="kioskEventLocation">' + TIQ.escapeHtml(ev.location) + '</span></div>' +
-        '</div>' +
-        '<button type="button" class="kiosk-info-btn" id="kioskEditEvent" aria-label="Edit event details" title="Edit event details">' + TIQ.views._kioskInfoIcon + '</button>' +
-      '</header>' +
-      '<div class="kiosk-poster__body">' +
-        '<div class="kiosk-poster__columns">' +
-        '<section class="kiosk-instructions" aria-labelledby="kioskInstructionsTitle">' +
-          '<h2 class="kiosk-instructions__title" id="kioskInstructionsTitle">Candidate check-in</h2>' +
-          '<p class="kiosk-instructions__intro">Scan to complete your profile before meeting a recruiter.</p>' +
-          '<ol class="kiosk-instructions__steps"><li>Scan the QR code</li><li>Complete your profile</li><li>Meet a recruiter</li></ol>' +
-        '</section>' +
-        '<section class="kiosk-qr-panel" id="kioskQrPanel" aria-label="Candidate check-in QR code">' +
-          '<div class="kiosk-qr-container" id="kioskQrContainer">' +
-            '<canvas id="kiosk-qr-canvas" width="200" height="200" role="img" aria-label="QR code for candidate profile"></canvas>' +
-          '</div>' +
-          '<div class="kiosk-qr-actions">' +
-            '<button type="button" class="primary-button kiosk-action-btn" id="kioskCopyLink">' +
-              '<svg viewBox="0 0 24 24" class="button-icon" aria-hidden="true"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
-              'Copy link' +
-            '</button>' +
-            '<button type="button" class="secondary-button kiosk-action-btn" id="kioskPrintPoster">' +
-            '<svg viewBox="0 0 24 24" class="button-icon" aria-hidden="true"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
-              'Print poster' +
-            '</button>' +
-          '</div>' +
-        '</section></div>' +
-        '<div class="kiosk-poster__qr-info"><button type="button" class="kiosk-info-btn" id="kioskEditQr" aria-label="Edit booth QR and intake settings" title="Edit booth QR &amp; intake settings">' + TIQ.views._kioskInfoIcon + '</button></div>' +
-      '</div>' +
-      '<footer class="kiosk-poster__footer"><img class="kiosk-brand-logo" src="' + TIQ.escapeAttr(cfg.logoPath) + '" alt="J.B. Hunt" /><span class="kiosk-poster__leader" aria-hidden="true"></span><span class="kiosk-poster__motto">People Moving America Forward℠</span></footer>' +
-    '</section>' +
-  '</div>';
-};
-
-/* Align painted glyphs/modules, not their line boxes or white QR frame. */
-TIQ.views._alignKioskInk = function() {
-  var heading = document.getElementById('kioskInstructionsTitle');
-  var canvas = document.getElementById('kiosk-qr-canvas');
-  var body = document.querySelector('.kiosk-poster__body');
-  if (!heading || !canvas || !body) return;
-  var style = window.getComputedStyle(heading);
-  var context = document.createElement('canvas').getContext('2d');
-  context.font = style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily;
-  var metrics = context.measureText(heading.textContent);
-  var ascent = metrics.fontBoundingBoxAscent;
-  var descent = metrics.fontBoundingBoxDescent;
-  var inkOffset = (parseFloat(style.lineHeight) - ascent - descent) / 2 + ascent - metrics.actualBoundingBoxAscent;
-  if (Number.isFinite(inkOffset)) body.style.setProperty('--kiosk-heading-ink-offset', inkOffset + 'px');
-  var pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-  for (var y = 0; y < canvas.height; y++) {
-    for (var x = 0; x < canvas.width; x++) {
-      if (pixels[(y * canvas.width + x) * 4] < 128) {
-        var padding = parseFloat(window.getComputedStyle(canvas.parentElement).paddingTop);
-        var quietZone = y * canvas.getBoundingClientRect().height / canvas.height;
-        body.style.setProperty('--kiosk-qr-ink-offset', (padding + quietZone) + 'px');
-        return;
-      }
-    }
-  }
-};
-
-TIQ.views.initKioskForm = function() {
-  var printBtn = document.getElementById("kioskPrintPoster");
-  var copyBtn = document.getElementById("kioskCopyLink");
-  var editEventBtn = document.getElementById("kioskEditEvent");
-  var editQrBtn = document.getElementById("kioskEditQr");
-  var openCaptureBtn = document.querySelector("[data-open-capture]");
-
-  var renderQR = function() {
-    var url = TIQ.views._kioskFormUrl || "https://forms.gle/jbh-tech-fair-2026";
-    var canvas = document.getElementById("kiosk-qr-canvas");
-    if (!canvas) return;
-    TIQ.qr.renderTo(url, canvas, { margin: 2 });
-    requestAnimationFrame(TIQ.views._alignKioskInk);
-  };
-  TIQ.views._kioskRenderQR = renderQR;
-
-  renderQR();
-  if (document.fonts) document.fonts.ready.then(TIQ.views._alignKioskInk);
-  if (!TIQ.views._kioskInkResizeBound) {
-    window.addEventListener('resize', TIQ.views._alignKioskInk);
-    TIQ.views._kioskInkResizeBound = true;
-  }
-
-  if (printBtn) {
-    printBtn.addEventListener("click", function() { window.print(); });
-  }
-
-  if (copyBtn) {
-    copyBtn.addEventListener("click", function() {
-      var url = TIQ.views._kioskFormUrl || "";
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(url).then(function() {
-          TIQ.showToast("QR link copied to clipboard.");
-        });
-      } else {
-        var tmp = document.createElement("textarea");
-        tmp.value = url;
-        document.body.appendChild(tmp);
-        tmp.select();
-        document.execCommand("copy");
-        document.body.removeChild(tmp);
-        TIQ.showToast("QR link copied to clipboard.");
-      }
-    });
-  }
-
-  if (editEventBtn) editEventBtn.addEventListener("click", function() { TIQ.views._openKioskEditor("event"); });
-  if (editQrBtn) editQrBtn.addEventListener("click", function() { TIQ.views._openKioskEditor("qr"); });
-  if (openCaptureBtn) openCaptureBtn.addEventListener("click", function() { TIQ.router.navigateTo("capture"); });
-};
-
-/* Corner info buttons open a modal editor for the booth + QR details */
-TIQ.views._openKioskEditor = function(kind) {
-  if (document.querySelector(".modal-overlay[data-kiosk-editor]")) return;
-  var isEvent = kind === "event";
-  var ev = TIQ.eventInfo();
-  var title = isEvent ? "Edit Event Details" : "Edit Booth QR &amp; Intake";
-  var body;
-
-  if (isEvent) {
-    body =
-      '<div class="modal-row"><label for="kioskEditName">Event Name</label>' +
-        '<input type="text" id="kioskEditName" value="' + TIQ.escapeAttr(ev.name) + '" placeholder="e.g. Logistics &amp; Technology Fair 2026" /></div>' +
-      '<div class="modal-row"><label for="kioskEditDate">Event Date</label>' +
-        '<input type="text" id="kioskEditDate" value="' + TIQ.escapeAttr(ev.date) + '" placeholder="e.g. Sep 14, 2026" /></div>' +
-      '<div class="modal-row"><label for="kioskEditLocation">Location</label>' +
-        '<input type="text" id="kioskEditLocation" value="' + TIQ.escapeAttr(ev.location) + '" placeholder="e.g. Nashville, TN" /></div>';
-  } else {
-    var method = TIQ.views._kioskIntakeMethod;
-    body =
-      '<div class="modal-row"><label for="kioskEditMethod">Select Intake Method</label>' +
-        '<select id="kioskEditMethod">' +
-          '<option value="google-form"' + (method === "google-form" ? " selected" : "") + '>Google Form / External Link</option>' +
-          '<option value="custom-url"' + (method === "custom-url" ? " selected" : "") + '>Custom URL</option>' +
-        '</select></div>' +
-      '<div class="modal-row"><label for="kioskEditUrl">Form / Survey URL</label>' +
-        '<input type="url" id="kioskEditUrl" value="' + TIQ.escapeAttr(TIQ.views._kioskFormUrl) + '" placeholder="https://..." /></div>' +
-      '<p class="kiosk-modal-hint">This URL is what candidates reach after scanning the booth QR code.</p>';
-  }
-
-  var overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
-  overlay.setAttribute("data-kiosk-editor", kind);
-  overlay.innerHTML =
-    '<div class="modal-dialog" role="dialog" aria-modal="true" aria-label="' + title.replace(/&amp;/g, "&") + '">' +
-      '<div class="modal-header"><h3>' + title + '</h3>' +
-        '<button type="button" class="modal-close" data-kiosk-close aria-label="Close">&times;</button></div>' +
-      '<div class="modal-body">' + body + '</div>' +
-      '<div class="modal-footer">' +
-        '<button type="button" class="secondary-button" data-kiosk-close>Cancel</button>' +
-        '<button type="button" class="primary-button" data-kiosk-save>Save</button>' +
-      '</div>' +
-    '</div>';
-  document.body.appendChild(overlay);
-
-  function closeEditor() {
-    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-    document.removeEventListener("keydown", onKeydown);
-  }
-  function onKeydown(e) {
-    if (e.key === "Escape") { e.stopPropagation(); closeEditor(); }
-  }
-  document.addEventListener("keydown", onKeydown);
-
-  overlay.addEventListener("click", function(e) {
-    if (e.target === overlay || e.target.closest("[data-kiosk-close]")) closeEditor();
-  });
-
-  var saveBtn = overlay.querySelector("[data-kiosk-save]");
-  if (saveBtn) {
-    saveBtn.addEventListener("click", function() {
-      if (isEvent) {
-        var nameInput = overlay.querySelector("#kioskEditName");
-        var dateInput = overlay.querySelector("#kioskEditDate");
-        var locInput = overlay.querySelector("#kioskEditLocation");
-        TIQ.state.event = {
-          name: nameInput ? nameInput.value.trim() : "",
-          date: dateInput ? dateInput.value.trim() : "",
-          location: locInput ? locInput.value.trim() : ""
-        };
-        TIQ.saveState();
-        var info = TIQ.eventInfo();
-        var meta = document.getElementById("kioskEventMeta");
-        if (meta) meta.textContent = info.name;
-        var eventDate = document.getElementById("kioskEventDate");
-        var eventLocation = document.getElementById("kioskEventLocation");
-        if (eventDate) eventDate.textContent = info.date;
-        if (eventLocation) eventLocation.textContent = info.location;
-        var sbName = document.getElementById("sidebarEventName");
-        var sbDate = document.getElementById("sidebarEventDate");
-        var sbLocation = document.getElementById("sidebarEventLocation");
-        if (sbName) sbName.textContent = info.name;
-        if (sbDate) sbDate.textContent = info.date;
-        if (sbLocation) sbLocation.textContent = info.location;
-        TIQ.showToast("Event details saved.");
-      } else {
-        var methodSelect = overlay.querySelector("#kioskEditMethod");
-        var urlInput = overlay.querySelector("#kioskEditUrl");
-        if (methodSelect) TIQ.views._kioskIntakeMethod = methodSelect.value;
-        if (urlInput) TIQ.views._kioskFormUrl = urlInput.value.trim();
-        if (TIQ.views._kioskRenderQR) TIQ.views._kioskRenderQR();
-        TIQ.showToast("Booth QR settings saved.");
-      }
-      closeEditor();
-    });
-  }
-
-  var firstField = overlay.querySelector(".modal-body input, .modal-body select");
-  if (firstField) firstField.focus();
 };
 
 /* ---- Recruiter Capture View ---- */
@@ -806,9 +579,10 @@ TIQ.views._captureSkills = function(c) {
 TIQ.views._topSkillsHtml = function(c) {
   var skills = TIQ.views._captureSkills(c);
   if (!skills.length) return '';
-  return '<section class="skills-block capture-top-skills"><h3>Top skills</h3><div class="capture-skill-pills">' +
-    skills.map(function(s, i) { return '<span class="skill-pill" data-skill-index="' + i + '">' + TIQ.escapeHtml(s) + '</span>'; }).join('') +
-    '<button type="button" class="skill-pill skill-pill--more" data-capture-skills popovertarget="capture-skills-popover" aria-controls="capture-skills-popover" aria-expanded="false" aria-label="Additional skills">+' + skills.length + '</button></div></section>';
+  var remaining = Math.max(0, skills.length - 3);
+  return '<section class="skills-block capture-top-skills"><h3>Top skills</h3><span class="capture-skills-leader" aria-hidden="true"></span><div class="capture-skill-pills">' +
+    skills.map(function(s, i) { return '<span class="skill-pill" data-skill-index="' + i + '"' + (i >= 3 ? ' hidden' : '') + '>' + TIQ.escapeHtml(s) + '</span>'; }).join('') +
+    '<button type="button" class="skill-pill skill-pill--more" data-capture-skills' + (remaining ? '' : ' hidden') + ' popovertarget="capture-skills-popover" aria-controls="capture-skills-popover" aria-expanded="false" aria-label="' + remaining + ' additional skills">+' + remaining + '</button></div></section>';
 };
 TIQ.views._allSkillsHtml = function(c) {
   var skills = TIQ.views._captureSkills(c);
@@ -853,6 +627,17 @@ TIQ.views._flagChipsHtml = function(flags) {
   '</div>';
 };
 
+TIQ.views._captureNotesFlagsHtml = function(flags) {
+  if (!flags || !flags.length) {
+    return '<section class="capture-notes-followup capture-notes-followup--clear" aria-label="Missing information"><span class="capture-notes-followup__title">Follow-up flags</span><span>No outstanding flags</span></section>';
+  }
+  return '<section class="capture-notes-followup" aria-label="Outstanding information to address">' +
+    '<span class="capture-notes-followup__title">Address before handoff</span>' +
+    '<ul class="capture-notes-followup__list">' + flags.map(function(flag) {
+      return '<li>' + TIQ.escapeHtml(flag.label) + '</li>';
+    }).join('') + '</ul></section>';
+};
+
 /* Display-only normalization: never mutate the stored parse or render its HTML. */
 function plainResumeSpelling(value) {
   return String(value == null ? '' : value).replace(/résumé/gi, 'resume');
@@ -892,13 +677,11 @@ function captureTokensSupported(claim, passage) {
 TIQ.views._captureResumeEvidence = function(c, claim, sourceContext) {
   var raw = String(c && c.parsedResume && c.parsedResume.rawText || '');
   if (!c || !c.id || !raw || !claim || !sourceContext || TIQ.ai.isStaleParse(c.parsedResume)) return null;
-  var candidates = [], offset = 0;
-  raw.split(/\r?\n/).forEach(function(line, index) {
-    var text = line.replace(/^\s*[•●○▪*-]\s*/, '').trim();
-    var start = raw.indexOf(line, offset);
-    offset = start + line.length + 1;
+  var candidates = [];
+  TIQ.ai.resumePassages(raw).forEach(function(passage) {
+    var text = passage.text, start = passage.offset;
     if (!text || !captureTokensSupported(claim, text) || !captureTokensSupported(sourceContext, text)) return;
-    candidates.push({text: text, offset: start, line: index});
+    candidates.push({text: text, offset: start});
   });
   if (candidates.length !== 1) return null;
   var version = captureResumeVersion(c), passage = candidates[0];
@@ -935,13 +718,17 @@ TIQ.views._captureSupportedTools = function(value) {
 /* Display-only contributions. Metadata is never a fact; keep each complete
    source bullet intact so a result in its second sentence is not detached. */
 TIQ.views._captureSourceFacts = function(source) {
+  if (/(?:^|\s)[•●○▪*-]\s/.test(String(source || ''))) {
+    return String(source).split(/(?:^|\s)[•●○▪*-]\s+/).slice(1).map(resumeDisplayText).filter(Boolean);
+  }
+  if (/^(?:Handle|Handled|Wrote|Write)\b/i.test(String(source || '').trim())) return [resumeDisplayText(source)];
   var action = /^(?:Built|Developed|Designed|Created|Implemented|Utilized|Used|Led|Managed|Maintained|Catalogued|Reduced|Increased|Supported|Assisted|Helped|Organized|Coordinated|Added|Validated|Tested|Documented|Researched|Qualified|Awarded|Earned|Received|Won|Winner|Executed|Published|Conducted|Analyzed|Tracked|Covered|Identified|Proposed|Modeled|Modelled|Automated|Delivered|Improved|Launched|Negotiated|Trained|Mentored|Facilitated|Oversaw|Achieved|Saved|Cut|Produced|Presented|Volunteered|Served|Raised|Collected|Taught|Resolved|Reviewed|Evaluated|Audited|Optimized|Monitored|Forecasted|Projected)\b/i;
   var sentenceActions = '(?:Built|Developed|Designed|Created|Implemented|Utilized|Used|Led|Managed|Maintained|Reduced|Increased|Supported|Assisted|Helped|Organized|Coordinated|Added|Validated|Tested|Documented|Researched|Qualified|Awarded|Earned|Received|Won|Executed|Published|Conducted|Analyzed|Tracked|Covered|Identified|Proposed|Modeled|Modelled|Automated|Delivered|Improved|Launched|Negotiated|Trained|Mentored|Facilitated|Oversaw|Achieved|Saved|Cut|Produced|Presented|Volunteered|Served|Raised|Collected|Taught|Resolved|Reviewed|Evaluated|Audited|Optimized|Monitored|Forecasted|Projected)';
   var bullets = String(source || '').replace(/\r\n?/g, '\n')
     .split(/(?:^|\n)\s*[•●○▪*-]\s*|\s+[•●○▪-]\s+/)
     .flatMap(function(text) {
       return text.split(new RegExp('(?<=[.!?])\\s+(?=' + sentenceActions + '\\b|The\\s+(?:modeled|modelled)\\b)', 'i'))
-        .flatMap(function(sentence) { return sentence.split(new RegExp('(?:,\\s*and\\s+|\\s+and\\s+)(?=' + sentenceActions + '\\b)', 'i')); });
+        .map(function(sentence) { return sentence; });
     })
     .map(resumeDisplayText).filter(Boolean);
   var facts = bullets.filter(function(text) {
@@ -956,80 +743,21 @@ TIQ.views._captureSourceFacts = function(source) {
 
 function captureMetricExpression(flags) {
   var quantity = '(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d+)?\\+?';
-  var amount = quantity + '(?:\\s*[–-]\\s*' + quantity + ')?';
-  var qualifiers = '(?:(?:business|common|daily|weekly|monthly|simulated|modelled|modeled|student|regional|customer|shipping|shipment|loading|employer|full-time|part-time)\\s+)+';
-  var units = '(?:hours?|hrs?|minutes?|mins?|seconds?|days?|weeks?|months?|years?|accounts?|customers?|users?|students?|attendees?|employees?|people|shipments?|records?|inquiries|routes?|docks?|facilities|counties|observations|units|panels|events|projects?|stores|SKUs|volunteers|team members|certifications|leadership roles)';
-  var counted = amount + '\\s+' + '(?:' + qualifiers + ')?' + units;
+  var amount = quantity + '(?:\\s*[–→-]\\s*' + quantity + ')?';
+  var qualifiers = '(?:(?:business|common|daily|weekly|monthly|synthetic|simulated|modelled|modeled|support|lab|new|confirmed|missed-appointment|Spring Boot|unit and integration|unit|integration|student|regional|customer|shipping|shipment|loading|employer|full-time|part-time)\\s+)+';
+  var units = '(?:hours?|hrs?|minutes?|mins?|milliseconds?|seconds?|days?|weeks?|months?|years?|tests?|requests?|endpoints?|defects?|assistants?|associates?|accounts?|customers?|users?|clients?|students?|attendees?|employees?|people|shipments?|messages?|records?|inquiries|routes?|docks?|facilities|counties|observations|units|panels|events|projects?|stores|SKUs?|volunteers|team members|certifications|leadership roles)';
+  var counted = amount + '(?:\\s+(?:million|billion|thousand))?' + '(?:\\s+|-)' + '(?:' + qualifiers + ')?' + units;
   var change = '(?:from\\s+)?' + quantity + '\\s+(?:hours?|hrs?|minutes?|mins?|days?|weeks?|months?|years?)\\s+to\\s+' + quantity + '\\s+(?:hours?|hrs?|minutes?|mins?|days?|weeks?|months?|years?)';
   var percent = amount + '\\s*%';
   var currency = '\\$\\s*' + quantity + '(?:\\s*(?:million|thousand))?';
   var ordinal = '\\d+(?:st|nd|rd|th)\\s+Place(?:\\s+State\\s+Winner)?';
-  return new RegExp('\\b(?:' + change + '|' + percent + '|' + currency + '|' + counted + '|' + ordinal + ')(?!\\w)', flags || 'i');
+  var range = '(?:from\\s+)?' + quantity + '(?:\\s+to\\s+|→)' + quantity + '\\s+' + units;
+  var spelled = '(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)(?:-(?:user|hour|person|member)|\\s+(?:' + qualifiers + ')?' + units + ')';
+  return new RegExp('\\b(?:' + range + '|' + change + '|' + percent + '|' + currency + '|' + counted + '|' + ordinal + '|' + spelled + ')(?!\\w)', flags || 'i');
 }
 
 TIQ.views._summarizeCaptureFact = function(fact) {
-  var text = resumeDisplayText(fact).replace(/\s+/g, ' ').trim();
-  if (!text) return '';
-  var verbs = '(?:Built|Developed|Designed|Created|Implemented|Used|Led|Managed|Maintained|Reduced|Increased|Supported|Assisted|Organized|Coordinated|Validated|Tested|Documented|Won|Published|Analyzed|Tracked|Identified|Proposed|Modeled|Delivered|Improved|Launched|Trained|Mentored|Facilitated|Achieved|Saved|Cut|Produced|Presented|Resolved|Reviewed|Audited|Optimized|Helped|Projected)';
-  var candidates = [text];
-  text.split(/(?<=[.!?])\s+/).forEach(function(sentence) {
-    if (sentence.trim()) candidates.push(sentence.trim());
-  });
-  /* Split only at an explicit coordinated action; each result remains a
-     grammatical source clause, rather than a word-count slice. */
-  text.split(new RegExp('(?:,\\s*and\\s+|\\s+and\\s+)(?=' + verbs + '\\b)', 'i')).forEach(function(clause) {
-    clause = clause.trim().replace(/^(?:and|then)\s+/i, '');
-    if (clause) candidates.push(clause.charAt(0).toUpperCase() + clause.slice(1));
-  });
-  candidates.slice().forEach(function(candidate) {
-    /* A source-supported metric can stand as a complete narrower claim when
-       the trailing `with …` clause only lists the service/activity details.
-       Never apply this to unquantified claims or cut within the measure. */
-    var withClause = candidate.match(/^((?:Assisted|Helped|Served|Supported|Handled|Processed|Resolved)\b[^.!?]+?)\s+with\s+[^.!?]+[.!?]?$/i);
-    if (withClause && captureMetricExpression('i').test(withClause[1]) && withClause[1].split(/\s+/).length <= 10) {
-      candidates.push(withClause[1]);
-    }
-    var compactParticiple = candidate.match(/^(Built|Developed|Designed|Created|Implemented) a (.+,\s+(?:reducing|improving|increasing|saving|lowering|decreasing)\b.+)$/i);
-    if (compactParticiple) {
-      candidates.push(compactParticiple[1] + ' ' + compactParticiple[2]);
-    }
-    var modeledWarehouseImpact = candidate.match(/\b(?:reducing|lowering)\s+(modeled|modelled)\s+stock discrepancies by (\d+(?:\.\d+)?%)/i);
-    if (modeledWarehouseImpact && /\bsimulated warehouse\b/i.test(candidate)) {
-      candidates.push('Reduced ' + modeledWarehouseImpact[1] + ' stock discrepancies by ' + modeledWarehouseImpact[2] + ' for a simulated warehouse');
-    }
-    /* A relative impact is a complete narrower claim when its antecedent is
-       an omitted tool/process clause; retain the source's impact verb. */
-    var impact = /\b((?:reduc\w*|improv\w*|increas\w*|sav\w*|cut|lower\w*|decreas\w*|helped\s+(?:to\s+)?(?:reduc\w*|improv\w*|increas\w*|lower\w*|cut)|prevent\w*|eliminat\w*|accelerat\w*|shorten\w*))\s+(.+)$/i.exec(candidate);
-    if (impact && /\b(?:that|which)\s+$/.test(candidate.slice(0, impact.index))) {
-      candidates.push(impact[1].charAt(0).toUpperCase() + impact[1].slice(1) + ' ' + impact[2]);
-    }
-    var purpose = /\s+to\s+(compare|analyze|analyse|evaluate|monitor|review|identify|track|measure|support|enable|improve|optimize|optimise)\s+(.+?)[.!?]?$/i.exec(candidate);
-    if (purpose) {
-      var actionContext = candidate.slice(0, purpose.index).replace(/\s+using\s+[^.!?]+$/i, '').trim();
-      if (actionContext) candidates.push(actionContext + ' to ' + purpose[1] + ' ' + purpose[2].replace(/\s+using\s+.+$/i, '').trim());
-      candidates.push(candidate.slice(0, purpose.index).replace(/\s+using\s+[^.!?]+$/i, '').trim());
-    }
-    var countEnd = captureMetricExpression('i');
-    var metric = countEnd.exec(candidate);
-    if (metric && /^(?:Created|Built|Developed|Designed)\b/i.test(candidate)) {
-      var beforeEnd = candidate.slice(0, metric.index + metric[0].length);
-      if (beforeEnd.split(/\s+/).length <= 10) candidates.push(beforeEnd);
-    }
-  });
-  var distinct = [];
-  candidates.forEach(function(candidate) {
-    candidate = candidate.replace(/\s+(?:using|through|via)\s+[^.!?]*[.!?]?$/i, '')
-      .replace(/[.!?;]+$/, '').trim();
-    if (!candidate || candidate.split(/\s+/).length > 10) return;
-    if (!distinct.some(function(value) { return value.toLowerCase() === candidate.toLowerCase(); })) distinct.push(candidate);
-  });
-  if (!distinct.length) return '';
-  distinct.sort(function(a, b) {
-    var rank = function(value) { return (captureMetricExpression('i').test(value) ? 2 : 0) + (/\b(?:reduc\w*|improv\w*|increas\w*|sav\w*|cut|lower\w*|decreas\w*|helped|prevent\w*|eliminat\w*|accelerat\w*|shorten\w*|projected)\b/i.test(value) ? 1 : 0); };
-    return rank(b) - rank(a) || a.split(/\s+/).length - b.split(/\s+/).length;
-  });
-  var result = distinct[0];
-  return /^[a-z]/.test(result) ? result.charAt(0).toUpperCase() + result.slice(1) + '.' : result + '.';
+  return resumeDisplayText(fact).replace(/\s+/g, ' ').trim();
 };
 
 TIQ.views._selectCaptureFacts = function(source, limit) {
@@ -1037,10 +765,10 @@ TIQ.views._selectCaptureFacts = function(source, limit) {
   return facts.map(function(text, index) {
     var outcome = /\b(?:reduc\w*|improv\w*|increas\w*|sav\w*|cut|lower\w*|decreas\w*|achiev\w*|deliver(?:ed|ing|s)?|result\w*|project(?:ed|ing)|helped|prevent\w*|eliminat\w*|accelerat\w*|shorten\w*)\b/i.test(text);
     var quantified = captureMetricExpression('i').test(text);
-    return { text: TIQ.views._summarizeCaptureFact(text), index: index, priority: outcome && quantified ? 0 : quantified ? 1 : outcome ? 2 : 3 };
+    return { text: text, index: index, priority: outcome && quantified ? 0 : quantified ? 1 : outcome ? 2 : 3 };
   }).sort(function(a, b) { return a.priority - b.priority || a.index - b.index; })
-    .filter(function(item) { return item.text && item.text.split(/\s+/).length <= 10; })
-    .slice(0, limit || 2).sort(function(a, b) { return a.index - b.index; })
+    .filter(function(item) { return item.text; })
+    .slice(0, limit || facts.length)
     .map(function(item) { return item.text; });
 };
 
@@ -1151,10 +879,13 @@ TIQ.views._resumeHighlightEntries = function(c) {
          their final wording to be a contiguous rawText substring would reject
          accurate derived clauses such as keeping an action while dropping its
          tool phrase. Source selection, not substring coincidence, owns them. */
-      return fact && fact.split(/\s+/).length <= 10;
+      return !!fact;
     });
     entry.factEvidence = entry.facts.map(function(fact) {
-      return TIQ.views._captureResumeEvidence(c, fact, fact);
+      var source = (entry.sourceBullets || []).find(function(p) { return resumeDisplayText(p.text) === fact; });
+      return source ? {candidateId:c.id,resumeVersion:captureResumeVersion(c),
+        passageId:c.id + ':' + captureResumeVersion(c) + ':' + source.offset,text:source.text,offset:source.offset}
+        : TIQ.views._captureResumeEvidence(c, fact, fact);
     });
     entry.distinctionEvidence = entry.distinction
       ? TIQ.views._captureResumeEvidence(c, entry.distinction, entry.distinction)
@@ -1169,14 +900,14 @@ TIQ.views._resumeHighlightEntries = function(c) {
     entries.push(entry);
   }
   function sourceEntryFacts(source) {
-    return TIQ.views._selectCaptureFacts(source, 2);
+    return TIQ.views._selectCaptureFacts(source);
   }
 
   experience.forEach(function(role) {
-    var facts = sourceEntryFacts(role.description || '');
+    var facts = sourceEntryFacts(role.bullets && role.bullets.length ? role.bullets.map(function(p) { return '• ' + p.text; }).join('\n') : role.description || '');
     var fields = [role.title, role.company].filter(Boolean).map(resumeDisplayText);
     add({ category: 'Experience', name: fields.join(' · '), organization: role.company || '',
-      location: supported(role.location) ? role.location : '', dates: supported(role.dates) ? role.dates : '', facts: facts });
+      location: supported(role.location) ? role.location : '', dates: supported(role.dates) ? role.dates : '', facts: facts, sourceBullets:role.bullets });
   });
 
   function projectAward(project) {
@@ -1213,16 +944,19 @@ TIQ.views._resumeHighlightEntries = function(c) {
 
   projects.forEach(function(project) {
     if (!project || !project.name) return;
-    var facts = sourceEntryFacts(project.description || '');
+    var facts = sourceEntryFacts(project.bullets && project.bullets.length ? project.bullets.map(function(p) { return '• ' + p.text; }).join('\n') : project.description || '');
     if (!facts.length) {
       var quote = grounded.find(function(item) {
         return item.contextLabel === project.name && supported(item.text);
       });
       if (quote) facts = sourceEntryFacts(quote.text);
     }
-    if (!facts.length) return;
+    // A real project remains visible even when it has no contribution bullets.
     var projectMetadata = String(project.description || '').split(/[•●○▪]/)[0];
-    var tools = TIQ.views._captureSupportedTools(projectMetadata);
+    var tools = (project.metadata || [projectMetadata]).flatMap(TIQ.views._captureSupportedTools);
+    var metadataDetails = (project.metadata || []).filter(function(part) {
+      return part !== project.dates && !TIQ.views._captureSupportedTools(part).length;
+    }).join(' · ');
     var award = projectAward(project);
     if (award && !award.item) {
       var awardStart = project.description.toLowerCase().lastIndexOf(award.text.toLowerCase());
@@ -1233,13 +967,13 @@ TIQ.views._resumeHighlightEntries = function(c) {
     }
     if (award && award.item) award.item._ownedByProject = true;
     add({ category: 'Project', name: project.name, location: supported(project.location) ? project.location : '',
-      dates: [project.dates, project.year].filter(Boolean).find(supported) || '', tools: tools, facts: facts,
-      distinction: award && award.text });
+      dates: [project.dates, project.year].filter(Boolean).find(supported) || '', metadataDetails:metadataDetails, tools: tools, facts: facts,
+      distinction: award && award.text, sourceBullets:project.bullets });
   });
 
   /* Leadership is emitted only from a leadership/activities/volunteer source
      section, or an explicitly labeled Leadership field—not from work verbs. */
-  var sourceLines = String(parsed.rawText || '').split(/\r?\n/);
+  var sourceLines = TIQ.ai._resumeLines(parsed.rawText || '');
   var section = '', currentRole = null;
   var leadershipHeader = /^(?:leadership(?:\s*(?:&|and)\s*activities)?|activities|volunteer(?:ing)?|community involvement)\s*:?[\s]*$/i;
   var sectionHeader = /^(?:education|experience|professional experience|work experience|employment|projects?|skills?|technical skills|certifications?|licenses|awards?|honors?|publications|references|summary|objective)\b/i;
@@ -1310,11 +1044,11 @@ TIQ.views._resumeHighlightEntries = function(c) {
   });
   entries = entries.filter(function(entry) {
     entry.facts = entry.facts.filter(function(fact, index, all) {
-      return fact && fact.split(/\s+/).length <= 10 &&
+      return fact &&
         all.findIndex(function(other) { return normalize(other) === normalize(fact); }) === index;
     });
     entry.description = entry.facts.join(' · ');
-    return entry.facts.length > 0 || !!entry.distinction || (entry.category === 'Experience' && !!entry.name);
+    return entry.facts.length > 0 || !!entry.distinction || !!entry.name;
   });
 
   /* Keep source-backed recognition and substantive unscoped evidence, but
@@ -1383,7 +1117,10 @@ TIQ.views._captureVisualEntries = function(c) {
       e.facts = e.facts.filter(function(f) { return !distinctions.includes(f); });
     }
     e.factEvidence = e.facts.map(function(fact) {
-      return TIQ.views._captureResumeEvidence(c, fact, fact);
+      var index = (entry.facts || []).findIndex(function(original) {
+        return original.replace(/(\d+)\s*-\s*(\d+)\s+hours weekly\b/g, '$1–$2 hours per week') === fact;
+      });
+      return index >= 0 && entry.factEvidence ? entry.factEvidence[index] : TIQ.views._captureResumeEvidence(c, fact, fact);
     });
     e.distinctionEvidence = e.distinction
       ? TIQ.views._captureResumeEvidence(c, e.distinction, e.distinction)
@@ -1401,23 +1138,120 @@ TIQ.views._captureVisualEntries = function(c) {
   });
 };
 
+/* Compact presentation only: full facts and their offsets remain untouched.
+   Select complete clauses/phrases; never discard a source for being long. */
+TIQ.views._captureBriefFacts = function(entry) {
+  var choices = [];
+  var action = '(?:built|developed|designed|created|implemented|added|resolved|documented|wrote|handled|handle|led|managed|supported|assisted|organized|coordinated|tested|validated|reviewed|maintained|maintain|flag|owned|used|utilized|reduced|reducing|increased|improved|identified|distinguished|proposed|modeled|modelled|estimated|projected|forecasted|saved|achieved|eliminated|explained|reported|completed|helping|eliminating|reconciling|practice|compared|replays)';
+  function compact(text) {
+    text = resumeDisplayText(text).replace(/^[,;\s]+|[,;\s.]+$/g, '').trim();
+    return text.split(/\s+/).length > 10 ? text.replace(/\b(?:a|an|the)\s+/gi, '').replace(/,?\s+and\s+(?=loading states)/gi, ', ') : text;
+  }
+  (entry.facts || []).forEach(function(source, index) {
+    var evidence = entry.factEvidence && entry.factEvidence[index];
+    if (evidence && !captureTokensSupported(source, evidence.text.replace(/(\d+)\s*-\s*(\d+)\s+hours weekly\b/g, '$1–$2 hours per week'))) evidence = null;
+    function add(text, priority) {
+      text = compact(text);
+      var endpoints = source.match(/\bfrom\s+(\d+(?:\.\d+)?%?).*?\bto\s+(\d+(?:\.\d+)?%?)/i);
+      if (endpoints) {
+        var firstValue = endpoints[1].replace('%',''), secondValue = endpoints[2].replace('%','');
+        if ((text.includes(firstValue) || text.includes(secondValue)) && !(text.includes(firstValue) && text.includes(secondValue))) return;
+      }
+      if (!text || text.split(/\s+/).length > 10 || text.split(/\s+/).length < 3) return;
+      // Classify the claim itself, not whichever extraction path produced it.
+      // Outcomes outrank scope; unlike quantities are never sorted by magnitude.
+      var quantitative = captureMetricExpression('i').test(text) || /\b\d[\d,.]*\s+[A-Z][\w-]*\s+(?:counties|records|students|shipments)\b/.test(text);
+      var result = /\b(?:reduc\w*|increas\w*|improv\w*|resolv\w*|sav\w*|cut|lower\w*|decreas\w*|achiev\w*|eliminat\w*|prevent\w*)\b/i.test(text);
+      if (quantitative && result && /\bunder stated assumptions\b/i.test(source) && !/\bstated assumptions\b/i.test(text)) return;
+      priority = quantitative ? (result ? 0 : 1) : 2;
+      text = text.charAt(0).toUpperCase() + text.slice(1) + '.';
+      var existing = choices.find(function(c) { return c.text.toLowerCase() === text.toLowerCase(); });
+      if (existing) existing.priority = Math.min(existing.priority, priority);
+      else choices.push({text:text,evidence:evidence,sourceText:source,priority:priority,index:index});
+    }
+    TIQ.views._captureContributionFacts(source, entry.name || '').forEach(function(text) {
+      if (text !== source) add(text, /\d/.test(text) ? 1 : 2);
+    });
+    var clauses = source.split(new RegExp(';\\s*|(?<=[.!?])\\s+|,?\\s+and\\s+(?=' + action + '\\b)|,\\s+(?=' + action + '\\b)|\\s+(?:that|which)\\s+(?=' + action + '\\b)', 'i'));
+    clauses.forEach(function(clause) {
+      var range = clause.match(/^(reducing|reduced|cut|lowered|improved)\s+(.+?)\s+from\s+(\d+(?:\.\d+)?)\s+to\s+(\d+(?:\.\d+)?)\s+(milliseconds?|seconds?|minutes?|hours?)\b(.*)$/i);
+      if (range) {
+        var measure = range[2].replace(/\s+(?:to|for)\s+.*$/i, '');
+        var qualifier = compact(range[6].replace(/^\s+(?:in|for|during|across|over)\s+/i, ''));
+        // A tuning/implementation method is not the result's testing condition.
+        // Keep benchmark, modeled, pilot, and production qualifiers if present.
+        if (/^by\s+/i.test(qualifier) && !/\b(?:synthetic|simulated|modeled|modelled|internal|benchmark|pilot|staged|production|assumptions)\b/i.test(qualifier)) qualifier = '';
+        var previous = choices.length;
+        add(range[1] + ' ' + measure + ' ' + range[3] + '→' + range[4] + ' ' + range[5] + (qualifier ? '; ' + qualifier : ''), 0);
+        if (choices.length > previous) return;
+      }
+      var percentRange = clause.match(/^(improved|reduced|reducing|increased|cut)\s+(.+?)\s+from\s+(\d+(?:\.\d+)?)%\s+to\s+(\d+(?:\.\d+)?)%\s+(.*)$/i);
+      if (percentRange) {
+        var tail = percentRange[5].split(/\s+by\s+/i)[0];
+        add(percentRange[1] + ' ' + percentRange[2] + ' ' + percentRange[3] + '→' + percentRange[4] + '%; ' + tail, 0);
+      }
+      var metric = captureMetricExpression('i').exec(clause);
+      var outcome = /\b(?:reduc\w*|increas\w*|improv\w*|resolved|saved|cut)\b/i.test(clause);
+      var priority = metric ? (outcome ? 0 : 1) : 2;
+      add(clause, priority);
+      /* A purpose/method suffix can stay in the résumé when the complete
+         action/object phrase alone fits; quantified qualifiers cannot vanish. */
+      var prefix = clause.split(/\s+(?:for|including|that|while|before|with|using|involving|to|in|on|covering|across|by|rather than|in collaboration|and explained)\s+/i)[0];
+      var qualifiers = clause.match(/\b(?:synthetic|simulated|modeled|modelled|proposed|projected|prototype|internal|staging|experimental|benchmark)\b/gi) || [];
+      if ((!metric || prefix.includes(metric[0]) || (!outcome && !/\d/.test(prefix))) && qualifiers.every(function(q) { return new RegExp('\\b' + q + '\\b','i').test(prefix); })) add(prefix, metric && prefix.includes(metric[0]) ? priority : 3);
+      var scope = clause.match(/\busing\s+(.+)$/i);
+      if (scope) add(prefix.split(',')[0] + ' using ' + scope[1], metric ? priority : 2);
+      if (metric) {
+        var afterMetric = clause.slice(metric.index + metric[0].length);
+        if (/^\s+(?:and|for|with|using|including|while)\b/i.test(afterMetric) && qualifiers.every(function(q) { return new RegExp('\\b' + q + '\\b','i').test(clause.slice(0,metric.index + metric[0].length)); })) add(clause.slice(0,metric.index + metric[0].length), priority);
+        var beforeMetric = clause.slice(0, metric.index);
+        var head = beforeMetric.split(/\s+(?:for|including|that|while|with|using|involving|to)\s+/i)[0];
+        var shortText = beforeMetric + clause.slice(metric.index);
+        // Removing only a complete trailing purpose keeps the counted object.
+        shortText = shortText.split(/\s+(?:for|including|that|while|before|involving|and documented)\s+/i)[0];
+        if (qualifiers.every(function(q) { return new RegExp('\\b' + q + '\\b','i').test(shortText); })) add(shortText, priority);
+        // Retain the verb/object and explicit dataset scope, not a fit claim.
+        var using = clause.match(/\busing\s+(.+)$/i);
+        if (using && new RegExp('^' + action + '\\b','i').test(head)) add(head + ' using ' + using[1], priority);
+      }
+    });
+  });
+  if (!choices.length && entry.facts && entry.facts.length) return [{text:'View full contribution in resume.',sourceText:entry.facts[0],evidence:entry.factEvidence && entry.factEvidence[0]}];
+  choices.sort(function(a,b) { return a.priority - b.priority || a.index - b.index; });
+  var selected = [];
+  choices.forEach(function(c) {
+    if (selected.length >= 3 || selected.some(function(s) {
+      if (s.index !== c.index) return false;
+      var sameResult = s.priority === 0 && c.priority === 0 && JSON.stringify(s.text.match(captureMetricExpression('gi'))) === JSON.stringify(c.text.match(captureMetricExpression('gi')));
+      return sameResult || s.text.toLowerCase().includes(c.text.toLowerCase().replace(/\.$/,'')) || c.text.toLowerCase().includes(s.text.toLowerCase().replace(/\.$/,''));
+    })) return;
+    selected.push(c);
+  });
+  return selected;
+};
+
 TIQ.views._captureHighlightItemHtml = function(e) {
   var facts = e.facts || String(e.description || '').split(' · ').filter(Boolean);
+  var brief = e.category === 'Certifications' ? null : TIQ.views._captureBriefFacts(e);
   function factHtml(fact, index) {
     var evidence = e.factEvidence && e.factEvidence[index];
     var body = TIQ.views._captureMetricHtml(fact);
-    return evidence && /<strong\b/.test(body)
+    return evidence && captureTokensSupported(fact, evidence.text.replace(/(\d+)\s*-\s*(\d+)\s+hours weekly\b/g, '$1–$2 hours per week'))
       ? '<button type="button" class="resume-source-link" data-resume-source="' + TIQ.escapeAttr(evidence.passageId) + '" aria-label="View résumé source for ' + TIQ.escapeAttr(fact) + '">' + body + '</button>'
       : body;
   }
   var label = e.groupLabel || ({Project:'Projects'}[e.category] || e.category);
   return (e.hideCategory ? '' : '<div class="resume-highlights__context">' + TIQ.views._captureSectionIcon(e.category) + '<span class="resume-highlights__category">' + TIQ.escapeHtml(label) + '</span><span class="resume-highlights__leader" aria-hidden="true"></span>' +
     '</div>') +
-    (e.name ? '<strong class="resume-highlights__name" title="' + TIQ.escapeAttr(e.name) + '">' + TIQ.escapeHtml(e.name) + '</strong>' : '') +
-      ((e.organization || e.dates || e.location) ? '<div class="capture-item-context">' + ((e.organization || e.location) ? '<span class="capture-item-context__place">' + TIQ.escapeHtml([e.organization, e.location].filter(Boolean).join(' · ')) + '</span>' : '') + (e.dates ? '<span class="capture-item-context__dates">' + TIQ.escapeHtml(e.dates) + '</span>' : '') + '</div>' : '') +
+    ((e.name || e.dates) ? '<div class="capture-item-heading">' + (e.name ? '<strong class="resume-highlights__name" title="' + TIQ.escapeAttr(e.name) + '">' + TIQ.escapeHtml(e.name) + '</strong>' : '') + (e.dates ? '<span class="capture-item-leader" aria-hidden="true"></span><span class="capture-item-context__dates">' + TIQ.escapeHtml(e.dates) + '</span>' : '') + '</div>' : '') +
+      ((e.organization || e.location) ? '<div class="capture-item-context"><span class="capture-item-context__place">' + TIQ.escapeHtml([e.organization, e.location].filter(Boolean).join(' · ')) + '</span></div>' : '') +
     (e.tools && e.tools.length ? '<p class="capture-project-tools">Tools: ' + TIQ.escapeHtml(e.tools.join(', ')) + '</p>' : '') +
+    (e.metadataDetails ? '<p class="capture-project-tools">' + TIQ.escapeHtml(e.metadataDetails) + '</p>' : '') +
       (e.distinction ? '<p class="capture-distinction">' + TIQ.escapeHtml(e.distinction) + '</p>' : '') +
-     (e.category === 'Certifications' ? '<div class="capture-credentials">' + facts.map(function(f, i) { return '<p>' + factHtml(f, i) + '</p>'; }).join('') + '</div>' : facts.length ? '<ul class="capture-facts">' + facts.map(function(f, i) { return '<li>' + factHtml(f, i) + '</li>'; }).join('') + '</ul>' : '');
+      (e.category === 'Certifications' ? '<div class="capture-credentials">' + facts.map(function(f, i) { return '<p>' + factHtml(f, i) + '</p>'; }).join('') + '</div>' : brief.length ? '<ul class="capture-facts">' + brief.map(function(b) {
+        var body = TIQ.views._captureMetricHtml(b.text);
+        return '<li>' + (b.evidence ? '<button type="button" class="resume-source-link" data-resume-source="' + TIQ.escapeAttr(b.evidence.passageId) + '" aria-label="View résumé source for ' + TIQ.escapeAttr(b.text) + '">' + body + '</button>' : body) + '</li>';
+      }).join('') + '</ul>' : '');
 };
 
 /* The skill registry is raster artwork, not a reusable section SVG library. */
@@ -1523,11 +1357,33 @@ TIQ.views._buildCardHtml = function(c, isFront) {
   '<div class="capture-card-footer">' + TIQ.views._flagChipsHtml(flags) + hintHtml + '</div>';
 };
 
+TIQ.views._captureStructuredNotesHtml = function(c) {
+  var C = TIQ.captureWorkflow, h = TIQ.escapeHtml;
+  function field(key, label, value, multiline) {
+    return '<label for="capture-' + key + '">' + label + '</label>' + (multiline ?
+      '<textarea id="capture-' + key + '" data-conversation-field="' + key + '" rows="2">' + h(value || '') + '</textarea>' :
+      '<input id="capture-' + key + '" data-conversation-field="' + key + '" type="text" value="' + TIQ.escapeAttr(value || '') + '">');
+  }
+  var selected = c.areasDiscussed || [];
+  var tags = C.tags.concat(selected.filter(function(tag) { return C.tags.indexOf(tag) === -1; }));
+  return '<details class="capture-conversation"><summary>Structured conversation (optional)</summary><div class="capture-conversation-fields">' +
+    field('function', 'Role interest', c.function === 'General' ? '' : c.function) +
+    '<p class="capture-conversation-hint">Sample-role prompts, not live openings. Coursework, personal projects and leadership count as evidence.</p>' +
+    '<ul id="captureConversationPrompts">' + C.prompts(c.function).map(function(p) { return '<li>' + h(p) + '</li>'; }).join('') + '</ul>' +
+    '<fieldset><legend>Areas discussed</legend><div class="capture-conversation-tags">' + tags.map(function(tag) {
+      return '<label><input type="checkbox" data-conversation-tag value="' + TIQ.escapeAttr(tag) + '"' + (selected.indexOf(tag) !== -1 ? ' checked' : '') + '> ' + h(tag) + '</label>';
+    }).join('') + '</div></fieldset>' +
+    field('technicalInterests', 'Technical interests (comma-separated)', (c.technicalInterests || []).join(', ')) +
+    field('workLocations', 'Location preferences (comma-separated)', (c.workLocations || []).join(', ')) +
+    field('candidateQuestions', 'Candidate questions', c.candidateQuestions, true) +
+    field('followUpQuestions', 'Questions to clarify later', c.followUpQuestions, true) +
+    field('nextStepNotes', 'Next steps', c.nextStepNotes, true) + '</div></details>';
+};
+
 TIQ.views._captureVoiceHtml = function(c) {
-  return '<p class="recording-disclosure">Optional voice memo: ask permission before recording. Saved locally for recruiter review; transcription may be inaccurate. You can use typed notes instead.</p><label class="recording-consent"><input type="checkbox" id="recordingConsent"' + (c.consent && c.consent.audio ? ' checked' : '') + '> Candidate agreed to this recording</label><div class="voice-memo-widget">' +
-    '<span class="record-indicator"></span><div class="voice-meta"><span class="voice-label">Voice Memo</span><span class="voice-timer" id="audioTimer">00:00</span></div>' +
-    '<div class="waveform">' + TIQ.views._waveformBars(24) + '</div>' +
-    '<button type="button" id="audioRecordBtn" class="voice-btn btn-toggle" title="Start recording" aria-label="Start or stop recording" aria-pressed="false">&#9679;</button></div>' +
+  return '<label class="capture-recording-permission"><input type="checkbox" id="captureRecordingPermission"> I have permission from everyone who may be recorded, or I am recording a private recruiter-only memo.</label>' +
+    '<p class="capture-recording-hint" id="captureRecordingHint">Audio stays in this browser. Transcripts are unverified; speakers are not identified. Permission is needed for each recording.</p>' +
+    '<div class="capture-notes-footer"><button type="button" id="audioRecordBtn" class="voice-btn btn-toggle" title="Start voice note" aria-label="Start voice note" aria-describedby="captureRecordingHint" aria-pressed="false">&#9679;</button></div>' +
     '<div id="liveTranscriptPreview" class="live-transcript-preview" style="display:none"><span class="live-transcript-dot"></span><span class="live-transcript-text"></span></div>';
 };
 
@@ -1617,19 +1473,19 @@ TIQ.views._capturePrintResumeHtml = function(c) {
     '<p>' + [contact.address,contact.email,contact.phone].filter(Boolean).map(TIQ.escapeHtml).join(' | ') + '</p>' +
     '<p>' + Object.keys(links).filter(function(k) { return links[k]; }).map(function(k) { return resumeLinkHtml(links[k]); }).join(' ') + '</p></header>';
   var sections = [], current = null;
-  plainResumeSpelling(parsed.rawText).split(/\r?\n/).forEach(function(line) {
-    line = line.trim(); if (!line) return;
-    if (/^(?:EDUCATION|ACADEMIC (?:BACKGROUND|QUALIFICATIONS)|EXPERIENCE|WORK EXPERIENCE|PROFESSIONAL EXPERIENCE|PROJECTS|LEADERSHIP(?:\s*&\s*ACTIVITIES)?|ACTIVITIES|CERTIFICATIONS(?:\/TRAINING)?|SKILLS(?:, CERTIFICATIONS OR AWARDS)?|AWARDS|HONORS)\s*:??$/i.test(line)) {
+  TIQ.ai.resumePassages(parsed.rawText).forEach(function(passage) {
+    var line = plainResumeSpelling(passage.text).trim(); if (!line) return;
+    if (TIQ.ai.resumeSection(line)) {
       current = {label:line.replace(/:$/, ''),lines:[]}; sections.push(current); return;
     }
-    if (current) current.lines.push(line);
+    if (current) current.lines.push({text:line,bullet:passage.bullet,offset:passage.offset});
   });
   var body = sections.map(function(s) {
     var blocks = [];
-    s.lines.forEach(function(line) {
-      var bullet = /^[•●○▪*-]\s*/.test(line);
+    s.lines.forEach(function(passage) {
+      var line = passage.text, bullet = passage.bullet;
       if (!bullet && blocks.length && !blocks[blocks.length - 1].bullet && resumeDisplayText(blocks[blocks.length - 1].text).toLowerCase() === resumeDisplayText(line).toLowerCase()) return;
-      if (bullet) blocks.push({bullet:true,text:line.replace(/^[•●○▪*-]\s*/, '')});
+      if (bullet) blocks.push({bullet:true,text:line,offset:passage.offset});
       else if (blocks.length && blocks[blocks.length - 1].bullet && /^[a-z]/.test(line)) blocks[blocks.length - 1].text += ' ' + line;
       else blocks.push({bullet:false,text:line});
     });
@@ -1663,7 +1519,7 @@ TIQ.views._capturePrintResumeHtml = function(c) {
         if (prior >= 0 && !blocks[prior].bullet) return '';
       }
       if (b.bullet) {
-        var bulletPassageId = TIQ.views._captureRenderedPassageId(c, b.text);
+        var bulletPassageId = c.id + ':' + captureResumeVersion(c) + ':' + b.offset;
         return '<ul><li' + (bulletPassageId ? ' data-resume-passage-id="' + TIQ.escapeAttr(bulletPassageId) + '"' : '') + '>' + TIQ.escapeHtml(b.text) + '</li></ul>';
       }
       var followingDates = [], next = index + 1;
@@ -1686,7 +1542,7 @@ TIQ.views._capturePrintResumeHtml = function(c) {
 
 TIQ.views.renderRecruiterCapture = function() {
   var cands = TIQ.state.candidates;
-  if (!cands.length) return '<div class="view" id="view-capture"><div class="view-header"><span class="section-kicker">Live Capture</span><h1>No candidates to capture</h1></div><div class="capture-empty"><p>No candidates in the system yet.</p><button class="primary-button" id="captureGenerateDemo">Load demo data</button><button class="secondary-button" id="captureImportEmpty">Import Resumes (PDF)</button><button class="secondary-button" id="captureNewCandidateEmpty">Add Candidate Manually</button><input type="file" id="captureImportEmptyInput" accept=".pdf,application/pdf" multiple style="display:none"></div></div>';
+  if (!cands.length) return '<div class="view" id="view-capture"><div class="view-header"><span class="section-kicker">Live Capture</span><h1>No candidates to capture</h1></div><div class="capture-empty"><p>No candidates in the system yet. Import your resumes or add a candidate manually.</p><button class="primary-button" id="captureImportEmpty">Import Resumes (PDF)</button><button class="secondary-button" id="captureNewCandidateEmpty">Add Candidate Manually</button><input type="file" id="captureImportEmptyInput" accept=".pdf,application/pdf" multiple style="display:none"></div></div>';
 
   var idx = TIQ.views._captureIndex;
   if (idx >= cands.length) {
@@ -1741,13 +1597,14 @@ TIQ.views.renderRecruiterCapture = function() {
       TIQ.views._resumeConflictsHtml(sel) +
     '</div>' +
     '<div id="capture-panel-notes" class="drawer-panel" role="tabpanel" aria-labelledby="capture-tab-notes" data-drawer-panel="notes">' +
-      '<label for="captureNotes" class="capture-section-title">Recruiter Notes</label>' +
-      '<textarea id="captureNotes" class="capture-textarea capture-textarea--inline" rows="6" placeholder="Add notes about this candidate...">' + TIQ.escapeHtml(sel.notes) + '</textarea>' +
-      '<section class="capture-recording-section" aria-labelledby="capture-recording-title">' +
-        '<h3 class="capture-section-title" id="capture-recording-title">Voice recording</h3>' +
-        TIQ.views._captureVoiceHtml(sel) +
-        '<div id="audioRecordings" class="audio-recordings">' + recordingsHtml + '</div>' +
-      '</section>' +
+      '<div class="capture-notes-flow">' +
+        TIQ.views._captureNotesFlagsHtml(flags) +
+        TIQ.views._captureStructuredNotesHtml(sel) +
+        '<label for="captureNotes" class="capture-section-title">Recruiter Notes</label>' +
+        '<textarea id="captureNotes" class="capture-textarea capture-textarea--inline" rows="6" placeholder="Add notes about this candidate...">' + TIQ.escapeHtml(sel.notes) + '</textarea>' +
+      '</div>' +
+      TIQ.views._captureVoiceHtml(sel) +
+      '<div id="audioRecordings" class="audio-recordings">' + recordingsHtml + '</div>' +
     '</div>' +
   '</div>';
 
@@ -1773,8 +1630,7 @@ TIQ.views.renderRecruiterCapture = function() {
             '<button type="button" class="capture-evidence-open" data-capture-details-open>View resume &amp; evidence →</button>' +
           '</div>' +
          '<aside class="capture-col-right">' +
-            '<div class="capture-evidence-toolbar"><div><span class="capture-evidence-toolbar__title">Candidate records</span>' +
-             '</div><div class="capture-evidence-toolbar__actions">' +
+             '<div class="capture-evidence-toolbar"><div class="capture-evidence-toolbar__actions">' +
              (TIQ.resumeInfo(sel).sourceUrl ? '<a class="capture-full-resume" href="' + TIQ.escapeAttr(TIQ.resumeInfo(sel).sourceUrl) + '" target="_blank" rel="noopener noreferrer">Open original résumé</a>' : '') +
              '<button type="button" class="capture-evidence-back" data-capture-details-back aria-label="Back to candidate card">Back to card</button></div></div>' +
             drawerHtml +
@@ -1861,7 +1717,6 @@ TIQ.views._renderCaptureComplete = function(cands) {
       '<div class="capture-complete__actions">' +
         '<button class="primary-button" id="captureStartOver">Start Over</button>' +
         '<button class="secondary-button" id="captureBackToOverview">Back to event results</button>' +
-        '<button class="secondary-button" id="captureGenerateDemo">Load demo data</button>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -1996,8 +1851,8 @@ TIQ.views.initCaptureEvents = function() {
   if (TIQ.views._captureFrameObserver) TIQ.views._captureFrameObserver.disconnect();
   if (window.ResizeObserver) {
     TIQ.views._captureFrameObserver = new ResizeObserver(function() { fitStation(); fitSkills(); });
-    TIQ.views._captureFrameObserver.observe(document.querySelector('.topbar'));
-    TIQ.views._captureFrameObserver.observe(document.querySelector('.main-content'));
+     var main = document.querySelector('.main-content');
+     if (main) TIQ.views._captureFrameObserver.observe(main);
   }
   if (TIQ.views._captureFrameResize) window.removeEventListener('resize', TIQ.views._captureFrameResize);
   TIQ.views._captureFrameResize = function() { fitStation(); fitSkills(); };
@@ -2031,22 +1886,10 @@ TIQ.views.initCaptureEvents = function() {
     var candidate = TIQ.state.candidates[TIQ.views._captureIndex];
     var skills = TIQ.views._captureSkills(candidate);
     var chips = Array.from(skillRow.querySelectorAll('[data-skill-index]'));
-    chips.forEach(function(chip) { chip.hidden = false; });
-    skillButton.hidden = false;
-    skillButton.textContent = '+' + skills.length;
-    var available = skillRow.clientWidth - skillButton.getBoundingClientRect().width - 6;
-    var used = 0, count = 0;
-    chips.forEach(function(chip, i) {
-      var width = chip.getBoundingClientRect().width + (count ? 6 : 0);
-      var fits = i === count && count < 4 && used + width <= available;
-      chip.hidden = !fits;
-      if (fits) { used += width; count++; }
-    });
-    /* With no overflow, do not reserve an unnecessary button. */
-    if (skills.length <= 4 && chips.reduce(function(sum, chip) { chip.hidden = false; return sum + chip.getBoundingClientRect().width + 6; }, 0) - 6 <= skillRow.clientWidth) {
-      count = skills.length;
-      skillButton.hidden = true;
-    } else chips.forEach(function(chip, i) { chip.hidden = i >= count; });
+    // Wrap the fixed first three rather than changing the selection on resize.
+    var count = Math.min(3, skills.length);
+    chips.forEach(function(chip, i) { chip.hidden = i >= count; });
+    skillButton.hidden = count === skills.length;
     skillButton.textContent = '+' + (skills.length - count);
     skillButton.setAttribute('aria-label', (skills.length - count) + ' additional skills');
     var groups = TIQ.categorizeSkills(skills.slice(count));
@@ -2209,16 +2052,6 @@ TIQ.views.initCaptureEvents = function() {
         var pname = typeof pc.resumeUpload === "object" ? (pc.resumeUpload.name || "resume.pdf") : pc.resumeUpload;
         TIQ.views._previewResume(pc, pname);
       }
-    } else if (e.target.closest("#captureGenerateDemo")) {
-      if (!confirm('Add 48 synthetic sample records? Existing records are kept.')) return;
-      var count = TIQ.views.generateDemoCandidates();
-      if (count > 0) {
-        TIQ.showToast(count + " demo candidate" + (count > 1 ? "s" : "") + " generated.");
-        TIQ.views._captureIndex = 0;
-        TIQ.views._rerenderCapture();
-      } else {
-        TIQ.showToast("All demo candidates already exist.");
-      }
     } else if (e.target.closest("#captureNewCandidateEmpty")) {
       var modal3 = document.getElementById("newCandidateModal");
       if (modal3) modal3.hidden = false;
@@ -2263,6 +2096,27 @@ TIQ.views.initCaptureEvents = function() {
       if (c) { c.notes = notes.value; TIQ.addAuditEntry(c, "NOTES_UPDATED", "Notes updated"); TIQ.logMetric({ type: 'notes-updated', candidateId: c.id, recruiterId: c.capturedBy }); if (TIQ.ai && TIQ.ai.updateCandidateSummary) TIQ.ai.updateCandidateSummary(c); TIQ.saveState(); }
     });
   }
+
+  container.querySelectorAll('[data-conversation-field]').forEach(function(input) {
+    input.addEventListener('change', function() {
+      var c = TIQ.state.candidates[TIQ.views._captureIndex];
+      if (!c) return;
+      var field = input.getAttribute('data-conversation-field');
+      TIQ.captureWorkflow.update(c, field, input.value);
+      if (field === 'function') {
+        var prompts = document.getElementById('captureConversationPrompts');
+        if (prompts) prompts.innerHTML = TIQ.captureWorkflow.prompts(c.function).map(function(p) { return '<li>' + TIQ.escapeHtml(p) + '</li>'; }).join('');
+      }
+    });
+  });
+  container.querySelectorAll('[data-conversation-tag]').forEach(function(input) {
+    input.addEventListener('change', function() {
+      var c = TIQ.state.candidates[TIQ.views._captureIndex];
+      if (!c) return;
+      var selected = Array.from(container.querySelectorAll('[data-conversation-tag]:checked')).map(function(tag) { return tag.value; });
+      TIQ.captureWorkflow.update(c, 'areasDiscussed', selected);
+    });
+  });
 
   var captureImportEmptyInput = document.getElementById("captureImportEmptyInput");
   if (captureImportEmptyInput) {
@@ -2452,6 +2306,7 @@ TIQ.views.initCaptureEvents = function() {
         recordBtn.innerHTML = isRecording ? "&#9632;" : "&#9679;";
         recordBtn.setAttribute("aria-pressed", isRecording ? "true" : "false");
         recordBtn.title = isRecording ? "Stop & save" : "Start recording";
+        recordBtn.setAttribute("aria-label", isRecording ? "Stop and save recruiter voice memo" : "Start recruiter voice memo");
       };
 
       var resetRecordingUI = function() {
@@ -2550,10 +2405,15 @@ TIQ.views.initCaptureEvents = function() {
         }
 
         targetCandidate = TIQ.state.candidates[TIQ.views._captureIndex] || null;
-        var consent = document.getElementById('recordingConsent');
-        if (!consent || !consent.checked) { TIQ.showToast('Ask for recording permission, or continue with typed notes.'); return; }
-        if (targetCandidate) { targetCandidate.consent = Object.assign({}, targetCandidate.consent || {}, {audio:true,audioAt:TIQ.nowISO()}); TIQ.saveState(); }
-
+        var permission = document.getElementById('captureRecordingPermission');
+        if (!targetCandidate || !TIQ.captureWorkflow.canRecord(permission)) {
+          TIQ.showToast('Confirm recording permission before using the microphone.');
+          if (permission) permission.focus();
+          return;
+        }
+        permission.checked = false;
+        TIQ.addAuditEntry(targetCandidate, 'RECORDING_PERMISSION', 'Recruiter acknowledged permission for this recording; speaker identity is not established');
+        TIQ.saveState();
         /* Mic first — never block on the Vosk model download */
         rec.start().then(function() {
           recording = true;
@@ -2748,12 +2608,10 @@ TIQ.views._undoLastCaptureAction = function() {
   }
 
   c.recordStatus = last.prevStatus;
-  c.approverId = last.prevApproverId;
-  c.approvalTimestamp = last.prevApprovalTimestamp;
   c.priority = last.prevPriority;
-  if ((c.auditLog || []).length > last.auditLogLength) {
-    c.auditLog.splice(last.auditLogLength);
-  }
+  c.followUpRequestedBy = last.prevFollowUpRequestedBy;
+  c.followUpTimestamp = last.prevFollowUpTimestamp;
+  TIQ.addAuditEntry(c, 'STATUS_CHANGED', 'Undid Capture sorting: ' + last.status + ' → ' + last.prevStatus);
 
   TIQ.views._captureIndex = last.index;
   TIQ.saveState();
@@ -2763,7 +2621,7 @@ TIQ.views._undoLastCaptureAction = function() {
 
 TIQ.views._captureKeyHandler = function(e) {
   var view = document.getElementById("view-capture");
-  if (!view || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
+  if (!view || (TIQ.captureWorkflow ? TIQ.captureWorkflow.shortcutsBlocked(e.target) : /^(INPUT|TEXTAREA|SELECT|BUTTON|A|SUMMARY|AUDIO|VIDEO)$/.test(e.target.tagName))) return;
   if (TIQ.views._captureIndex >= TIQ.state.candidates.length) return;
   if (e.key === "ArrowLeft") { e.preventDefault(); TIQ.views._animateSwipeOut("left"); }
   else if (e.key === "ArrowRight") { e.preventDefault(); TIQ.views._animateSwipeOut("right"); }
@@ -2780,29 +2638,32 @@ TIQ.views._setCaptureStatus = function(status) {
   var c = TIQ.state.candidates[TIQ.views._captureIndex];
   if (!c) return;
   var prevStatus = c.recordStatus;
-  TIQ.views._captureHistory.push({
+  var sortingHistory = {
     index: TIQ.views._captureIndex,
     candidateId: c.id,
     prevStatus: prevStatus,
     prevApproverId: c.approverId || "",
     prevApprovalTimestamp: c.approvalTimestamp || "",
     prevPriority: c.priority || "",
+    prevFollowUpRequestedBy: c.followUpRequestedBy || '',
+    prevFollowUpTimestamp: c.followUpTimestamp || '',
     auditLogLength: (c.auditLog || []).length,
     status: status
-  });
-  c.recordStatus = status;
-  if (status === "Follow-Up" || status === "Interview Requested") c.priority = "High";
-  c.approverId = TIQ.state.activeRecruiterId;
-  c.approvalTimestamp = TIQ.nowISO();
-  TIQ.addAuditEntry(c, status === "Reviewed" ? "APPROVED" : status === "Interview Requested" ? "INTERVIEW_REQUESTED" : "FOLLOW_UP", "Status changed to " + status);
+  };
+  TIQ.views._captureHistory.push(sortingHistory);
+  TIQ.reviewWorkflow.changeStatus(c, status);
   TIQ.logMetric({ type: "capture-status", candidateId: c.id, recruiterId: TIQ.state.activeRecruiterId, recordStatus: status });
   TIQ.saveState();
 
   var undoAction = function() {
+    if (c.recordStatus !== status) { TIQ.showToast('Status changed since this action; use the current status controls.'); return; }
     c.recordStatus = prevStatus;
-    c.approverId = "";
-    c.approvalTimestamp = "";
-    c.auditLog.pop();
+    c.priority = sortingHistory.prevPriority;
+    c.followUpRequestedBy = sortingHistory.prevFollowUpRequestedBy;
+    c.followUpTimestamp = sortingHistory.prevFollowUpTimestamp;
+    var undoIndex = TIQ.views._captureHistory.indexOf(sortingHistory);
+    if (undoIndex !== -1) TIQ.views._captureHistory.splice(undoIndex,1);
+    TIQ.addAuditEntry(c, 'STATUS_CHANGED', 'Undid Capture sorting: ' + status + ' → ' + prevStatus);
     TIQ.saveState();
     TIQ.views._rerenderCapture();
   };
@@ -3800,7 +3661,7 @@ TIQ.views.renderMetrics = function() {
   var parseRate = (totalImports + totalFail) > 0 ? Math.round((totalImports / (totalImports + totalFail)) * 100) : -1;
 
   var html = '<div class="view" id="view-metrics">' +
-    '<div class="view-header"><span class="section-kicker">Research Console</span></div>' +
+    '<h1 class="view-title">Research Metrics</h1>' +
     TIQ.renderMetricsCards([
       { label: "Funnel Reviewed", value: reviewed + "%", sub: "Candidates past the New stage", modifier: "blue" },
       { label: "Snapshot approvals", value: cands.filter(function(c) { return c.approvalStatus === 'Approved'; }).length, sub: 'Approved snapshots / ' + cands.length + ' local records; not a quality score', modifier: "amber" },
